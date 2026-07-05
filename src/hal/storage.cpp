@@ -17,6 +17,8 @@ bool storage_get_unit_useF(bool def) { ensure(); return s_prefs.getBool("useF", 
 void storage_set_unit_useF(bool useF) { ensure(); s_prefs.putBool("useF", useF); }
 bool storage_get_muted(bool def) { ensure(); return s_prefs.getBool("mute", def); }
 void storage_set_muted(bool m) { ensure(); s_prefs.putBool("mute", m); }
+int  storage_get_target_centerF(int def) { ensure(); return s_prefs.getInt("tgtF", def); }
+void storage_set_target_centerF(int c) { ensure(); s_prefs.putInt("tgtF", c); }
 
 }  // namespace hal
 #endif

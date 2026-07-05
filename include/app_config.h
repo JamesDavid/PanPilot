@@ -71,3 +71,21 @@
 // Trend thresholds, °F/min (base spec §6.2): stable <5, slow 5-20, fast >=20.
 #define TREND_STABLE_FMIN          5.0f
 #define TREND_SLOW_FMIN            20.0f
+
+// ---- Guidance / Target Assist (base spec §7.1, §7.2) -----------------------
+#define LAG_MINUTES_DEFAULT        0.5f   // thermal lag for overshoot (§7.1);
+                                          // replaced by learned lag at M6.
+#define ETA_MIN_RATE_FMIN          5.0f   // need this rate toward target for ETA
+#define ETA_CLAMP_SEC              1200   // cap displayed ETA at 20 min (§7.1)
+#define ETA_MIN_CONFIDENCE         50     // ETA needs confidence >= this (§7.1)
+#define TURN_DOWN_SOON_BAND_F      15.0f  // within this below lo + rising => SOON
+#define RATE_MEDIUM_FMIN           20.0f  // medium/fast rise (§6.2)
+#define READY_REARM_F              10.0f  // must leave range by this to re-chime
+#define TOO_HOT_REPEAT_MS          10000  // TOO_HOT alarm cadence (§7.2)
+#define GUIDANCE_HYSTERESIS_TICKS  2      // ticks to confirm a crossing (§7.2)
+#define ABS_MAX_TEMP_F             650.0f // hard ceiling (interlock S5 / §7.2)
+// Generic target defaults (base spec §7.3; presets arrive at M4).
+#define TARGET_DEFAULT_CENTER_F    350
+#define TARGET_READY_WINDOW_F      10     // +/- around center (ready band)
+#define TARGET_WARN_OVER_F         100    // warn = center + this (clamped 650)
+#define TARGET_STEP_F              5       // adjuster step

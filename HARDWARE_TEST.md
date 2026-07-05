@@ -75,3 +75,21 @@ Flash `crowpanel35_advance` (sensor wired).
 | 2.6 | Tap the temperature | Opens the thermal view; **Done** returns home | ☐ |
 | 2.7 | Tap °F/°C | Units switch everywhere; **reboot** → the choice persists (NVS) | ☐ |
 | 2.8 | Accuracy sanity | Steady-state reading tracks a reference thermometer within a few °C | ☐ |
+
+## M3 — Target Assist
+
+Flash `crowpanel35_advance`. **Acceptance (base spec M3):** preheat cast iron to
+350 °F and confirm the `HOLD → TURN_DOWN_SOON → READY` sequence.
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 3.1 | Set target 350 °F with –/+ | Target updates in 5 °F steps; persists across reboot | ☐ |
+| 3.2 | Heat from cold | Action bar: **Heat more/Hold** (blue) with **ETA** counting down | ☐ |
+| 3.3 | Approaching target | **Turn down soon** (amber) within ~15 °F below the band | ☐ |
+| 3.4 | Enter the band | **READY** full-screen (green) + single chime; fires once | ☐ |
+| 3.5 | Leave & re-enter band (>10 °F) | READY chimes again (re-armed), not on small wobbles | ☐ |
+| 3.6 | Overheat past warn (450 °F) | **TOO HOT** full-screen (red) + repeating alarm every ~10 s | ☐ |
+| 3.7 | **Overshoot** — blast on HIGH | **TURN DOWN NOW** fires *before* reaching target when the projected peak exceeds it | ☐ |
+
+_(A mute toggle + settings screen arrive with a later milestone; mute state is
+persisted but not yet user-togglable on-device.)_

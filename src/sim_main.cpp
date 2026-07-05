@@ -100,30 +100,32 @@ int main(int argc, char** argv) {
   drv.draw_buf = &draw_buf;
   lv_disp_drv_register(&drv);
 
+  auto fToC = [](float f) { return (f - 32.0f) * 5.0f / 9.0f; };
   if (scene == "thermal") {
     ThermalFrame f = synth_pan();
     FrameAnalyzer fa;
     PanReading r = fa.process(f);
     lv_scr_load(ui::thermal_create());
     ui::thermal_update(f, r, /*useF=*/true);
-  } else {  // "home" — Thermometer Mode with a heating pan
-    ThermalFrame f = synth_pan();
-    FrameAnalyzer fa;
-    ThermalModel tm;
-    for (uint32_t t = 0; t <= 12000; t += 250) {   // realistic preheat ramp
-      PanReading r = fa.process(f);
-      r.panTempC = 168.0f + 8.0f * (t / 60000.0f); // ~168 C, +8 C/min (~14 F/min)
-      r.t_ms = t;
-      tm.update(r);
-    }
-    PanReading r = fa.process(f);
+  } else {  // "home" (Target Assist, HOLD) or "ready" (full-screen alert)
     UiState u;
+    u.mode = Mode::TARGET;
     u.presence = PanPresence::PRESENT;
-    u.modelValid = tm.valid();
-    u.displayTempC = tm.displayTempC();
-    u.rateCPerMin = tm.rateCPerMin();
-    u.trend = tm.trend();
-    u.confidence = r.confidence;
+    u.modelValid = true;
+    u.confidence = 91;
+    u.targetCenterF = 350;
+    u.rateCPerMin = 8.0f;          // ~14 F/min
+    u.trend = Trend::RISING_SLOW;
+    if (scene == "ready") {
+      u.displayTempC = fToC(350);
+      u.rateCPerMin = 1.0f; u.trend = Trend::STABLE;
+      u.guidance = GuidanceState::READY;
+      u.etaSeconds = -1;
+    } else {
+      u.displayTempC = fToC(300);  // heating toward 350
+      u.guidance = GuidanceState::HOLD;
+      u.etaSeconds = 135;
+    }
     lv_scr_load(ui::home_create());
     ui::home_update(u, /*useF=*/true);
   }

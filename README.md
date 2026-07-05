@@ -6,11 +6,11 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M0 (board bring-up).** This README grows one section at a time as each
+> **Status: M3 (Target Assist).** This README grows one section at a time as each
 > milestone lands. Sections below marked _(coming in M#)_ aren't built yet.
 
 <p align="center">
-  <img src="docs/screenshots/m2/home.png" width="420"
+  <img src="docs/screenshots/home.png" width="420"
        alt="PanPilot home screen: large pan temperature, rate + trend, state">
 </p>
 
@@ -84,7 +84,7 @@ false-colored (hot = white/yellow, cool = dark). This replaces a laser dot: aim
 by moving the sensor head until the pan sits under the center crosshair.
 
 <p align="center">
-  <img src="docs/screenshots/m1/thermal.png" width="420"
+  <img src="docs/screenshots/thermal.png" width="420"
        alt="Live thermal view: false-color pan, ROI circle, pan temperature, aim hint">
 </p>
 
@@ -103,31 +103,43 @@ by moving the sensor head until the pan sits under the center crosshair.
 **Confidence:** every screen shows a confidence indicator. Bare stainless reads
 low and reflective, so PanPilot caps confidence and leans on the temperature
 *trend* rather than the absolute number (add oil/water for a true reading).
-## 5. Modes: Thermometer, Target Assist, Presets
+## 5. The home screen: Thermometer & Target Assist
 
-### Thermometer Mode _(M2)_
-
-The default screen. It shows the **smoothed** pan-surface temperature (big
-numeral), the **rate of change** with a trend arrow, and a one-word state:
+The home screen shows the **smoothed** pan-surface temperature (big numeral), the
+**rate of change** with a trend arrow, and — the M3 addition — a **target** with
+an ETA and a color-coded **action bar** telling you what to do.
 
 <p align="center">
-  <img src="docs/screenshots/m2/home.png" width="360"
-       alt="Thermometer Mode: 337°F, +14°F/min rising, Heating">
+  <img src="docs/screenshots/home.png" width="360"
+       alt="Home: target 350°F, current 300°F, +14°F/min, ready in 2:15, Hold">
 </p>
 
-- **Smoothed, not jumpy:** the number is exponentially smoothed (~2 s), so it
-  reads steadily while the raw sensor flickers. The **rate** (°/min) is a
-  least-squares fit over the last 10 s — it says *estimating…* until it has
-  enough data.
-- **Trend arrow + state:** ▲ Heating / Heating fast, ▼ Cooling, – Stable.
-- **No pan / Check aim:** shows *“No pan — aim the sensor”* when nothing pan-like
-  is in view, or *“Check aim”* if the pan suddenly jumps in the frame.
-- **°F / °C** toggle (top-right) is remembered across reboots. Tap the big
-  temperature to open the [thermal view](#4-first-boot--aiming).
+- **Set a target** with the `–` / `+` buttons (5 °F steps, remembered across
+  reboots). PanPilot then guides you to it.
+- **Smoothed, not jumpy:** the big number is exponentially smoothed (~2 s); the
+  **rate** is a least-squares fit over 10 s (*estimating…* until it has data).
+  **ETA** shows *ready in m:ss* while heating.
+- **Action bar** (bottom) is the at-a-glance instruction, color-coded:
+  **Heat more / Hold** (blue) → **Turn down soon** (amber) →
+  **TURN DOWN NOW** (orange) → **READY** (green) → **TOO HOT** (red). It also
+  shows *No pan*, *Check aim*, *Cooling*.
+- **°F / °C** toggle (top-right). Tap the big temperature for the
+  [thermal view](#4-first-boot--aiming).
 
-> _Synthesized simulator image; device photo to follow._
+**Overshoot prediction (the flagship trick):** PanPilot projects where a fast
+ramp is heading and calls **TURN DOWN NOW _before_ you overshoot** — not after.
 
-### Target Assist & Presets _(coming in M3–M4)_
+**Full-screen alerts** take over the screen for the loud states so you can read
+them across the kitchen, and clear themselves when the condition passes:
+
+<p align="center">
+  <img src="docs/screenshots/ready.png" width="300"
+       alt="Full-screen READY alert, green, 350°F">
+</p>
+
+> _Synthesized simulator images; device photos to follow._
+
+### Presets _(coming in M4)_
 ## 6. Food timer & cook database _(coming in M12.5)_
 ## 7. Attention levels — beep & flash patterns _(coming in M13)_
 ## 8. Learn Pan Mode _(coming in M6)_

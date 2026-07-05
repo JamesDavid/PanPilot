@@ -16,9 +16,12 @@ from pathlib import Path
 from PIL import Image
 
 # (scene-id passed to sim_main, output PNG relative to repo root)
+# Stable flat paths — these screens evolve each milestone, so they aren't
+# filed under a milestone dir (milestone-specific *new* screens can be).
 SCENES = [
-    ("home", "docs/screenshots/m2/home.png"),      # Thermometer Mode home
-    ("thermal", "docs/screenshots/m1/thermal.png"),  # live thermal view
+    ("home", "docs/screenshots/home.png"),        # home / Target Assist
+    ("thermal", "docs/screenshots/thermal.png"),  # live thermal view
+    ("ready", "docs/screenshots/ready.png"),      # full-screen READY alert
 ]
 
 ROOT = Path(__file__).resolve().parents[1]

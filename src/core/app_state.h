@@ -4,11 +4,12 @@
 #include <stdint.h>
 #include "pan_types.h"
 #include "core/thermal_model.h"
+#include "core/guidance.h"
 
-enum class Mode : uint8_t { THERMOMETER, TARGET, PRESET };  // TARGET/PRESET: M3/M4
+enum class Mode : uint8_t { THERMOMETER, TARGET, PRESET };  // PRESET: M4
 
 struct UiState {
-  Mode mode = Mode::THERMOMETER;
+  Mode mode = Mode::TARGET;
   PanPresence presence = PanPresence::ABSENT;
   bool  modelValid = false;
   float displayTempC = 0;
@@ -19,4 +20,10 @@ struct UiState {
   bool  stainlessHint = false;
   bool  useF = true;        // display unit (persisted, base spec §4)
   bool  muted = false;
+
+  // Target Assist (M3)
+  GuidanceState guidance = GuidanceState::IDLE;
+  int   targetCenterF = 350;
+  int   etaSeconds = -1;    // -1 = estimating/unknown
+  float projectedPeakF = 0;
 };
