@@ -1,13 +1,13 @@
-// lgfx_panpilot.h — LovyanGFX device for the CrowPanel Advance 3.5" (SPI ILI9488
-// + integrated GT911 touch). Config mirrors Elecrow's factory LovyanGFX driver
-// (lesson-03/3_5LVGL/LovyanGFX_Driver.h), with all pins sourced from board_pins.h.
-//
-// Guarded to SPI-ILI9488 + GT911 boards. RGB-parallel 5" targets get their own
-// device class when that HAL path is built (see board_pins.h CAP_DISPLAY_BUS_RGB).
+// lgfx_panpilot.h — LovyanGFX device for SPI-ILI9488 CrowPanel boards. Panel/bus
+// config is shared; the touch controller is selected by capability flag:
+//   CAP_TOUCH_GT911   -> GT911 capacitive over I2C   (Advance 3.5")
+//   CAP_TOUCH_XPT2046 -> XPT2046 resistive over SPI   (basic 3.5", UNVERIFIED)
+// All pins come from board_pins.h. Mirrors Elecrow's factory LovyanGFX config
+// for the Advance panel. RGB-parallel 5" targets get a separate device class.
 #pragma once
 #include "board_pins.h"
 
-#if CAP_DISPLAY_BUS_SPI && CAP_TOUCH_GT911
+#if CAP_DISPLAY_BUS_SPI
 
 #define LGFX_USE_V1
 #include <LovyanGFX.hpp>
@@ -16,11 +16,15 @@ class LGFX_PanPilot : public lgfx::LGFX_Device {
   lgfx::Panel_ILI9488 _panel;
   lgfx::Bus_SPI       _bus;
   lgfx::Light_PWM     _light;
+#if CAP_TOUCH_GT911
   lgfx::Touch_GT911   _touch;
+#elif CAP_TOUCH_XPT2046
+  lgfx::Touch_XPT2046 _touch;
+#endif
 
  public:
   LGFX_PanPilot() {
-    { // SPI bus (SPI2_HOST, 40 MHz write) — factory values
+    { // SPI bus (SPI2_HOST, 40 MHz write)
       auto cfg = _bus.config();
       cfg.spi_host    = SPI2_HOST;
       cfg.spi_mode    = 0;
@@ -66,26 +70,43 @@ class LGFX_PanPilot : public lgfx::LGFX_Device {
       _light.config(cfg);
       _panel.setLight(&_light);
     }
-    { // Touch GT911 over I2C (shares the peripheral bus with the MLX90640)
+#if CAP_TOUCH_GT911
+    { // GT911 capacitive over I2C (shares the peripheral bus with the MLX90640)
       auto cfg = _touch.config();
-      cfg.x_min          = 0;
-      cfg.x_max          = TFT_PANEL_WIDTH - 1;
-      cfg.y_min          = 0;
-      cfg.y_max          = TFT_PANEL_HEIGHT - 1;
-      cfg.pin_int        = TOUCH_INT;
-      cfg.pin_rst        = TOUCH_RST;
-      cfg.bus_shared     = false;
+      cfg.x_min = 0; cfg.x_max = TFT_PANEL_WIDTH - 1;
+      cfg.y_min = 0; cfg.y_max = TFT_PANEL_HEIGHT - 1;
+      cfg.pin_int = TOUCH_INT;
+      cfg.pin_rst = TOUCH_RST;
+      cfg.bus_shared = false;
       cfg.offset_rotation = 0;
-      cfg.i2c_port       = 0;
-      cfg.pin_sda        = TOUCH_SDA;
-      cfg.pin_scl        = TOUCH_SCL;
-      cfg.freq           = 400000;
-      cfg.i2c_addr       = TOUCH_I2C_ADDR;
+      cfg.i2c_port = 0;
+      cfg.pin_sda = TOUCH_SDA;
+      cfg.pin_scl = TOUCH_SCL;
+      cfg.freq = 400000;
+      cfg.i2c_addr = TOUCH_I2C_ADDR;
       _touch.config(cfg);
       _panel.setTouch(&_touch);
     }
+#elif CAP_TOUCH_XPT2046
+    { // XPT2046 resistive over the shared display SPI bus (UNVERIFIED pins)
+      auto cfg = _touch.config();
+      cfg.x_min = 0; cfg.x_max = TFT_PANEL_WIDTH - 1;
+      cfg.y_min = 0; cfg.y_max = TFT_PANEL_HEIGHT - 1;
+      cfg.bus_shared = true;
+      cfg.offset_rotation = 0;
+      cfg.spi_host = SPI2_HOST;
+      cfg.freq = 1000000;
+      cfg.pin_sclk = TFT_SCLK;
+      cfg.pin_mosi = TFT_MOSI;
+      cfg.pin_miso = TFT_MISO;
+      cfg.pin_cs = TOUCH_CS;
+      cfg.pin_int = TOUCH_IRQ;
+      _touch.config(cfg);
+      _panel.setTouch(&_touch);
+    }
+#endif
     setPanel(&_panel);
   }
 };
 
-#endif // CAP_DISPLAY_BUS_SPI && CAP_TOUCH_GT911
+#endif // CAP_DISPLAY_BUS_SPI

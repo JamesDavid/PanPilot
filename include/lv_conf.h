@@ -7,7 +7,11 @@
 
 // ---- Color ----
 #define LV_COLOR_DEPTH        16
-#define LV_COLOR_16_SWAP      1     // SPI ILI9488 wants byte-swapped RGB565
+#ifdef PANPILOT_SIM
+  #define LV_COLOR_16_SWAP    0     // native screenshot: straight RGB565
+#else
+  #define LV_COLOR_16_SWAP    1     // SPI ILI9488 wants byte-swapped RGB565
+#endif
 
 // ---- Memory ----
 #define LV_MEM_CUSTOM         0

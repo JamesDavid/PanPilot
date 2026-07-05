@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['milestone/*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ---- host unit tests (base spec §11); source of truth since the bench box
+  #      has no host C++ compiler ----
+  native-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-native-${{ hashFiles('platformio.ini') }}
+      - run: pip install --quiet platformio
+      - run: pio test -e native -v
+
+  # ---- firmware build + merged flashable image per variant ----
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - env: crowpanel35_advance
+            chip: esp32s3
+          - env: crowpanel35_basic
+            chip: esp32
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }          # tags for git describe (version)
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ matrix.env }}-${{ hashFiles('platformio.ini') }}
+      - run: pip install --quiet platformio esptool
+      - name: Build ${{ matrix.env }}
+        run: pio run -e ${{ matrix.env }}
+      - name: Merge single-file image
+        run: python scripts/merge_firmware.py ${{ matrix.env }} ${{ matrix.chip }} web/firmware/${{ matrix.env }}.bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fw-${{ matrix.env }}
+          path: web/firmware/${{ matrix.env }}.bin
+          if-no-files-found: error
+
+  # ---- publish the ESP Web Tools flasher to GitHub Pages ----
+  pages:
+    needs: [build, native-test]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/milestone/')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: fw-*
+          path: web/firmware
+          merge-multiple: true
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Stamp version + write manifests
+        run: python scripts/gen_manifest.py "$(git describe --tags --always)" web
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: web }
+      - id: deploy
+        uses: actions/deploy-pages@v4

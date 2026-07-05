@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flash PanPilot</title>
+  <script type="module"
+    src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #101418; color: #f5f5f5; line-height: 1.5;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 2rem 1rem; min-height: 100vh; box-sizing: border-box;
+    }
+    h1 { font-size: 2rem; margin: 0.2em 0; }
+    .sub { color: #8a93a0; margin-top: 0; }
+    .card {
+      background: #1a2027; border: 1px solid #2a323c; border-radius: 14px;
+      padding: 1.25rem 1.5rem; margin: 0.75rem 0; max-width: 34rem; width: 100%;
+      box-sizing: border-box;
+    }
+    .card h2 { margin: 0 0 0.25rem; font-size: 1.15rem; }
+    .card p { margin: 0.25rem 0 0.9rem; color: #b7c0cc; font-size: 0.95rem; }
+    esp-web-install-button { --esp-tools-button-color: #2e7d32; }
+    .note {
+      max-width: 34rem; color: #8a93a0; font-size: 0.85rem; margin-top: 1rem;
+    }
+    a { color: #6ea8fe; }
+    code { background: #0c0f12; padding: 0.1em 0.4em; border-radius: 5px; }
+    .ver { font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <h1>Flash PanPilot</h1>
+  <p class="sub">Firmware <span class="ver">__FW_VERSION__</span> ·
+    plug the board in over USB-C, then pick your variant.</p>
+
+  <div class="card">
+    <h2>CrowPanel Advance 3.5″ (ESP32-S3)</h2>
+    <p>The primary/verified board. 480×320 IPS, GT911 touch. Choose this if
+       your panel is the <em>Advance</em> model.</p>
+    <esp-web-install-button manifest="manifest-advance.json"></esp-web-install-button>
+  </div>
+
+  <div class="card">
+    <h2>CrowPanel 3.5″ basic (ESP32-WROVER)</h2>
+    <p>The original ESP32 panel. Pins are unverified in this build — flash only
+       if you know you have the <em>basic</em> board.</p>
+    <esp-web-install-button manifest="manifest-basic.json"></esp-web-install-button>
+  </div>
+
+  <p class="note">
+    Use Chrome or Edge (Web Serial required). Source &amp; docs:
+    <a href="https://github.com/JamesDavid/PanPilot">github.com/JamesDavid/PanPilot</a>.
+    Prefer the command line? <code>pio run -e crowpanel35_advance -t upload</code>.
+  </p>
+</body>
+</html>
