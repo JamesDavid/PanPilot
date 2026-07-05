@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M9 — MQTT + Home Assistant (Phase 2).** This README grows one section at a time as each
+> **Status: M10 — OTA + dual partition (Phase 2).** This README grows one section at a time as each
 > milestone lands. Sections below marked _(coming in M#)_ aren't built yet.
 
 <p align="center">
@@ -70,6 +70,11 @@ your board variant, click Install. The page shows the firmware version.
 pio run -e crowpanel35_advance -t upload   # Advance 3.5" (ESP32-S3)
 pio device monitor                         # serial console @115200
 ```
+
+**Updates (M10):** once on Wi-Fi, update over the air from a browser at
+**http://panpilot.local/update** — no cable. PanPilot uses a **dual-app
+partition** and **auto-reverts** to the previous firmware if a new image
+boot-loops (3 failed boots), so a bad update can't brick it.
 
 > ⚠️ **Safety:** PanPilot is a cooking *aid*, not a substitute for attention.
 > Never leave a hot stove unattended. Sections on poultry/ground-meat internal

@@ -28,6 +28,7 @@
 #include "hal/storage.h"
 #include "hal/i2c_bus.h"
 #include "hal/power.h"
+#include "hal/ota.h"
 #include "sensor/mlx90640_source.h"
 #include "sensor/frame_analysis.h"
 #include "ui/ui_root.h"
@@ -283,6 +284,8 @@ void setup() {
   delay(50);
   Serial.printf("\n[PanPilot] %s  fw=%s\n", BOARD_NAME, PANPILOT_FW_VERSION);
 
+  hal::ota_boot_guard();   // boot-loop rollback guard, before anything can hang
+
   hal::i2c_bus_init();
   hal::storage_begin();
   hal::power_begin();
@@ -327,6 +330,9 @@ void loop() {
 #endif
 
   const uint32_t now = millis();
+
+  static bool otaMarked = false;   // healthy runtime -> mark OTA image valid
+  if (!otaMarked && now > 8000) { otaMarked = true; hal::ota_mark_stable(); }
 
   // Poll the fuel gauge every 2 s (roadmap §2.1).
   if (now - lastBatt >= 2000) {

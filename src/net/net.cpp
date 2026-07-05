@@ -7,6 +7,7 @@
 #include <ESPmDNS.h>
 #include <WiFiManager.h>
 #include <ESPAsyncWebServer.h>
+#include <ElegantOTA.h>
 
 #include "web_assets.h"
 #include "core/thermal_model.h"
@@ -73,13 +74,15 @@ void begin() {
   s_ws.onEvent([](AsyncWebSocket*, AsyncWebSocketClient*, AwsEventType,
                   void*, uint8_t*, size_t) {});
   s_server.addHandler(&s_ws);
+  ElegantOTA.begin(&s_server);        // browser OTA upload at /update (M10)
   s_server.begin();
-  Serial.printf("[net] AP=%s  http://panpilot.local/\n", ap);
+  Serial.printf("[net] AP=%s  http://panpilot.local/  (OTA: /update)\n", ap);
 }
 
 void loop() {
   if (s_portal) s_wm.process();
   s_ws.cleanupClients();
+  ElegantOTA.loop();
 }
 
 bool connected() { return WiFi.status() == WL_CONNECTED; }

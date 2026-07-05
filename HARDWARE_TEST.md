@@ -191,3 +191,18 @@ Advance env. Enter an MQTT broker in the Wi-Fi setup portal (blank = MQTT off).
 | 9.3 | Controls | Mute (switch), Target (number), Preset (select) work from HA | ☐ |
 | 9.4 | Availability | Powering PanPilot off shows the entities *unavailable* (LWT) | ☐ |
 | 9.5 | Automation | An HA automation on guidance = “Too hot” (e.g. flash lights) fires | ☐ |
+
+## M10 — OTA + dual partition
+
+Advance env (dual-OTA partition `partitions_advance.csv`). **Compile-verified;
+rollback must be exercised by flashing a bad image.**
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 10.1 | Browse **/update**, upload a good `firmware.bin` | Uploads, reboots into the new image; runs normally | ☐ |
+| 10.2 | Confirm slot swap | `pio run -t upload` again / serial shows it booted the other OTA slot | ☐ |
+| 10.3 | **Rollback** — upload a deliberately boot-looping image | After 3 failed boots, serial `boot-loop detected — rolling back`; device reverts to the previous working image | ☐ |
+| 10.4 | Healthy boot | Serial `new image marked valid` ~8 s after a good boot | ☐ |
+
+_Acceptance (roadmap M10): flash a deliberately boot-looping image; device
+self-reverts._
