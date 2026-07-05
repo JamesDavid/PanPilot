@@ -66,11 +66,12 @@ go-ahead at every hardware gate.
   the user's `Board.h` capability-flag idiom.
 - **Repo:** github.com/JamesDavid/panpilot (public, `main`). Web flasher on
   GitHub Pages via ESP Web Tools.
-- **No host C++ compiler on the bench machine** (no gcc/clang/MSVC/SDL2). So:
-  firmware compiles locally (PlatformIO Xtensa toolchain), but **`pio test -e
-  native` and the SDL simulator run in CI (GitHub Actions/Ubuntu), which is the
-  source of truth** for native tests + screenshots. A local MinGW can be added
-  later for fast local iteration.
+- **Local builds work fully.** Firmware cross-compiles locally (PlatformIO
+  Xtensa toolchain) and **`pio test -e native` runs locally too** — MinGW-w64
+  GCC 14.2 (WinLibs) is installed and on the user PATH. CI (GitHub Actions)
+  re-runs everything and additionally renders simulator screenshots, but local
+  is a full check, not a stub. If a fresh shell can't find `gcc`, its bin is at
+  `%LOCALAPPDATA%\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.*\mingw64\bin`.
 - **Additional (secondary) targets:** CrowPanel Advance 5" v1.1 (`../cyd-radio`)
   and v1.2 (`../BladeKey-Overhead`) — RGB-parallel ST7262. Pin maps captured in
   `board_pins.h`; RGB display HAL is a follow-up after the 3.5" bench board works.

@@ -95,6 +95,6 @@ pio device monitor                         # serial console @115200
   pio run -e crowpanel35_advance     # firmware
   pio test -e native                 # host unit tests (runs in CI)
   ```
-  This project's bench machine has no host C++ compiler, so **CI (GitHub Actions)
-  is the source of truth** for native tests and simulator screenshots.
+  Native tests run locally (MinGW-w64 GCC) and in CI; CI additionally renders
+  the simulator screenshots.
 - **Hardware bring-up checklist:** `HARDWARE_TEST.md`.
