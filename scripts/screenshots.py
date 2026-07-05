@@ -24,6 +24,7 @@ SCENES = [
     ("ready", "docs/screenshots/ready.png"),      # full-screen READY alert
     ("presets", "docs/screenshots/presets.png"),  # preset picker
     ("learn", "docs/screenshots/learn.png"),       # Learn Pan Mode
+    ("lastcook", "docs/screenshots/lastcook.png"), # Last Cook trace
 ]
 
 ROOT = Path(__file__).resolve().parents[1]

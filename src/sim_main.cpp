@@ -19,6 +19,7 @@
 #include "ui/screen_thermal.h"
 #include "ui/screen_presets.h"
 #include "ui/screen_learn.h"
+#include "ui/screen_lastcook.h"
 #include "core/app_state.h"
 #include "core/thermal_model.h"
 #include "sensor/frame_analysis.h"
@@ -117,6 +118,18 @@ int main(int argc, char** argv) {
     u.learnedLagMinutes = 0.7f;
     lv_scr_load(ui::learn_create());
     ui::learn_update(u);
+  } else if (scene == "lastcook") {
+    static int16_t tr[600];
+    for (int i = 0; i < 600; ++i) {           // preheat ramp -> plateau w/ dips
+      float c = 25 + 150 * (1 - std::exp(-i / 90.0f));
+      if (i > 300 && (i % 120) < 8) c -= 25;  // food-added dips
+      tr[i] = (int16_t)(c * 10);
+    }
+    SessionSummary s{};
+    s.presetId = 1; s.maxTempC = 178; s.timeInRangeSec = 420;
+    s.overheatSec = 12; s.foodAddedCount = 3;
+    lv_scr_load(ui::lastcook_create());
+    ui::lastcook_update(s, tr, 600, true, true);
   } else {  // "home" (Target Assist, HOLD) or "ready" (full-screen alert)
     UiState u;
     u.mode = Mode::TARGET;

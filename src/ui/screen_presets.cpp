@@ -17,6 +17,7 @@ void card_cb(lv_event_t* e) {
 }
 void done_cb(lv_event_t*) { ui::show_home(); }
 void learn_cb(lv_event_t*) { ui::show_learn(); }
+void lastcook_cb(lv_event_t*) { ui::show_lastcook(); }
 
 }  // namespace
 
@@ -78,13 +79,22 @@ lv_obj_t* presets_create() {
   lv_obj_center(dl);
 
   lv_obj_t* learn = lv_btn_create(scr);
-  lv_obj_set_size(learn, 200, 28);
-  lv_obj_align(learn, LV_ALIGN_BOTTOM_MID, 0, -2);
+  lv_obj_set_size(learn, 180, 28);
+  lv_obj_align(learn, LV_ALIGN_BOTTOM_MID, -96, -2);
   lv_obj_set_style_bg_color(learn, lv_color_hex(0x2A323C), 0);
   lv_obj_add_event_cb(learn, learn_cb, LV_EVENT_CLICKED, nullptr);
   lv_obj_t* ll = lv_label_create(learn);
-  lv_label_set_text(ll, "Learn Pan Mode " LV_SYMBOL_RIGHT);
+  lv_label_set_text(ll, "Learn Pan " LV_SYMBOL_RIGHT);
   lv_obj_center(ll);
+
+  lv_obj_t* lc = lv_btn_create(scr);
+  lv_obj_set_size(lc, 180, 28);
+  lv_obj_align(lc, LV_ALIGN_BOTTOM_MID, 96, -2);
+  lv_obj_set_style_bg_color(lc, lv_color_hex(0x2A323C), 0);
+  lv_obj_add_event_cb(lc, lastcook_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* lcl = lv_label_create(lc);
+  lv_label_set_text(lcl, "Last Cook " LV_SYMBOL_RIGHT);
+  lv_obj_center(lcl);
   return s_screen;
 }
 

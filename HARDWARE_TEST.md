@@ -206,3 +206,16 @@ rollback must be exercised by flashing a bad image.**
 
 _Acceptance (roadmap M10): flash a deliberately boot-looping image; device
 self-reverts._
+
+## M11 — LittleFS sessions + web history
+
+Advance env (LittleFS). **Acceptance (roadmap M11): 5 cooks logged, traces
+render, CSV opens in a spreadsheet.**
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 11.1 | Do 5 short cooks (let each cool) | Serial `[session] saved to LittleFS` each time | ☐ |
+| 11.2 | Open **Last Cook** (preset picker) | Trace sparkline + stats for the latest cook | ☐ |
+| 11.3 | Browse **/api/sessions** | JSON list of the 5 sessions | ☐ |
+| 11.4 | **/api/session?id=N** | Downloads a CSV that opens cleanly in a spreadsheet | ☐ |
+| 11.5 | Log > 20 cooks | Oldest are evicted (count-capped) | ☐ |

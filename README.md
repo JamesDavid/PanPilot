@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M10 — OTA + dual partition (Phase 2).** This README grows one section at a time as each
+> **Status: M11 — sessions + web history (Phase 2).** This README grows one section at a time as each
 > milestone lands. Sections below marked _(coming in M#)_ aren't built yet.
 
 <p align="center">
@@ -173,6 +173,20 @@ the **temperature drop when food hits the pan**, then track the climb back into
 the band and flash **“ADD NEXT BATCH”** with a chime when it's ready — so every
 batch starts at the same temperature. If the pan is climbing back too slowly it
 says *“Recovery slow — raise heat?”*; too fast, *“watch heat.”*
+
+### Last Cook & history _(M11)_
+
+Every cook is logged (to on-device flash): max temperature, time in range,
+overheat seconds, food-added count, plus a 1 Hz temperature trace. The **Last
+Cook** screen (from the preset picker) draws the trace as a sparkline:
+
+<p align="center">
+  <img src="docs/screenshots/lastcook.png" width="380"
+       alt="Last Cook: temperature trace sparkline with stats">
+</p>
+
+The [web interface](#9-web-interface-m8) browses the full history and downloads
+any cook as **CSV** for a spreadsheet.
 
 ## 6. Food timer & cook database _(coming in M12.5)_
 ## 7. Attention levels — beep & flash patterns _(coming in M13)_

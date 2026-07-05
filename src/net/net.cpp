@@ -11,7 +11,9 @@
 
 #include "web_assets.h"
 #include "core/thermal_model.h"
+#include "core/presets.h"
 #include "hal/storage.h"
+#include "hal/session_store.h"
 
 namespace net {
 namespace {
@@ -70,6 +72,36 @@ void begin() {
 
   s_server.on("/", HTTP_GET, [](AsyncWebServerRequest* r) {
     r->send_P(200, "text/html", PANPILOT_INDEX_HTML);
+  });
+
+  // Session history (roadmap §2.3): JSON list + CSV download.
+  s_server.on("/api/sessions", HTTP_GET, [](AsyncWebServerRequest* r) {
+    uint32_t ids[20];
+    int n = hal::sessions_list(ids, 20);
+    String j = "[";
+    for (int i = 0; i < n; ++i) {
+      SessionSummary s;
+      if (!hal::session_summary(ids[i], s)) continue;
+      if (i) j += ',';
+      j += "{\"id\":"; j += ids[i];
+      j += ",\"preset\":\""; j += preset(s.presetId).name;
+      j += "\",\"maxC\":"; j += (int)s.maxTempC;
+      j += ",\"inRange\":"; j += s.timeInRangeSec;
+      j += ",\"overheat\":"; j += s.overheatSec;
+      j += ",\"food\":"; j += s.foodAddedCount; j += '}';
+    }
+    j += ']';
+    r->send(200, "application/json", j);
+  });
+  s_server.on("/api/session", HTTP_GET, [](AsyncWebServerRequest* r) {
+    if (!r->hasParam("id")) { r->send(400); return; }
+    uint32_t id = r->getParam("id")->value().toInt();
+    String csv = hal::session_csv(id);
+    if (csv.isEmpty()) { r->send(404); return; }
+    AsyncWebServerResponse* resp = r->beginResponse(200, "text/csv", csv);
+    resp->addHeader("Content-Disposition",
+                    "attachment; filename=panpilot_cook.csv");
+    r->send(resp);
   });
   s_ws.onEvent([](AsyncWebSocket*, AsyncWebSocketClient*, AwsEventType,
                   void*, uint8_t*, size_t) {});

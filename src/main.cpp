@@ -29,6 +29,8 @@
 #include "hal/i2c_bus.h"
 #include "hal/power.h"
 #include "hal/ota.h"
+#include "hal/session_store.h"
+#include "ui/screen_lastcook.h"
 #include "sensor/mlx90640_source.h"
 #include "sensor/frame_analysis.h"
 #include "ui/ui_root.h"
@@ -52,6 +54,26 @@ volatile bool g_idle = false;   // set by UI loop, read by SensorTask (cadence)
 // Battery (M7) — polled in the UI loop; snapshotted into UiState by SensorTask.
 BatteryState g_batt;
 volatile bool g_pluginWarn = false;
+
+// Session trace (M11): 1 Hz temperature samples during a cook, written to
+// LittleFS at session end. Owned by SensorTask.
+int16_t g_trace[1800];           // tempC*10, up to 30 min
+volatile int g_traceN = 0;
+volatile bool g_new_session = false;
+
+// Load the newest session from LittleFS and populate the Last Cook screen.
+// Must run on the UI core (touches LVGL).
+void refresh_lastcook(bool useF) {
+  uint32_t ids[20];
+  int n = hal::sessions_list(ids, 20);
+  if (n <= 0) { SessionSummary empty{}; ui::lastcook_update(empty, nullptr, 0, false, useF); return; }
+  SessionSummary sum;
+  static int16_t tr[1800];
+  if (hal::session_summary(ids[0], sum)) {
+    int tn = hal::session_trace(ids[0], tr, 1800);
+    ui::lastcook_update(sum, tr, tn, true, useF);
+  }
+}
 
 // Target owned by the logic layer; UI sends adjust/select commands (base spec
 // §7.3). Guarded because SensorTask (core 0) reads it while UI callbacks (loop,
@@ -115,6 +137,7 @@ void SensorTask(void*) {
   int risingCount = 0;
   uint32_t coolStart = 0;
   uint32_t addBatchUntil = 0;
+  uint32_t lastTraceMs = 0;
   for (;;) {
     if (!g_sensor_ok) {
       g_sensor_ok = sensor::mlx_begin();
@@ -180,16 +203,24 @@ void SensorTask(void*) {
       const bool addBatch = nowm < addBatchUntil;
 
       // Session lifecycle (§8): start on a hot pan, end when cool + stable.
-      if (!session.active() && r.presence == PanPresence::PRESENT && sceneHot)
+      // Records a 1 Hz temperature trace to LittleFS (roadmap §2.3).
+      if (!session.active() && r.presence == PanPresence::PRESENT && sceneHot) {
         session.begin(presetId, nowm);
+        g_traceN = 0; lastTraceMs = nowm;
+      }
       if (session.active()) {
         session.update(r, go.state, nowm);
+        if (nowm - lastTraceMs >= 1000 && g_traceN < (int)(sizeof(g_trace) / 2)) {
+          lastTraceMs = nowm;
+          g_trace[g_traceN++] = (int16_t)(model.displayTempC() * 10.0f);
+        }
         if (r.panTempC < frame.ambientC + SESSION_END_AMBIENT_C) {
           if (coolStart == 0) coolStart = nowm;
           else if (nowm - coolStart > SESSION_END_STABLE_MS) {
-            hal::storage_session_push(session.finish(nowm));
+            hal::session_store(session.finish(nowm), g_trace, (uint16_t)g_traceN);
+            g_new_session = true;
             coolStart = 0;
-            Serial.println("[session] saved");
+            Serial.println("[session] saved to LittleFS");
           }
         } else {
           coolStart = 0;
@@ -288,6 +319,7 @@ void setup() {
 
   hal::i2c_bus_init();
   hal::storage_begin();
+  hal::sessions_begin();
   hal::power_begin();
   hal::display_begin();
   hal::buzzer_begin();
@@ -303,6 +335,8 @@ void setup() {
       Serial.printf("[profile] loaded lag=%.2f min\n", pf.lagMinutes); } }
   ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
                 on_preset, on_learn);
+
+  refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot
 
   g_snap_mtx = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(SensorTask, "sensor", 8192, nullptr, 2, nullptr, 0);
@@ -333,6 +367,8 @@ void loop() {
 
   static bool otaMarked = false;   // healthy runtime -> mark OTA image valid
   if (!otaMarked && now > 8000) { otaMarked = true; hal::ota_mark_stable(); }
+
+  if (g_new_session) { g_new_session = false; refresh_lastcook(ui::unit_useF()); }
 
   // Poll the fuel gauge every 2 s (roadmap §2.1).
   if (now - lastBatt >= 2000) {

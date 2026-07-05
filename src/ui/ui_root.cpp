@@ -7,6 +7,7 @@
 #include "ui/screen_thermal.h"
 #include "ui/screen_presets.h"
 #include "ui/screen_learn.h"
+#include "ui/screen_lastcook.h"
 
 namespace ui {
 namespace {
@@ -15,12 +16,13 @@ lv_obj_t* s_thermal = nullptr;
 lv_obj_t* s_presets = nullptr;
 lv_obj_t* s_idle = nullptr;
 lv_obj_t* s_learn = nullptr;
+lv_obj_t* s_lastcook = nullptr;
 bool s_useF = true;
 UnitChangeCb s_unitCb = nullptr;
 TargetDeltaCb s_targetCb = nullptr;
 PresetCb s_presetCb = nullptr;
 LearnCb s_learnCb = nullptr;
-enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN } s_active = HOME;
+enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK } s_active = HOME;
 }  // namespace
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
@@ -34,6 +36,7 @@ void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
   s_thermal = thermal_create();
   s_presets = presets_create();
   s_learn = learn_create();
+  s_lastcook = lastcook_create();
   lv_scr_load(s_home);
   s_active = HOME;
 }
@@ -62,6 +65,7 @@ void show_idle() {
 }
 
 void show_learn() { if (s_learn) { lv_scr_load(s_learn); s_active = LEARN; } }
+void show_lastcook() { if (s_lastcook) { lv_scr_load(s_lastcook); s_active = LASTCOOK; } }
 
 void toggle_unit() { s_useF = !s_useF; if (s_unitCb) s_unitCb(s_useF); }
 bool unit_useF() { return s_useF; }

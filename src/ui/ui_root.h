@@ -22,6 +22,7 @@ void show_thermal();
 void show_presets();
 void show_idle();     // dim "monitoring" screen (base spec §8)
 void show_learn();    // Learn Pan Mode wizard (base spec §7 Phase 1.5)
+void show_lastcook(); // Last Cook summary (roadmap §2.3)
 void toggle_unit();
 bool unit_useF();
 void target_adjust(int deltaF);     // fires TargetDeltaCb
