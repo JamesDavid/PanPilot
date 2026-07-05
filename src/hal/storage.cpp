@@ -17,8 +17,20 @@ bool storage_get_unit_useF(bool def) { ensure(); return s_prefs.getBool("useF", 
 void storage_set_unit_useF(bool useF) { ensure(); s_prefs.putBool("useF", useF); }
 bool storage_get_muted(bool def) { ensure(); return s_prefs.getBool("mute", def); }
 void storage_set_muted(bool m) { ensure(); s_prefs.putBool("mute", m); }
-int  storage_get_target_centerF(int def) { ensure(); return s_prefs.getInt("tgtF", def); }
-void storage_set_target_centerF(int c) { ensure(); s_prefs.putInt("tgtF", c); }
+void storage_get_target(int& loF, int& hiF, int& warnF, int& presetId) {
+  ensure();
+  loF = s_prefs.getInt("tlo", 340);
+  hiF = s_prefs.getInt("thi", 360);
+  warnF = s_prefs.getInt("twarn", 450);
+  presetId = s_prefs.getInt("pidx", 5);   // PRESET_GENERIC
+}
+void storage_set_target(int loF, int hiF, int warnF, int presetId) {
+  ensure();
+  s_prefs.putInt("tlo", loF);
+  s_prefs.putInt("thi", hiF);
+  s_prefs.putInt("twarn", warnF);
+  s_prefs.putInt("pidx", presetId);
+}
 
 }  // namespace hal
 #endif

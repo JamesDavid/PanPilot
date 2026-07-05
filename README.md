@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M3 (Target Assist).** This README grows one section at a time as each
+> **Status: M4 (Presets + overshoot).** This README grows one section at a time as each
 > milestone lands. Sections below marked _(coming in M#)_ aren't built yet.
 
 <p align="center">
@@ -139,7 +139,28 @@ them across the kitchen, and clear themselves when the condition passes:
 
 > _Synthesized simulator images; device photos to follow._
 
-### Presets _(coming in M4)_
+### Presets _(M4)_
+
+Tap the preset name (top-left) to pick a built-in target band instead of dialing
+one in. Each preset sets the ready window and the overheat threshold for that
+food; nudging `–`/`+` afterward makes it a custom target.
+
+<p align="center">
+  <img src="docs/screenshots/presets.png" width="380"
+       alt="Preset picker: Eggs, Pancakes, Stainless, Sear, Tortillas, Generic">
+</p>
+
+| Preset | Ready band | Notes |
+|---|---|---|
+| Eggs | 270–300 °F | gentle |
+| Pancakes | 350–375 °F | recovery-monitored (M6) |
+| Stainless | 400–450 °F | shows the *bare stainless reads low* banner |
+| Sear | 475–550 °F | high heat, warn at 650 °F |
+| Tortillas | 400–450 °F | |
+| Generic | 340–360 °F | fully adjustable |
+
+> _Synthesized simulator image; device photo to follow._
+
 ## 6. Food timer & cook database _(coming in M12.5)_
 ## 7. Attention levels — beep & flash patterns _(coming in M13)_
 ## 8. Learn Pan Mode _(coming in M6)_

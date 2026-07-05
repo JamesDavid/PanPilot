@@ -5,8 +5,9 @@
 #include "pan_types.h"
 #include "core/thermal_model.h"
 #include "core/guidance.h"
+#include "core/presets.h"
 
-enum class Mode : uint8_t { THERMOMETER, TARGET, PRESET };  // PRESET: M4
+enum class Mode : uint8_t { THERMOMETER, TARGET, PRESET };
 
 struct UiState {
   Mode mode = Mode::TARGET;
@@ -21,9 +22,10 @@ struct UiState {
   bool  useF = true;        // display unit (persisted, base spec §4)
   bool  muted = false;
 
-  // Target Assist (M3)
+  // Target Assist (M3) + presets (M4)
   GuidanceState guidance = GuidanceState::IDLE;
   int   targetCenterF = 350;
   int   etaSeconds = -1;    // -1 = estimating/unknown
   float projectedPeakF = 0;
+  uint8_t presetId = PRESET_GENERIC;
 };

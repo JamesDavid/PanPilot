@@ -93,3 +93,18 @@ Flash `crowpanel35_advance`. **Acceptance (base spec M3):** preheat cast iron to
 
 _(A mute toggle + settings screen arrive with a later milestone; mute state is
 persisted but not yet user-togglable on-device.)_
+
+## M4 — Overshoot prediction + presets
+
+Flash `crowpanel35_advance`. **Acceptance (base spec M4):** on a fast HIGH-burner
+ramp, TURN DOWN NOW fires *before* target and the predicted peak is within
+±25 °F of the actual peak.
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 4.1 | Tap the preset name → picker | Grid of 6 presets with bands; **Done** returns | ☐ |
+| 4.2 | Pick **Sear** | Target becomes 475–550 °F; name shows “Sear”; persists across reboot | ☐ |
+| 4.3 | Pick **Stainless** | Target 400–450 °F; home shows the *bare stainless reads low* banner | ☐ |
+| 4.4 | **Overshoot on HIGH** | TURN DOWN NOW fires before target; the alert shows **peak ~XXX°F** | ☐ |
+| 4.5 | Predicted-peak accuracy | The predicted peak is within **±25 °F** of the actual peak reached | ☐ |
+| 4.6 | Nudge –/+ after a preset | Name reverts to “Generic” (custom); band shifts in 5 °F steps | ☐ |

@@ -8,6 +8,7 @@
 
 #include "ui/ui_root.h"
 #include "app_config.h"
+#include "core/presets.h"
 
 namespace ui {
 namespace {
@@ -20,6 +21,7 @@ lv_obj_t* s_target_lbl = nullptr;
 lv_obj_t* s_temp = nullptr;
 lv_obj_t* s_rate = nullptr;
 lv_obj_t* s_eta = nullptr;
+lv_obj_t* s_note = nullptr;
 lv_obj_t* s_bar = nullptr;
 lv_obj_t* s_bar_lbl = nullptr;
 lv_obj_t* s_overlay = nullptr;
@@ -28,16 +30,12 @@ lv_obj_t* s_overlay_sub = nullptr;
 
 void temp_tap_cb(lv_event_t*) { ui::show_thermal(); }
 void unit_cb(lv_event_t*) { ui::toggle_unit(); }
+void preset_tap_cb(lv_event_t*) { ui::show_presets(); }
 
 inline float cToF(float c) { return c * 9.0f / 5.0f + 32.0f; }
 
-void refresh_target_lbl() {
-  char b[24];
-  std::snprintf(b, sizeof(b), "%d\xC2\xB0" "F", ui::target_center());
-  if (s_target_lbl) lv_label_set_text(s_target_lbl, b);
-}
-void minus_cb(lv_event_t*) { ui::target_adjust(-TARGET_STEP_F); refresh_target_lbl(); }
-void plus_cb(lv_event_t*)  { ui::target_adjust(+TARGET_STEP_F); refresh_target_lbl(); }
+void minus_cb(lv_event_t*) { ui::target_adjust(-TARGET_STEP_F); }
+void plus_cb(lv_event_t*)  { ui::target_adjust(+TARGET_STEP_F); }
 
 // guidance -> (action-bar text, color)
 struct BarStyle { const char* text; uint32_t color; };
@@ -78,12 +76,15 @@ lv_obj_t* home_create() {
   lv_obj_set_style_bg_color(scr, lv_color_hex(0x101418), LV_PART_MAIN);
   lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 
-  // status bar
+  // status bar — mode/preset label doubles as the preset-picker button
   s_mode = lv_label_create(scr);
-  lv_label_set_text(s_mode, "TARGET");
+  lv_label_set_text(s_mode, "Generic " LV_SYMBOL_LIST);
   lv_obj_set_style_text_color(s_mode, lv_color_hex(0x8A93A0), 0);
   lv_obj_set_style_text_font(s_mode, &lv_font_montserrat_14, 0);
   lv_obj_align(s_mode, LV_ALIGN_TOP_LEFT, 10, 10);
+  lv_obj_add_flag(s_mode, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_set_ext_click_area(s_mode, 20);
+  lv_obj_add_event_cb(s_mode, preset_tap_cb, LV_EVENT_CLICKED, nullptr);
 
   s_conf = lv_label_create(scr);
   lv_obj_set_style_text_color(s_conf, lv_color_hex(0x8A93A0), 0);
@@ -103,7 +104,6 @@ lv_obj_t* home_create() {
   lv_obj_set_style_text_font(s_target_lbl, &lv_font_montserrat_28, 0);
   lv_obj_set_style_text_color(s_target_lbl, lv_color_hex(0xF5F5F5), 0);
   lv_obj_align(s_target_lbl, LV_ALIGN_TOP_MID, 0, 46);
-  refresh_target_lbl();
 
   // big temperature (tap -> thermal view)
   s_temp = lv_label_create(scr);
@@ -123,6 +123,12 @@ lv_obj_t* home_create() {
   lv_obj_set_style_text_font(s_eta, &lv_font_montserrat_14, 0);
   lv_obj_set_style_text_color(s_eta, lv_color_hex(0x8A93A0), 0);
   lv_obj_align(s_eta, LV_ALIGN_CENTER, 0, 70);
+
+  // stainless banner (base spec §7.5) — just above the action bar
+  s_note = lv_label_create(scr);
+  lv_obj_set_style_text_font(s_note, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_color(s_note, lv_color_hex(0xC08A00), 0);
+  lv_obj_align(s_note, LV_ALIGN_BOTTOM_MID, 0, -52);
 
   // action bar (bottom, full width)
   s_bar = lv_obj_create(scr);
@@ -159,6 +165,12 @@ void home_update(const UiState& s, bool useF) {
   std::snprintf(buf, sizeof(buf), "conf %u%%", s.confidence);
   lv_label_set_text(s_conf, buf);
 
+  std::snprintf(buf, sizeof(buf), "%s " LV_SYMBOL_LIST, preset(s.presetId).name);
+  lv_label_set_text(s_mode, buf);
+  const int tgt = useF ? s.targetCenterF : int((s.targetCenterF - 32) * 5 / 9);
+  std::snprintf(buf, sizeof(buf), "%d\xC2\xB0%s", tgt, useF ? "F" : "C");
+  lv_label_set_text(s_target_lbl, buf);
+
   const bool absent = s.presence == PanPresence::ABSENT;
   if (absent || !s.modelValid) {
     lv_label_set_text(s_temp, "--");
@@ -189,6 +201,12 @@ void home_update(const UiState& s, bool useF) {
     }
   }
 
+  // stainless banner (§7.5): preset asks for it, or the reading looks stainless
+  const bool stainless = preset(s.presetId).stainlessHints || s.stainlessHint;
+  lv_label_set_text(s_note, stainless
+                                ? "Bare stainless reads low - trust the trend"
+                                : "");
+
   // action bar
   const BarStyle bs = bar_for(s.guidance);
   lv_obj_set_style_bg_color(s_bar, lv_color_hex(bs.color), 0);
@@ -203,8 +221,13 @@ void home_update(const UiState& s, bool useF) {
     lv_obj_set_style_bg_color(s_overlay, lv_color_hex(bs.color), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
     lv_label_set_text(s_overlay_lbl, bs.text);
-    const float t = useF ? cToF(s.displayTempC) : s.displayTempC;
-    std::snprintf(buf, sizeof(buf), "%d\xC2\xB0%s", int(t + 0.5f), useF ? "F" : "C");
+    if (s.guidance == GuidanceState::TURN_DOWN_NOW && s.projectedPeakF > 0) {
+      const float pk = useF ? s.projectedPeakF : (s.projectedPeakF - 32) * 5 / 9;
+      std::snprintf(buf, sizeof(buf), "peak ~%d\xC2\xB0%s", int(pk + 0.5f), useF ? "F" : "C");
+    } else {
+      const float t = useF ? cToF(s.displayTempC) : s.displayTempC;
+      std::snprintf(buf, sizeof(buf), "%d\xC2\xB0%s", int(t + 0.5f), useF ? "F" : "C");
+    }
     lv_label_set_text(s_overlay_sub, buf);
     lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
   } else {

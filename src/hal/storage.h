@@ -10,8 +10,9 @@ bool storage_get_unit_useF(bool def = true);
 void storage_set_unit_useF(bool useF);
 bool storage_get_muted(bool def = false);
 void storage_set_muted(bool m);
-int  storage_get_target_centerF(int def = 350);
-void storage_set_target_centerF(int c);
+// Target band + last preset (base spec §7.3, §10).
+void storage_get_target(int& loF, int& hiF, int& warnF, int& presetId);
+void storage_set_target(int loF, int hiF, int warnF, int presetId);
 }  // namespace hal
 
 #endif

@@ -22,6 +22,7 @@ SCENES = [
     ("home", "docs/screenshots/home.png"),        # home / Target Assist
     ("thermal", "docs/screenshots/thermal.png"),  # live thermal view
     ("ready", "docs/screenshots/ready.png"),      # full-screen READY alert
+    ("presets", "docs/screenshots/presets.png"),  # preset picker
 ]
 
 ROOT = Path(__file__).resolve().parents[1]

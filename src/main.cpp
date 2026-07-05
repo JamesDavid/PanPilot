@@ -7,6 +7,7 @@
 
 #include <Arduino.h>
 #include <lvgl.h>
+#include <algorithm>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
@@ -17,6 +18,7 @@
 #include "core/app_state.h"
 #include "core/thermal_model.h"
 #include "core/guidance.h"
+#include "core/presets.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
 #include "hal/storage.h"
@@ -35,7 +37,18 @@ struct Snapshot {
 } g_snap;
 SemaphoreHandle_t g_snap_mtx = nullptr;
 volatile bool g_sensor_ok = false;
-volatile int  g_target_center = TARGET_DEFAULT_CENTER_F;   // set by UI callback
+
+// Target owned by the logic layer; UI sends adjust/select commands (base spec
+// §7.3). Guarded because SensorTask (core 0) reads it while UI callbacks (loop,
+// core 1) write it.
+Target g_target;
+volatile uint8_t g_presetId = PRESET_GENERIC;
+SemaphoreHandle_t g_target_mtx = nullptr;
+
+void save_target() {
+  hal::storage_set_target((int)g_target.loF, (int)g_target.hiF,
+                          (int)g_target.warnF, g_presetId);
+}
 
 void fire_alert(AlertAction a) {
   switch (a) {
@@ -62,7 +75,11 @@ void SensorTask(void*) {
     if (sensor::mlx_read(frame)) {
       PanReading r = analyzer.process(frame);
       model.update(r);
-      target.setCenter(g_target_center);
+      uint8_t presetId = PRESET_GENERIC;
+      if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(10)) == pdTRUE) {
+        target = g_target; presetId = g_presetId;
+        xSemaphoreGive(g_target_mtx);
+      }
 
       GuidanceInput gi;
       gi.tempF = ThermalModel::cToF(model.displayTempC());
@@ -85,7 +102,8 @@ void SensorTask(void*) {
       u.stainlessHint = r.stainlessHint;
       u.muted = hal::buzzer_is_muted();
       u.guidance = go.state;
-      u.targetCenterF = g_target_center;
+      u.targetCenterF = target.centerF;
+      u.presetId = presetId;
       u.etaSeconds = go.etaSeconds;
       u.projectedPeakF = go.projectedPeakF;
 
@@ -99,9 +117,23 @@ void SensorTask(void*) {
 }
 
 void persist_unit(bool useF) { hal::storage_set_unit_useF(useF); }
-void persist_target(int centerF) {
-  g_target_center = centerF;
-  hal::storage_set_target_centerF(centerF);
+
+void on_target_delta(int deltaF) {
+  if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) != pdTRUE) return;
+  g_target.loF += deltaF; g_target.hiF += deltaF;
+  g_target.warnF = std::min(g_target.warnF + deltaF, ABS_MAX_TEMP_F);
+  g_target.centerF = (int)((g_target.loF + g_target.hiF) / 2);
+  g_presetId = PRESET_GENERIC;    // an adjusted band is "custom"/generic
+  save_target();
+  xSemaphoreGive(g_target_mtx);
+}
+
+void on_preset(uint8_t id) {
+  if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) != pdTRUE) return;
+  g_target = preset_target(id);
+  g_presetId = id;
+  save_target();
+  xSemaphoreGive(g_target_mtx);
 }
 
 const char* presence_str(PanPresence p) {
@@ -126,15 +158,19 @@ void setup() {
   hal::buzzer_begin();
   hal::buzzer_set_muted(hal::storage_get_muted());
 
-  g_target_center = hal::storage_get_target_centerF();
-  ui::root_init(hal::storage_get_unit_useF(), g_target_center,
-                persist_unit, persist_target);
+  g_target_mtx = xSemaphoreCreateMutex();
+  { int lo, hi, warn, pid;
+    hal::storage_get_target(lo, hi, warn, pid);
+    g_target.loF = lo; g_target.hiF = hi; g_target.warnF = warn;
+    g_target.centerF = (lo + hi) / 2; g_presetId = (uint8_t)pid; }
+  ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
+                on_preset);
 
   g_snap_mtx = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(SensorTask, "sensor", 8192, nullptr, 2, nullptr, 0);
 
   hal::buzzer_play(hal::BuzzPattern::Chirp);
-  Serial.println("[PanPilot] M2 ready — Thermometer Mode");
+  Serial.println("[PanPilot] M4 ready — Target Assist + presets");
 }
 
 void loop() {
