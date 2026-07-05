@@ -31,6 +31,7 @@
 #include "sensor/mlx90640_source.h"
 #include "sensor/frame_analysis.h"
 #include "ui/ui_root.h"
+#include "net/net.h"
 
 namespace {
 
@@ -288,6 +289,10 @@ void setup() {
   g_snap_mtx = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(SensorTask, "sensor", 8192, nullptr, 2, nullptr, 0);
 
+#if defined(ENABLE_WIFI)
+  net::begin();   // Wi-Fi is a convenience mirror; cooking works without it
+#endif
+
   hal::buzzer_play(hal::BuzzPattern::Chirp);
   Serial.println("[PanPilot] M4 ready — Target Assist + presets");
 }
@@ -300,6 +305,9 @@ void loop() {
   static BatteryMonitor battMon;
   lv_timer_handler();
   hal::buzzer_update();
+#if defined(ENABLE_WIFI)
+  net::loop();
+#endif
 
   const uint32_t now = millis();
 
@@ -346,6 +354,15 @@ void loop() {
       if (power.wokeByHeat())
         Serial.println("[power] heating detected — select a target or preset");
     }
+
+#if defined(ENABLE_WIFI)
+    static uint32_t lastPub = 0;
+    if (s.has && now - lastPub >= 500) {   // 2 Hz web push (roadmap §2.2)
+      lastPub = now;
+      net::publishState(s.ui, ui::unit_useF());
+      net::publishThermal(s.frame);
+    }
+#endif
 
     if (s.has && !g_idle) {
       ui::root_update(s.frame, s.reading, s.ui);

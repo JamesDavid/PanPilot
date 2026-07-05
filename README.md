@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M6 — base spec complete (Phase 0–1.5).** This README grows one section at a time as each
+> **Status: M8 — Wi-Fi + web dashboard (Phase 2).** This README grows one section at a time as each
 > milestone lands. Sections below marked _(coming in M#)_ aren't built yet.
 
 <p align="center">
@@ -185,7 +185,23 @@ tuned to *your* pan — not a generic guess.
 
 Tap **Start** with an empty pan on medium heat, leave it, and **Save** the result.
 From then on, guidance uses that pan's lag. _(Synthesized simulator image.)_
-## 9. Web interface & Recipe Creator _(coming in M8 / M20)_
+## 9. Web interface _(M8)_
+
+PanPilot hosts a local web dashboard — no cloud, no account. Join it to your
+Wi-Fi once (it opens a **`PanPilot-XXXX`** setup hotspot the first time), then
+open **http://panpilot.local/** from any phone or laptop on the same network:
+
+- **Live dashboard** — current temperature, rate, ETA, target, and the
+  color-coded action bar, pushed over a WebSocket at 2 Hz.
+- **Live thermal view in the browser** — the 32×24 array streamed and rendered
+  to a canvas with the same ironbow palette as the device, so you can aim and
+  watch the pan from your phone.
+
+Everything cooking-related keeps working with Wi-Fi off — the web UI is a
+convenience mirror. _(Browser screenshot added from a live device; the page is
+served from the ESP32 so it can't be rendered by the simulator.)_
+
+_Recipe Creator arrives in M20._
 ## 10. Home Assistant integration _(coming in M9)_
 ## 11. Autopilot & the SSR box _(coming in M14+)_
 ## 12. Troubleshooting & FAQ _(grows per milestone)_

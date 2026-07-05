@@ -161,3 +161,20 @@ measure):** DEEP IDLE light-sleep, SHIP MODE power-off, `SENSOR_PWR_EN` sensor
 power-gating, and the **≤3 mA deep-idle standby** measurement (roadmap §2.1).
 These are intentionally not yet implemented so they can be built and measured
 against real hardware rather than blind.
+
+## M8 — Wi-Fi + web dashboard
+
+Advance env only (Wi-Fi is compiled in for the S3; the classic-ESP32 basic board
+omits it for flash reasons). **Compile-verified; behavior is bench-tested here.**
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 8.1 | First boot, unprovisioned | A **PanPilot-XXXX** Wi-Fi hotspot appears (captive portal) | ☐ |
+| 8.2 | Join it, enter home Wi-Fi | Device connects; serial prints the URL | ☐ |
+| 8.3 | Browse **http://panpilot.local/** | Dashboard loads (temp, rate, ETA, target, action bar) | ☐ |
+| 8.4 | Heat a pan | Dashboard updates live (~2 Hz); action bar color matches the device | ☐ |
+| 8.5 | Watch the browser thermal canvas | 32×24 thermal image renders + tracks the pan | ☐ |
+| 8.6 | Turn Wi-Fi off / leave network | All on-device cooking features keep working (local-first) | ☐ |
+
+_Acceptance (roadmap M8): live temp + thermal view in a phone browser via
+`panpilot.local` during a real cook._
