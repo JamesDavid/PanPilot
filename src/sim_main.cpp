@@ -18,6 +18,7 @@
 #include "ui/screen_home.h"
 #include "ui/screen_thermal.h"
 #include "ui/screen_presets.h"
+#include "ui/screen_learn.h"
 #include "core/app_state.h"
 #include "core/thermal_model.h"
 #include "sensor/frame_analysis.h"
@@ -110,6 +111,12 @@ int main(int argc, char** argv) {
     ui::thermal_update(f, r, /*useF=*/true);
   } else if (scene == "presets") {
     lv_scr_load(ui::presets_create());
+  } else if (scene == "learn") {
+    UiState u;
+    u.learnPhase = LearnPhase::DONE;
+    u.learnedLagMinutes = 0.7f;
+    lv_scr_load(ui::learn_create());
+    ui::learn_update(u);
   } else {  // "home" (Target Assist, HOLD) or "ready" (full-screen alert)
     UiState u;
     u.mode = Mode::TARGET;

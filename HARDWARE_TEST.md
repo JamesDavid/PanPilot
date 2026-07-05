@@ -122,3 +122,19 @@ faster, temporarily lower `IDLE_TIMEOUT_MS` in `app_config.h`.)
 | 5.3 | From idle, put a pan on heat | **Wakes by itself** + chirp; serial: `heating detected — select a target` | ☐ |
 | 5.4 | Stays awake while cooking | No dimming while the scene is hot, even with no touches | ☐ |
 | 5.5 | Finish a cook, let it cool ~10 min | Serial: `[session] saved` (summary stored to the 10-slot NVS ring) | ☐ |
+
+## M6 — Learn Pan Mode + Recovery Monitor (Phase 1.5)
+
+Flash `crowpanel35_advance`. **Acceptance (base spec M6):** pancake batch test —
+device announces “Add next batch” correctly for 3 consecutive batches.
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 6.1 | Pick **Pancakes**, preheat to READY | Normal Target Assist to the band | ☐ |
+| 6.2 | Pour batter (food added) | Serial `[recovery] food added`; action bar → **Recovering** | ☐ |
+| 6.3 | Pan climbs back into band | **ADD NEXT BATCH** full-screen (green) + chime; serial `pan recovered` | ☐ |
+| 6.4 | Repeat 3 batches | Cue fires correctly all 3 times | ☐ |
+| 6.5 | Slow recovery (low heat) | Note: *“Recovery slow — raise heat?”* | ☐ |
+| 6.6 | Learn Pan → Start (empty pan, MEDIUM) | Progress bar fills over 30 s | ☐ |
+| 6.7 | Learn Pan → Save | Shows learned lag; serial `[profile] loaded lag=…` after reboot | ☐ |
+| 6.8 | Overshoot after learning | TURN DOWN NOW timing reflects the learned lag (vs generic) | ☐ |

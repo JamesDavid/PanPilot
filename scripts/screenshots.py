@@ -23,6 +23,7 @@ SCENES = [
     ("thermal", "docs/screenshots/thermal.png"),  # live thermal view
     ("ready", "docs/screenshots/ready.png"),      # full-screen READY alert
     ("presets", "docs/screenshots/presets.png"),  # preset picker
+    ("learn", "docs/screenshots/learn.png"),       # Learn Pan Mode
 ]
 
 ROOT = Path(__file__).resolve().parents[1]

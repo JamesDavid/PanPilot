@@ -63,5 +63,16 @@ bool storage_session_get(int newestIndex, SessionSummary& out) {
   return s_prefs.getBytes(key, &out, sizeof(out)) == sizeof(out);
 }
 
+void storage_save_profile(const PanProfile& p) {
+  ensure();
+  s_prefs.putBytes("profile", &p, sizeof(p));
+}
+bool storage_load_profile(PanProfile& out) {
+  ensure();
+  if (s_prefs.getBytes("profile", &out, sizeof(out)) != sizeof(out)) return false;
+  return out.magic == PANPROFILE_MAGIC && out.version == PANPROFILE_VERSION &&
+         out.valid;
+}
+
 }  // namespace hal
 #endif

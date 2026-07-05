@@ -6,6 +6,7 @@
 #include "ui/screen_home.h"
 #include "ui/screen_thermal.h"
 #include "ui/screen_presets.h"
+#include "ui/screen_learn.h"
 
 namespace ui {
 namespace {
@@ -13,22 +14,26 @@ lv_obj_t* s_home = nullptr;
 lv_obj_t* s_thermal = nullptr;
 lv_obj_t* s_presets = nullptr;
 lv_obj_t* s_idle = nullptr;
+lv_obj_t* s_learn = nullptr;
 bool s_useF = true;
 UnitChangeCb s_unitCb = nullptr;
 TargetDeltaCb s_targetCb = nullptr;
 PresetCb s_presetCb = nullptr;
-enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN } s_active = HOME;
+LearnCb s_learnCb = nullptr;
+enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN } s_active = HOME;
 }  // namespace
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
-               PresetCb onPreset) {
+               PresetCb onPreset, LearnCb onLearn) {
   s_useF = useF;
   s_unitCb = onUnit;
   s_targetCb = onTargetDelta;
   s_presetCb = onPreset;
+  s_learnCb = onLearn;
   s_home = home_create();
   s_thermal = thermal_create();
   s_presets = presets_create();
+  s_learn = learn_create();
   lv_scr_load(s_home);
   s_active = HOME;
 }
@@ -56,15 +61,19 @@ void show_idle() {
   s_active = IDLE_SCREEN;
 }
 
+void show_learn() { if (s_learn) { lv_scr_load(s_learn); s_active = LEARN; } }
+
 void toggle_unit() { s_useF = !s_useF; if (s_unitCb) s_unitCb(s_useF); }
 bool unit_useF() { return s_useF; }
 void target_adjust(int deltaF) { if (s_targetCb) s_targetCb(deltaF); }
 void select_preset(uint8_t id) { if (s_presetCb) s_presetCb(id); show_home(); }
+void learn_cmd(uint8_t cmd) { if (s_learnCb) s_learnCb(cmd); }
 
 void root_update(const ThermalFrame& f, const PanReading& r, const UiState& s) {
   if (s_active == HOME) home_update(s, s_useF);
   else if (s_active == THERMAL) thermal_update(f, r, s_useF);
-  // presets screen is static; nothing to update per tick
+  else if (s_active == LEARN) learn_update(s);
+  // presets / idle screens are static; nothing to update per tick
 }
 
 }  // namespace ui

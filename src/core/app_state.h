@@ -6,8 +6,10 @@
 #include "core/thermal_model.h"
 #include "core/guidance.h"
 #include "core/presets.h"
+#include "core/recovery.h"
 
 enum class Mode : uint8_t { THERMOMETER, TARGET, PRESET };
+enum class LearnPhase : uint8_t { OFF, RECORDING, DONE };  // Learn Pan Mode (M6)
 
 struct UiState {
   Mode mode = Mode::TARGET;
@@ -28,4 +30,14 @@ struct UiState {
   int   etaSeconds = -1;    // -1 = estimating/unknown
   float projectedPeakF = 0;
   uint8_t presetId = PRESET_GENERIC;
+
+  // Recovery Monitor (M6)
+  bool recovering = false;
+  RecoveryHint recoveryHint = RecoveryHint::NONE;
+  bool addBatchPrompt = false;   // brief "add next batch" after recovery
+
+  // Learn Pan Mode (M6)
+  LearnPhase learnPhase = LearnPhase::OFF;
+  uint8_t learnProgress = 0;     // 0..100 while RECORDING
+  float learnedLagMinutes = 0;
 };

@@ -23,6 +23,7 @@ class SessionAccumulator {
   void begin(uint8_t presetId, uint32_t now_ms);
   // Advance with the latest reading + guidance state. dt is derived from t_ms.
   void update(const PanReading& r, GuidanceState g, uint32_t now_ms);
+  void foodAdded() { if (active_) ++s_.foodAddedCount; }
   SessionSummary finish(uint32_t now_ms);
   bool active() const { return active_; }
 

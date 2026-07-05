@@ -21,6 +21,7 @@
 #include "core/presets.h"
 #include "core/power.h"
 #include "core/session.h"
+#include "core/profiles.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
 #include "hal/storage.h"
@@ -55,6 +56,35 @@ void save_target() {
                           (int)g_target.warnF, g_presetId);
 }
 
+// Learn Pan Mode state (base spec §7 Phase 1.5). 0=off, 1=recording, 2=done.
+volatile uint8_t g_learn_phase = 0;
+volatile uint32_t g_learn_start = 0;
+volatile float g_learn_peak = 0;
+volatile float g_learned_lag = LAG_MINUTES_DEFAULT;
+volatile uint8_t g_learn_progress = 0;
+volatile float g_applied_lag = LAG_MINUTES_DEFAULT;  // fed to guidance
+
+void on_learn(uint8_t cmd) {
+  if (cmd == 1) {                       // primary: Start (off) or Save (done)
+    if (g_learn_phase == 0) {
+      g_learn_peak = 0; g_learn_progress = 0;
+      g_learn_start = millis(); g_learn_phase = 1;
+    } else if (g_learn_phase == 2) {
+      PanProfile p = make_profile("Pan", g_learn_peak);
+      hal::storage_save_profile(p);
+      g_applied_lag = p.lagMinutes;
+      g_learn_phase = 0;
+    }
+  } else if (cmd == 2) {                 // secondary: Cancel / Redo
+    if (g_learn_phase == 2) {
+      g_learn_peak = 0; g_learn_progress = 0;
+      g_learn_start = millis(); g_learn_phase = 1;   // redo
+    } else {
+      g_learn_phase = 0;                 // cancel
+    }
+  }
+}
+
 void fire_alert(AlertAction a) {
   switch (a) {
     case AlertAction::READY_CHIME:   hal::buzzer_play(hal::BuzzPattern::Long);   break;
@@ -69,11 +99,13 @@ void SensorTask(void*) {
   ThermalModel model;
   GuidanceEngine guidance;
   SessionAccumulator session;
+  RecoveryMonitor recovery;
   Target target;
   ThermalFrame frame;
   float prevSceneMax = -1000.0f;
   int risingCount = 0;
   uint32_t coolStart = 0;
+  uint32_t addBatchUntil = 0;
   for (;;) {
     if (!g_sensor_ok) {
       g_sensor_ok = sensor::mlx_begin();
@@ -95,8 +127,20 @@ void SensorTask(void*) {
       gi.confidence = r.confidence;
       gi.presence = r.presence;
       gi.moved = r.moved;
+      gi.lagMinutes = g_applied_lag;    // learned lag (Learn Pan Mode)
       GuidanceOutput go = guidance.step(gi, target, millis());
       fire_alert(go.alert);
+
+      // Learn Pan Mode recording: capture the peak heating rate over the window.
+      if (g_learn_phase == 1) {
+        g_learn_peak = std::max((float)g_learn_peak, gi.rateFPerMin);
+        const uint32_t el = millis() - g_learn_start;
+        g_learn_progress = (uint8_t)std::min(100u, el * 100u / LEARN_DURATION_MS);
+        if (el >= LEARN_DURATION_MS) {
+          g_learned_lag = learn_lag_from_rate(g_learn_peak);
+          g_learn_phase = 2;
+        }
+      }
 
       // Scene-hot + heating detection for power/wake (base spec §8).
       float sceneMax = frame.px[0][0];
@@ -109,8 +153,24 @@ void SensorTask(void*) {
       prevSceneMax = sceneMax;
       const bool heatingDetected = risingCount >= HEAT_WAKE_SAMPLES;
 
-      // Session lifecycle (§8): start on a hot pan, end when cool + stable.
       const uint32_t nowm = millis();
+
+      // Recovery Monitor (base spec §7.4): FOOD ADDED -> watch climb back.
+      RecoveryOut ro = recovery.update(gi.tempF, gi.rateFPerMin,
+                                       r.presence == PanPresence::PRESENT,
+                                       target.loF, preset(presetId).recoveryMonitor,
+                                       nowm);
+      if (ro.event == RecoveryEvent::FOOD_ADDED) {
+        session.foodAdded();
+        Serial.println("[recovery] food added");
+      } else if (ro.event == RecoveryEvent::RECOVERED) {
+        hal::buzzer_play(hal::BuzzPattern::Long);
+        addBatchUntil = nowm + 4000;
+        Serial.println("[recovery] pan recovered — add next batch");
+      }
+      const bool addBatch = nowm < addBatchUntil;
+
+      // Session lifecycle (§8): start on a hot pan, end when cool + stable.
       if (!session.active() && r.presence == PanPresence::PRESENT && sceneHot)
         session.begin(presetId, nowm);
       if (session.active()) {
@@ -138,11 +198,17 @@ void SensorTask(void*) {
       u.moved = r.moved;
       u.stainlessHint = r.stainlessHint;
       u.muted = hal::buzzer_is_muted();
-      u.guidance = go.state;
+      u.guidance = ro.recovering ? GuidanceState::RECOVERING : go.state;
       u.targetCenterF = target.centerF;
       u.presetId = presetId;
       u.etaSeconds = go.etaSeconds;
       u.projectedPeakF = go.projectedPeakF;
+      u.recovering = ro.recovering;
+      u.recoveryHint = ro.hint;
+      u.addBatchPrompt = addBatch;
+      u.learnPhase = (LearnPhase)g_learn_phase;
+      u.learnProgress = g_learn_progress;
+      u.learnedLagMinutes = g_learned_lag;
 
       if (xSemaphoreTake(g_snap_mtx, pdMS_TO_TICKS(20)) == pdTRUE) {
         g_snap.frame = frame; g_snap.reading = r; g_snap.ui = u;
@@ -204,8 +270,11 @@ void setup() {
     hal::storage_get_target(lo, hi, warn, pid);
     g_target.loF = lo; g_target.hiF = hi; g_target.warnF = warn;
     g_target.centerF = (lo + hi) / 2; g_presetId = (uint8_t)pid; }
+  { PanProfile pf;
+    if (hal::storage_load_profile(pf)) { g_applied_lag = pf.lagMinutes;
+      Serial.printf("[profile] loaded lag=%.2f min\n", pf.lagMinutes); } }
   ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
-                on_preset);
+                on_preset, on_learn);
 
   g_snap_mtx = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(SensorTask, "sensor", 8192, nullptr, 2, nullptr, 0);

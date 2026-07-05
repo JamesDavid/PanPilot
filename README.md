@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M4 (Presets + overshoot).** This README grows one section at a time as each
+> **Status: M6 — base spec complete (Phase 0–1.5).** This README grows one section at a time as each
 > milestone lands. Sections below marked _(coming in M#)_ aren't built yet.
 
 <p align="center">
@@ -161,9 +161,30 @@ food; nudging `–`/`+` afterward makes it a custom target.
 
 > _Synthesized simulator image; device photo to follow._
 
+### Recovery Monitor _(M6)_
+
+For batch cooking (pancakes, smash burgers), recovery-monitored presets watch for
+the **temperature drop when food hits the pan**, then track the climb back into
+the band and flash **“ADD NEXT BATCH”** with a chime when it's ready — so every
+batch starts at the same temperature. If the pan is climbing back too slowly it
+says *“Recovery slow — raise heat?”*; too fast, *“watch heat.”*
+
 ## 6. Food timer & cook database _(coming in M12.5)_
 ## 7. Attention levels — beep & flash patterns _(coming in M13)_
-## 8. Learn Pan Mode _(coming in M6)_
+## 8. Learn Pan Mode
+
+Different pans and burners overshoot by different amounts. **Learn Pan Mode**
+(open it from the preset picker) watches a pan heat up for 30 s, measures how fast
+it climbs, and stores a **learned thermal lag** so the overshoot prediction is
+tuned to *your* pan — not a generic guess.
+
+<p align="center">
+  <img src="docs/screenshots/learn.png" width="380"
+       alt="Learn Pan Mode: learned thermal lag 0.7 min, Save / Redo">
+</p>
+
+Tap **Start** with an empty pan on medium heat, leave it, and **Save** the result.
+From then on, guidance uses that pan's lag. _(Synthesized simulator image.)_
 ## 9. Web interface & Recipe Creator _(coming in M8 / M20)_
 ## 10. Home Assistant integration _(coming in M9)_
 ## 11. Autopilot & the SSR box _(coming in M14+)_

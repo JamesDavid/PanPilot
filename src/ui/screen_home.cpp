@@ -201,11 +201,16 @@ void home_update(const UiState& s, bool useF) {
     }
   }
 
-  // stainless banner (§7.5): preset asks for it, or the reading looks stainless
+  // note line: recovery hint (§7.4) takes priority over the stainless banner
   const bool stainless = preset(s.presetId).stainlessHints || s.stainlessHint;
-  lv_label_set_text(s_note, stainless
-                                ? "Bare stainless reads low - trust the trend"
-                                : "");
+  if (s.recovering && s.recoveryHint == RecoveryHint::SLOW)
+    lv_label_set_text(s_note, "Recovery slow - raise heat?");
+  else if (s.recovering && s.recoveryHint == RecoveryHint::FAST)
+    lv_label_set_text(s_note, "Recovering fast - watch heat");
+  else
+    lv_label_set_text(s_note, stainless
+                                  ? "Bare stainless reads low - trust the trend"
+                                  : "");
 
   // action bar
   const BarStyle bs = bar_for(s.guidance);
@@ -213,11 +218,21 @@ void home_update(const UiState& s, bool useF) {
   lv_obj_set_style_bg_opa(s_bar, LV_OPA_COVER, 0);
   lv_label_set_text(s_bar_lbl, bs.text);
 
-  // full-screen overlay for the loud states (§9.3)
+  // full-screen overlay for the loud states (§9.3). "Add next batch" (recovery
+  // complete, §7.4) takes priority.
   const bool loud = s.guidance == GuidanceState::READY ||
                     s.guidance == GuidanceState::TURN_DOWN_NOW ||
                     s.guidance == GuidanceState::TOO_HOT;
-  if (loud) {
+  if (s.addBatchPrompt) {
+    lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0x2E7D32), 0);
+    lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
+    lv_label_set_text(s_overlay_lbl, "ADD NEXT BATCH");
+    const float t = useF ? cToF(s.displayTempC) : s.displayTempC;
+    std::snprintf(buf, sizeof(buf), "pan recovered - %d\xC2\xB0%s",
+                  int(t + 0.5f), useF ? "F" : "C");
+    lv_label_set_text(s_overlay_sub, buf);
+    lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
+  } else if (loud) {
     lv_obj_set_style_bg_color(s_overlay, lv_color_hex(bs.color), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
     lv_label_set_text(s_overlay_lbl, bs.text);

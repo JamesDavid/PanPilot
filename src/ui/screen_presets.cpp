@@ -16,6 +16,7 @@ void card_cb(lv_event_t* e) {
   ui::select_preset(id);
 }
 void done_cb(lv_event_t*) { ui::show_home(); }
+void learn_cb(lv_event_t*) { ui::show_learn(); }
 
 }  // namespace
 
@@ -75,6 +76,15 @@ lv_obj_t* presets_create() {
   lv_obj_t* dl = lv_label_create(done);
   lv_label_set_text(dl, "Done");
   lv_obj_center(dl);
+
+  lv_obj_t* learn = lv_btn_create(scr);
+  lv_obj_set_size(learn, 200, 28);
+  lv_obj_align(learn, LV_ALIGN_BOTTOM_MID, 0, -2);
+  lv_obj_set_style_bg_color(learn, lv_color_hex(0x2A323C), 0);
+  lv_obj_add_event_cb(learn, learn_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* ll = lv_label_create(learn);
+  lv_label_set_text(ll, "Learn Pan Mode " LV_SYMBOL_RIGHT);
+  lv_obj_center(ll);
   return s_screen;
 }
 

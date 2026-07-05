@@ -90,6 +90,14 @@
 #define TARGET_WARN_OVER_F         100    // warn = center + this (clamped 650)
 #define TARGET_STEP_F              5       // adjuster step
 
+// ---- Recovery Monitor (base spec §7.4) -------------------------------------
+#define RECOVERY_SLOW_SEC          180     // projected recovery > 3 min -> SLOW
+#define RECOVERY_FAST_FMIN         60.0f   // recovering faster than this -> FAST
+#define FOOD_ADDED_WINDOW_MS       3000    // drop must occur within this (§6.4)
+
+// ---- Learn Pan Mode (base spec §7 Phase 1.5) -------------------------------
+#define LEARN_DURATION_MS          30000   // record heating for 30 s
+
 // ---- Power / idle / sessions (base spec §8) --------------------------------
 #define IDLE_TIMEOUT_MS            600000  // 10 min no touch + cool -> IDLE
 #define WAKE_TOUCH_MS              1500    // touch within this = wake
