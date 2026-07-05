@@ -4,6 +4,7 @@
 // on-device behavior is bench-tested (HARDWARE_TEST M8).
 #pragma once
 #if !defined(PANPILOT_SIM) && defined(ENABLE_WIFI)
+#include <Arduino.h>
 #include "core/app_state.h"
 #include "pan_types.h"
 
@@ -13,5 +14,6 @@ void loop();                  // housekeeping (portal + WS cleanup)
 void publishState(const UiState& s, bool useF);
 void publishThermal(const ThermalFrame& f);
 bool connected();
+String mqtt_broker();          // MQTT broker captured at provisioning ("" = off)
 }  // namespace net
 #endif

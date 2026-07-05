@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M8 — Wi-Fi + web dashboard (Phase 2).** This README grows one section at a time as each
+> **Status: M9 — MQTT + Home Assistant (Phase 2).** This README grows one section at a time as each
 > milestone lands. Sections below marked _(coming in M#)_ aren't built yet.
 
 <p align="center">
@@ -202,7 +202,20 @@ convenience mirror. _(Browser screenshot added from a live device; the page is
 served from the ESP32 so it can't be rendered by the simulator.)_
 
 _Recipe Creator arrives in M20._
-## 10. Home Assistant integration _(coming in M9)_
+## 10. Home Assistant integration _(M9)_
+
+Enter your **MQTT broker** address during Wi-Fi setup (optional field) and
+PanPilot appears in Home Assistant automatically via MQTT discovery — no YAML:
+
+- **Sensors:** pan temperature, rate, guidance state.
+- **Binary sensor:** pan present.
+- **Controls:** mute (switch), target (number), active preset (select) — all
+  commandable from HA.
+- **Availability** via an MQTT LWT, so HA shows PanPilot offline when it's off.
+
+Example automation: *flash the kitchen lights when guidance = “Too hot.”* Leave
+the broker field blank to keep MQTT off. _(Compile-verified; broker behavior is
+bench-tested — see HARDWARE_TEST M9.)_
 ## 11. Autopilot & the SSR box _(coming in M14+)_
 ## 12. Troubleshooting & FAQ _(grows per milestone)_
 

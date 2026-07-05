@@ -3,6 +3,7 @@
 // profiles, sessions in later milestones (all version-tagged).
 #pragma once
 #if !defined(PANPILOT_SIM)
+#include <Arduino.h>
 #include "core/session.h"
 #include "core/profiles.h"
 
@@ -22,6 +23,9 @@ bool storage_session_get(int newestIndex, SessionSummary& out);
 // Active pan profile (Learn Pan Mode, base spec §10).
 void storage_save_profile(const PanProfile& p);
 bool storage_load_profile(PanProfile& out);
+// MQTT broker (M9) — empty string disables MQTT/HA.
+String storage_get_mqtt_broker();
+void storage_set_mqtt_broker(const String& b);
 }  // namespace hal
 
 #endif

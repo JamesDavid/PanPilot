@@ -32,6 +32,7 @@
 #include "sensor/frame_analysis.h"
 #include "ui/ui_root.h"
 #include "net/net.h"
+#include "net/ha.h"
 
 namespace {
 
@@ -252,6 +253,20 @@ void on_preset(uint8_t id) {
   xSemaphoreGive(g_target_mtx);
 }
 
+// Absolute target set (used by the HA "target" number entity, M9).
+void on_target_abs(int centerF) {
+  if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) != pdTRUE) return;
+  g_target.setCenter(centerF);
+  g_presetId = PRESET_GENERIC;
+  save_target();
+  xSemaphoreGive(g_target_mtx);
+}
+
+void on_mute(bool m) {
+  hal::buzzer_set_muted(m);
+  hal::storage_set_muted(m);
+}
+
 const char* presence_str(PanPresence p) {
   switch (p) {
     case PanPresence::PRESENT: return "PRESENT";
@@ -291,6 +306,7 @@ void setup() {
 
 #if defined(ENABLE_WIFI)
   net::begin();   // Wi-Fi is a convenience mirror; cooking works without it
+  ha::begin(net::mqtt_broker().c_str(), 1883, on_mute, on_target_abs, on_preset);
 #endif
 
   hal::buzzer_play(hal::BuzzPattern::Chirp);
@@ -307,6 +323,7 @@ void loop() {
   hal::buzzer_update();
 #if defined(ENABLE_WIFI)
   net::loop();
+  ha::loop();
 #endif
 
   const uint32_t now = millis();
@@ -361,6 +378,11 @@ void loop() {
       lastPub = now;
       net::publishState(s.ui, ui::unit_useF());
       net::publishThermal(s.frame);
+    }
+    static uint32_t lastHa = 0;
+    if (s.has && now - lastHa >= 1000) {   // 1 Hz MQTT/HA state
+      lastHa = now;
+      ha::publish(s.ui, ui::unit_useF());
     }
 #endif
 

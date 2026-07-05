@@ -178,3 +178,16 @@ omits it for flash reasons). **Compile-verified; behavior is bench-tested here.*
 
 _Acceptance (roadmap M8): live temp + thermal view in a phone browser via
 `panpilot.local` during a real cook._
+
+## M9 — MQTT + Home Assistant
+
+Advance env. Enter an MQTT broker in the Wi-Fi setup portal (blank = MQTT off).
+**Compile-verified; needs a broker + HA to exercise.**
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 9.1 | Set broker, reboot | Serial `[ha] MQTT connected, discovery published` | ☐ |
+| 9.2 | Open Home Assistant | A **PanPilot** device appears with temp/rate/guidance/pan sensors | ☐ |
+| 9.3 | Controls | Mute (switch), Target (number), Preset (select) work from HA | ☐ |
+| 9.4 | Availability | Powering PanPilot off shows the entities *unavailable* (LWT) | ☐ |
+| 9.5 | Automation | An HA automation on guidance = “Too hot” (e.g. flash lights) fires | ☐ |

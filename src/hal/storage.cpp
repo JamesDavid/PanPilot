@@ -74,5 +74,8 @@ bool storage_load_profile(PanProfile& out) {
          out.valid;
 }
 
+String storage_get_mqtt_broker() { ensure(); return s_prefs.getString("mqtt", ""); }
+void storage_set_mqtt_broker(const String& b) { ensure(); s_prefs.putString("mqtt", b); }
+
 }  // namespace hal
 #endif

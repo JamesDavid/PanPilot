@@ -10,6 +10,7 @@
 
 #include "web_assets.h"
 #include "core/thermal_model.h"
+#include "hal/storage.h"
 
 namespace net {
 namespace {
@@ -55,9 +56,14 @@ void begin() {
   char ap[20];
   snprintf(ap, sizeof(ap), "PanPilot-%04X",
            (uint16_t)(ESP.getEfuseMac() & 0xFFFF));
+  static WiFiManagerParameter mqttParam("mqtt", "MQTT broker (optional)",
+                                        hal::storage_get_mqtt_broker().c_str(), 40);
+  s_wm.addParameter(&mqttParam);
   s_wm.setConfigPortalBlocking(false);
   s_wm.setConfigPortalTimeout(180);
   s_portal = !s_wm.autoConnect(ap);      // opens captive portal if unprovisioned
+  if (strlen(mqttParam.getValue()) > 0)
+    hal::storage_set_mqtt_broker(mqttParam.getValue());
 
   if (MDNS.begin("panpilot")) MDNS.addService("http", "tcp", 80);
 
@@ -77,6 +83,7 @@ void loop() {
 }
 
 bool connected() { return WiFi.status() == WL_CONNECTED; }
+String mqtt_broker() { return hal::storage_get_mqtt_broker(); }
 
 void publishState(const UiState& s, bool useF) {
   if (s_ws.count() == 0) return;
