@@ -9,8 +9,15 @@ instrumented cookware, no phone.
 > **Status: M0 (board bring-up).** This README grows one section at a time as each
 > milestone lands. Sections below marked _(coming in M#)_ aren't built yet.
 
-> _Screenshots are rendered in CI by the LVGL simulator and appear here starting
-> with the M0 bring-up screen — see `docs/screenshots/`._
+<p align="center">
+  <img src="docs/screenshots/m0/home.png" width="420"
+       alt="PanPilot M0 bring-up screen: title, version, BEEP button">
+</p>
+
+> 🖼️ **UI images are synthesized placeholders** — rendered by the LVGL
+> simulator (`python scripts/screenshots.py`), not photos of a real panel. They
+> show the actual on-device layout and will be swapped for device photos once
+> the hardware is in hand. New screens appear here as each milestone lands.
 
 ---
 

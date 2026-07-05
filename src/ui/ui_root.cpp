@@ -30,7 +30,7 @@ void root_init() {
 
   // Version / subtitle
   lv_obj_t* ver = lv_label_create(scr);
-  lv_label_set_text(ver, "M0 bring-up  \xc2\xb7  " PANPILOT_FW_VERSION);
+  lv_label_set_text(ver, "M0 bring-up  -  " PANPILOT_FW_VERSION);
   lv_obj_set_style_text_color(ver, lv_color_hex(0x8A93A0), LV_PART_MAIN);
   lv_obj_align_to(ver, title, LV_ALIGN_OUT_BOTTOM_MID, 0, 8);
 

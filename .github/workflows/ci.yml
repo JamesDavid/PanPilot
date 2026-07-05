@@ -32,6 +32,8 @@ jobs:
           key: pio-native-${{ hashFiles('platformio.ini') }}
       - run: pip install --quiet platformio
       - run: pio test -e native -v
+      - name: Simulator compiles (screenshot renderer)
+        run: pio run -e sim
 
   # ---- firmware build + merged flashable image per variant ----
   build:
@@ -68,7 +70,9 @@ jobs:
   # ---- publish the ESP Web Tools flasher to GitHub Pages ----
   pages:
     needs: [build, native-test]
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/milestone/')
+    # Deploy only from main: the github-pages environment blocks tag refs, and
+    # main already reflects the tagged commit at tag time (equivalent output).
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
