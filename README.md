@@ -10,8 +10,8 @@ instrumented cookware, no phone.
 > milestone lands. Sections below marked _(coming in M#)_ aren't built yet.
 
 <p align="center">
-  <img src="docs/screenshots/m0/home.png" width="420"
-       alt="PanPilot M0 bring-up screen: title, version, BEEP button">
+  <img src="docs/screenshots/m2/home.png" width="420"
+       alt="PanPilot home screen: large pan temperature, rate + trend, state">
 </p>
 
 > 🖼️ **UI images are synthesized placeholders** — rendered by the LVGL
@@ -103,7 +103,31 @@ by moving the sensor head until the pan sits under the center crosshair.
 **Confidence:** every screen shows a confidence indicator. Bare stainless reads
 low and reflective, so PanPilot caps confidence and leans on the temperature
 *trend* rather than the absolute number (add oil/water for a true reading).
-## 5. Modes: Thermometer, Target Assist, Presets _(coming in M2–M4)_
+## 5. Modes: Thermometer, Target Assist, Presets
+
+### Thermometer Mode _(M2)_
+
+The default screen. It shows the **smoothed** pan-surface temperature (big
+numeral), the **rate of change** with a trend arrow, and a one-word state:
+
+<p align="center">
+  <img src="docs/screenshots/m2/home.png" width="360"
+       alt="Thermometer Mode: 337°F, +14°F/min rising, Heating">
+</p>
+
+- **Smoothed, not jumpy:** the number is exponentially smoothed (~2 s), so it
+  reads steadily while the raw sensor flickers. The **rate** (°/min) is a
+  least-squares fit over the last 10 s — it says *estimating…* until it has
+  enough data.
+- **Trend arrow + state:** ▲ Heating / Heating fast, ▼ Cooling, – Stable.
+- **No pan / Check aim:** shows *“No pan — aim the sensor”* when nothing pan-like
+  is in view, or *“Check aim”* if the pan suddenly jumps in the frame.
+- **°F / °C** toggle (top-right) is remembered across reboots. Tap the big
+  temperature to open the [thermal view](#4-first-boot--aiming).
+
+> _Synthesized simulator image; device photo to follow._
+
+### Target Assist & Presets _(coming in M3–M4)_
 ## 6. Food timer & cook database _(coming in M12.5)_
 ## 7. Attention levels — beep & flash patterns _(coming in M13)_
 ## 8. Learn Pan Mode _(coming in M6)_

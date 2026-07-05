@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "core/thermal_palette.h"
+#include "ui/ui_root.h"
 
 namespace ui {
 namespace {
@@ -17,6 +18,7 @@ constexpr int IMG_H = THERM_ROWS * SCALE;       // 288
 constexpr int OX = (480 - IMG_W) / 2;           // image origin on screen
 constexpr int OY = 8;
 
+lv_obj_t* s_screen = nullptr;
 lv_obj_t* s_canvas = nullptr;
 lv_color_t s_cbuf[THERM_COLS * THERM_ROWS];     // 32x24 RGB565 (1.5 KB)
 lv_obj_t* s_roi = nullptr;
@@ -28,10 +30,14 @@ lv_obj_t* s_hint_lbl = nullptr;
 
 inline float cToF(float c) { return c * 9.0f / 5.0f + 32.0f; }
 
+void done_cb(lv_event_t*) { ui::show_home(); }
+
 }  // namespace
 
-void thermal_create() {
-  lv_obj_t* scr = lv_scr_act();
+lv_obj_t* thermal_create() {
+  if (s_screen) return s_screen;
+  lv_obj_t* scr = lv_obj_create(nullptr);
+  s_screen = scr;
   lv_obj_set_style_bg_color(scr, lv_color_hex(0x0A0C0F), LV_PART_MAIN);
 
   s_canvas = lv_canvas_create(scr);
@@ -78,6 +84,17 @@ void thermal_create() {
   s_hint_lbl = lv_label_create(scr);
   lv_obj_set_style_text_font(s_hint_lbl, &lv_font_montserrat_20, 0);
   lv_obj_align(s_hint_lbl, LV_ALIGN_BOTTOM_MID, 0, -8);
+
+  // Done -> back to home (base spec §9.2)
+  lv_obj_t* done = lv_btn_create(scr);
+  lv_obj_set_size(done, 84, 44);
+  lv_obj_align(done, LV_ALIGN_TOP_RIGHT, -6, 6);
+  lv_obj_add_event_cb(done, done_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* dl = lv_label_create(done);
+  lv_label_set_text(dl, "Done");
+  lv_obj_center(dl);
+
+  return s_screen;
 }
 
 void thermal_update(const ThermalFrame& f, const PanReading& r, bool useF) {

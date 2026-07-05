@@ -63,3 +63,11 @@
 #define STAINLESS_CONF_CAP         50     // ...caps confidence, sets hint (§6.3)
 #define MOVED_JUMP_PX              4       // centroid jump -> PAN MOVED (§6.4)
 #define FOOD_DROP_C                15.0f  // panTemp drop -> FOOD ADDED (§6.4)
+
+// ---- Thermal model: smoothing / rate / trend (base spec §7.1, §6.2) --------
+#define SMOOTH_ALPHA               0.12f  // exp-smoothing, ~2 s tau at 4 Hz
+#define RATE_WINDOW_MS             10000  // least-squares slope window (§7.1)
+#define RATE_MIN_SPAN_MS           5000   // need >=5 s present data for a rate
+// Trend thresholds, °F/min (base spec §6.2): stable <5, slow 5-20, fast >=20.
+#define TREND_STABLE_FMIN          5.0f
+#define TREND_SLOW_FMIN            20.0f

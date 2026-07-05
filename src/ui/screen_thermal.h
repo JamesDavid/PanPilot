@@ -1,16 +1,12 @@
-// screen_thermal.h — live thermal view: the aiming + ROI screen that replaces
-// the laser (base spec §9.2). Portable LVGL (no Arduino), so the simulator
-// renders the identical view from a synthetic frame.
+// screen_thermal.h — live thermal view: aiming + ROI screen (base spec §9.2).
+// Portable LVGL; owns its own screen object (ui_root switches between screens).
 #pragma once
+#include <lvgl.h>
 #include "pan_types.h"
 
 namespace ui {
 
-// Build the thermal screen objects on the active screen (call once).
-void thermal_create();
-
-// Repaint the false-color image + overlays (crosshair, ROI, panTemp, aim hint)
-// from a frame + its analysis. `useF` selects °F vs °C for the label.
+lv_obj_t* thermal_create();     // build + return the thermal screen object
 void thermal_update(const ThermalFrame& f, const PanReading& r, bool useF);
 
 }  // namespace ui

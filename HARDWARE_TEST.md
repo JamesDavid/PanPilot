@@ -61,4 +61,17 @@ Flash `crowpanel35_advance`. **Wire the MLX90640 first** (see wiring note below)
 **Wiring (MLX90640 → CrowPanel Advance I²C header):** VIN→3V3, GND→GND,
 SDA→GPIO15, SCL→GPIO16. Keep the lead ≤ 30 cm for 400 kHz–1 MHz margin.
 
-## M2 — Thermometer Mode _(added when M2 lands)_
+## M2 — Thermometer Mode
+
+Flash `crowpanel35_advance` (sensor wired).
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 2.1 | Heat a pan, watch the home screen | Big temperature rises **smoothly** (no jitter/jumping) | ☐ |
+| 2.2 | Rate line | Shows *estimating…* first, then e.g. `▲ 40°F/min`; arrow matches reality | ☐ |
+| 2.3 | State text | “Heating”/“Heating fast” while rising, “Stable” when steady, “Cooling” off-heat | ☐ |
+| 2.4 | Remove the pan | Within ~3 s shows `--` and “No pan — aim the sensor” | ☐ |
+| 2.5 | Jerk the sensor head | “Check aim” appears briefly | ☐ |
+| 2.6 | Tap the temperature | Opens the thermal view; **Done** returns home | ☐ |
+| 2.7 | Tap °F/°C | Units switch everywhere; **reboot** → the choice persists (NVS) | ☐ |
+| 2.8 | Accuracy sanity | Steady-state reading tracks a reference thermometer within a few °C | ☐ |

@@ -15,8 +15,10 @@
 #include <vector>
 
 #include "hal/buzzer.h"
-#include "ui/ui_root.h"
+#include "ui/screen_home.h"
 #include "ui/screen_thermal.h"
+#include "core/app_state.h"
+#include "core/thermal_model.h"
 #include "sensor/frame_analysis.h"
 #include <cmath>
 #include <string>
@@ -102,10 +104,28 @@ int main(int argc, char** argv) {
     ThermalFrame f = synth_pan();
     FrameAnalyzer fa;
     PanReading r = fa.process(f);
-    ui::thermal_create();
+    lv_scr_load(ui::thermal_create());
     ui::thermal_update(f, r, /*useF=*/true);
-  } else {
-    ui::root_init();
+  } else {  // "home" — Thermometer Mode with a heating pan
+    ThermalFrame f = synth_pan();
+    FrameAnalyzer fa;
+    ThermalModel tm;
+    for (uint32_t t = 0; t <= 12000; t += 250) {   // realistic preheat ramp
+      PanReading r = fa.process(f);
+      r.panTempC = 168.0f + 8.0f * (t / 60000.0f); // ~168 C, +8 C/min (~14 F/min)
+      r.t_ms = t;
+      tm.update(r);
+    }
+    PanReading r = fa.process(f);
+    UiState u;
+    u.presence = PanPresence::PRESENT;
+    u.modelValid = tm.valid();
+    u.displayTempC = tm.displayTempC();
+    u.rateCPerMin = tm.rateCPerMin();
+    u.trend = tm.trend();
+    u.confidence = r.confidence;
+    lv_scr_load(ui::home_create());
+    ui::home_update(u, /*useF=*/true);
   }
 
   // Pump LVGL until fully drawn (static screen settles in a few passes).

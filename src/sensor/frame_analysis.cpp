@@ -146,6 +146,7 @@ PanReading FrameAnalyzer::process(const ThermalFrame& f) {
   }
   prev_cx_ = cx; prev_cy_ = cy; have_prev_ = true;
   r.roiCx = cx; r.roiCy = cy;
+  r.moved = (jump > MOVED_JUMP_PX);   // fast centroid jump -> CHECK AIM (§6.4)
 
   // Confidence (§6.3): blob area adequacy + tight interior spread + stability.
   const float spread = pmax - pmin;

@@ -30,5 +30,6 @@ struct PanReading {
   uint8_t confidence;   // 0..100 (§6.3)
   PanPresence presence;
   bool stainlessHint;   // reflective-stainless signature (§6.3 / §7.5)
+  bool moved;           // centroid jumped > threshold -> CHECK AIM (§6.4)
   uint32_t t_ms;
 };

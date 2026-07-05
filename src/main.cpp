@@ -1,7 +1,8 @@
 // main.cpp — PanPilot entry point (base spec §3: setup + task spawn only).
-// M1: thermal pipeline. SensorTask (core 0) reads the MLX90640, runs
-// frame_analysis, and publishes a PanReading + frame snapshot; the UI loop
-// (core 1) renders the live thermal view and serial-dumps PanReading (§4).
+// M2: Thermometer Mode. SensorTask (core 0) reads the MLX90640, runs
+// frame_analysis + thermal_model, and publishes a UiState snapshot; the UI loop
+// (core 1) renders the home screen (temp/rate/trend) with the thermal view one
+// tap away, and dumps readings over serial.
 #if !defined(PANPILOT_SIM)
 
 #include <Arduino.h>
@@ -13,19 +14,22 @@
 #include "app_config.h"
 #include "board_pins.h"
 #include "pan_types.h"
+#include "core/app_state.h"
+#include "core/thermal_model.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
+#include "hal/storage.h"
 #include "hal/i2c_bus.h"
 #include "sensor/mlx90640_source.h"
 #include "sensor/frame_analysis.h"
-#include "ui/screen_thermal.h"
+#include "ui/ui_root.h"
 
 namespace {
 
-// Snapshot shared SensorTask -> UI (double-copy under a short mutex, §4).
 struct Snapshot {
   ThermalFrame frame;
   PanReading reading;
+  UiState ui;
   bool has = false;
 } g_snap;
 SemaphoreHandle_t g_snap_mtx = nullptr;
@@ -33,6 +37,7 @@ volatile bool g_sensor_ok = false;
 
 void SensorTask(void*) {
   FrameAnalyzer analyzer;
+  ThermalModel model;
   ThermalFrame frame;
   const TickType_t period = pdMS_TO_TICKS(1000 / MLX_REFRESH_HZ);
   for (;;) {
@@ -43,16 +48,30 @@ void SensorTask(void*) {
     }
     if (sensor::mlx_read(frame)) {
       PanReading r = analyzer.process(frame);
+      model.update(r);
+
+      UiState u;
+      u.mode = Mode::THERMOMETER;
+      u.presence = r.presence;
+      u.modelValid = model.valid();
+      u.displayTempC = model.displayTempC();
+      u.rateCPerMin = model.rateCPerMin();
+      u.trend = model.trend();
+      u.confidence = r.confidence;
+      u.moved = r.moved;
+      u.stainlessHint = r.stainlessHint;
+      u.muted = hal::buzzer_is_muted();
+
       if (xSemaphoreTake(g_snap_mtx, pdMS_TO_TICKS(20)) == pdTRUE) {
-        g_snap.frame = frame;
-        g_snap.reading = r;
-        g_snap.has = true;
+        g_snap.frame = frame; g_snap.reading = r; g_snap.ui = u; g_snap.has = true;
         xSemaphoreGive(g_snap_mtx);
       }
     }
     vTaskDelay(period);
   }
 }
+
+void persist_unit(bool useF) { hal::storage_set_unit_useF(useF); }
 
 const char* presence_str(PanPresence p) {
   switch (p) {
@@ -71,15 +90,18 @@ void setup() {
   Serial.printf("\n[PanPilot] %s  fw=%s\n", BOARD_NAME, PANPILOT_FW_VERSION);
 
   hal::i2c_bus_init();
+  hal::storage_begin();
   hal::display_begin();
   hal::buzzer_begin();
-  ui::thermal_create();
+  hal::buzzer_set_muted(hal::storage_get_muted());
+
+  ui::root_init(hal::storage_get_unit_useF(), persist_unit);
 
   g_snap_mtx = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(SensorTask, "sensor", 8192, nullptr, 2, nullptr, 0);
 
   hal::buzzer_play(hal::BuzzPattern::Chirp);
-  Serial.println("[PanPilot] M1 ready — live thermal view");
+  Serial.println("[PanPilot] M2 ready — Thermometer Mode");
 }
 
 void loop() {
@@ -96,12 +118,12 @@ void loop() {
       xSemaphoreGive(g_snap_mtx);
     }
     if (s.has) {
-      ui::thermal_update(s.frame, s.reading, /*useF=*/true);
+      ui::root_update(s.frame, s.reading, s.ui);
       const PanReading& r = s.reading;
-      Serial.printf("[reading] %s pan=%.1fC (%.0fF) conf=%u roi=%u c=(%.1f,%.1f)%s\n",
-                    presence_str(r.presence), r.panTempC,
-                    r.panTempC * 9 / 5 + 32, r.confidence, r.roiPixelCount,
-                    r.roiCx, r.roiCy, r.stainlessHint ? " STAINLESS?" : "");
+      Serial.printf("[reading] %s pan=%.1fC disp=%.1fC rate=%.1fC/min conf=%u%s\n",
+                    presence_str(r.presence), r.panTempC, s.ui.displayTempC,
+                    s.ui.rateCPerMin, r.confidence,
+                    r.stainlessHint ? " STAINLESS?" : "");
     }
   }
   delay(UI_TICK_MS);

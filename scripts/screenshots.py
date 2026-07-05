@@ -17,8 +17,8 @@ from PIL import Image
 
 # (scene-id passed to sim_main, output PNG relative to repo root)
 SCENES = [
-    ("home", "docs/screenshots/m0/home.png"),
-    ("thermal", "docs/screenshots/m1/thermal.png"),
+    ("home", "docs/screenshots/m2/home.png"),      # Thermometer Mode home
+    ("thermal", "docs/screenshots/m1/thermal.png"),  # live thermal view
 ]
 
 ROOT = Path(__file__).resolve().parents[1]
