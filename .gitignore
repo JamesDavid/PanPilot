@@ -1,0 +1,30 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+*.pyc
+__pycache__/
+
+# Build artifacts — release .bin/.uf2 are published by CI to Pages, not committed
+*.bin
+*.elf
+*.map
+*.o
+*.a
+!web/firmware/**        # except merged flasher binaries staged for Pages, if any
+
+# Simulator build output
+sim/build/
+*.exe
+
+# Editor / OS junk
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local secrets / device-specific
+*.local
+secrets.h

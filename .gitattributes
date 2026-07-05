@@ -1,0 +1,9 @@
+# Normalize line endings: LF in the repo for all text, so CI (Linux) and the
+# Windows bench agree. Binary assets are marked so git never munges them.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.zip binary
+*.bin binary
+*.uf2 binary

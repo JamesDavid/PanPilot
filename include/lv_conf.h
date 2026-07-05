@@ -1,0 +1,58 @@
+// lv_conf.h — LVGL 8.3 configuration for PanPilot (base spec §9).
+// Compact config: 16-bit color, custom tick, snapshot API on (screenshots).
+#pragma once
+#if 1  // enable content
+
+#include <stdint.h>
+
+// ---- Color ----
+#define LV_COLOR_DEPTH        16
+#define LV_COLOR_16_SWAP      1     // SPI ILI9488 wants byte-swapped RGB565
+
+// ---- Memory ----
+#define LV_MEM_CUSTOM         0
+#define LV_MEM_SIZE           (48U * 1024U)   // internal LVGL heap
+
+// ---- HAL / tick ----
+// We drive lv_tick_inc() from a millis()-based hook in ui_root (base spec §4).
+#define LV_TICK_CUSTOM                1
+#define LV_TICK_CUSTOM_INCLUDE        "lvgl_tick_hook.h"
+#define LV_TICK_CUSTOM_SYS_TIME_EXPR  (panpilot_millis())
+
+#define LV_DPI_DEF            160
+
+// ---- Features ----
+#define LV_USE_SNAPSHOT      1     // kickoff: screenshot capture in the simulator
+#define LV_USE_LOG           1
+#if LV_USE_LOG
+  #define LV_LOG_LEVEL       LV_LOG_LEVEL_WARN
+  #define LV_LOG_PRINTF      1
+#endif
+
+#define LV_USE_PERF_MONITOR  0
+#define LV_USE_MEM_MONITOR   0
+#define LV_USE_ASSERT_NULL   1
+#define LV_USE_ASSERT_MALLOC 1
+
+// ---- Fonts (kitchen-distance huge numerals, base spec §9) ----
+#define LV_FONT_MONTSERRAT_14 1
+#define LV_FONT_MONTSERRAT_20 1
+#define LV_FONT_MONTSERRAT_28 1
+#define LV_FONT_MONTSERRAT_48 1
+#define LV_FONT_DEFAULT &lv_font_montserrat_20
+
+// ---- Widgets used through M0..M6 ----
+#define LV_USE_LABEL   1
+#define LV_USE_BTN     1
+#define LV_USE_BAR     1
+#define LV_USE_SLIDER  1
+#define LV_USE_ARC     1
+#define LV_USE_IMG     1
+#define LV_USE_CANVAS  1     // thermal view (M1)
+#define LV_USE_CHART   1     // last-cook sparkline (M11)
+
+// ---- Theme ----
+#define LV_USE_THEME_DEFAULT 1
+#define LV_THEME_DEFAULT_DARK 1
+
+#endif // enable content
