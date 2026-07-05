@@ -16,6 +16,7 @@ namespace {
 lv_obj_t* s_screen = nullptr;
 lv_obj_t* s_mode = nullptr;
 lv_obj_t* s_conf = nullptr;
+lv_obj_t* s_batt = nullptr;
 lv_obj_t* s_unit_btn_lbl = nullptr;
 lv_obj_t* s_target_lbl = nullptr;
 lv_obj_t* s_temp = nullptr;
@@ -89,7 +90,12 @@ lv_obj_t* home_create() {
   s_conf = lv_label_create(scr);
   lv_obj_set_style_text_color(s_conf, lv_color_hex(0x8A93A0), 0);
   lv_obj_set_style_text_font(s_conf, &lv_font_montserrat_14, 0);
-  lv_obj_align(s_conf, LV_ALIGN_TOP_RIGHT, -80, 10);
+  lv_obj_align(s_conf, LV_ALIGN_TOP_RIGHT, -142, 10);
+
+  s_batt = lv_label_create(scr);
+  lv_obj_set_style_text_color(s_batt, lv_color_hex(0x8A93A0), 0);
+  lv_obj_set_style_text_font(s_batt, &lv_font_montserrat_14, 0);
+  lv_obj_align(s_batt, LV_ALIGN_TOP_RIGHT, -80, 10);
 
   lv_obj_t* ubtn = mk_btn(scr, "\xC2\xB0" "F", unit_cb, 62, 30);
   lv_obj_align(ubtn, LV_ALIGN_TOP_RIGHT, -8, 6);
@@ -165,6 +171,18 @@ void home_update(const UiState& s, bool useF) {
   std::snprintf(buf, sizeof(buf), "conf %u%%", s.confidence);
   lv_label_set_text(s_conf, buf);
 
+  if (s.battery.valid) {
+    std::snprintf(buf, sizeof(buf), "%s %u%%",
+                  s.battery.usbPresent ? LV_SYMBOL_CHARGE : LV_SYMBOL_BATTERY_2,
+                  s.battery.soc);
+    lv_label_set_text(s_batt, buf);
+    lv_obj_set_style_text_color(
+        s_batt, lv_color_hex(s.battery.soc <= 15 && !s.battery.usbPresent
+                                 ? 0xE07000 : 0x8A93A0), 0);
+  } else {
+    lv_label_set_text(s_batt, s.battery.usbPresent ? LV_SYMBOL_USB : "");
+  }
+
   std::snprintf(buf, sizeof(buf), "%s " LV_SYMBOL_LIST, preset(s.presetId).name);
   lv_label_set_text(s_mode, buf);
   const int tgt = useF ? s.targetCenterF : int((s.targetCenterF - 32) * 5 / 9);
@@ -223,7 +241,13 @@ void home_update(const UiState& s, bool useF) {
   const bool loud = s.guidance == GuidanceState::READY ||
                     s.guidance == GuidanceState::TURN_DOWN_NOW ||
                     s.guidance == GuidanceState::TOO_HOT;
-  if (s.addBatchPrompt) {
+  if (s.pluginWarning) {
+    lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0xC62828), 0);
+    lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
+    lv_label_set_text(s_overlay_lbl, "PLUG ME IN");
+    lv_label_set_text(s_overlay_sub, "battery critical");
+    lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
+  } else if (s.addBatchPrompt) {
     lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0x2E7D32), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
     lv_label_set_text(s_overlay_lbl, "ADD NEXT BATCH");

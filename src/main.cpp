@@ -22,10 +22,12 @@
 #include "core/power.h"
 #include "core/session.h"
 #include "core/profiles.h"
+#include "core/battery.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
 #include "hal/storage.h"
 #include "hal/i2c_bus.h"
+#include "hal/power.h"
 #include "sensor/mlx90640_source.h"
 #include "sensor/frame_analysis.h"
 #include "ui/ui_root.h"
@@ -43,6 +45,10 @@ struct Snapshot {
 SemaphoreHandle_t g_snap_mtx = nullptr;
 volatile bool g_sensor_ok = false;
 volatile bool g_idle = false;   // set by UI loop, read by SensorTask (cadence)
+
+// Battery (M7) — polled in the UI loop; snapshotted into UiState by SensorTask.
+BatteryState g_batt;
+volatile bool g_pluginWarn = false;
 
 // Target owned by the logic layer; UI sends adjust/select commands (base spec
 // §7.3). Guarded because SensorTask (core 0) reads it while UI callbacks (loop,
@@ -209,6 +215,8 @@ void SensorTask(void*) {
       u.learnPhase = (LearnPhase)g_learn_phase;
       u.learnProgress = g_learn_progress;
       u.learnedLagMinutes = g_learned_lag;
+      u.battery = g_batt;
+      u.pluginWarning = g_pluginWarn;
 
       if (xSemaphoreTake(g_snap_mtx, pdMS_TO_TICKS(20)) == pdTRUE) {
         g_snap.frame = frame; g_snap.reading = r; g_snap.ui = u;
@@ -261,6 +269,7 @@ void setup() {
 
   hal::i2c_bus_init();
   hal::storage_begin();
+  hal::power_begin();
   hal::display_begin();
   hal::buzzer_begin();
   hal::buzzer_set_muted(hal::storage_get_muted());
@@ -285,12 +294,28 @@ void setup() {
 
 void loop() {
   static uint32_t last = 0;
+  static uint32_t lastBatt = 0;
   static PowerFsm power;
   static PowerState prevPower = PowerState::ACTIVE;
+  static BatteryMonitor battMon;
   lv_timer_handler();
   hal::buzzer_update();
 
   const uint32_t now = millis();
+
+  // Poll the fuel gauge every 2 s (roadmap §2.1).
+  if (now - lastBatt >= 2000) {
+    lastBatt = now;
+    g_batt = hal::power_read();
+    BattEvent be = battMon.update(g_batt);
+    if (be == BattEvent::LOW_BATT) Serial.println("[batt] low");
+    else if (be == BattEvent::CRITICAL) {
+      g_pluginWarn = true;
+      hal::buzzer_play(hal::BuzzPattern::Alarm);   // distinct urgent pattern
+      Serial.println("[batt] CRITICAL — PLUG ME IN");
+    }
+    if (g_batt.usbPresent) g_pluginWarn = false;    // cleared once plugged in
+  }
   if (now - last >= 250) {          // 4 Hz UI refresh + serial dump
     last = now;
     Snapshot s;
@@ -308,7 +333,10 @@ void loop() {
         hal::display_set_brightness(BACKLIGHT_IDLE_BRIGHT);
         ui::show_idle();
       } else {
-        hal::display_set_brightness(BACKLIGHT_ACTIVE_BRIGHT);
+        // Dimmer on battery to save power (roadmap §2.1).
+        hal::display_set_brightness(g_batt.valid && !g_batt.usbPresent
+                                        ? BACKLIGHT_BATTERY_BRIGHT
+                                        : BACKLIGHT_ACTIVE_BRIGHT);
         ui::show_home();
       }
       prevPower = ps;

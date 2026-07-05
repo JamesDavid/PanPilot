@@ -7,6 +7,7 @@
 #include "core/guidance.h"
 #include "core/presets.h"
 #include "core/recovery.h"
+#include "core/battery.h"
 
 enum class Mode : uint8_t { THERMOMETER, TARGET, PRESET };
 enum class LearnPhase : uint8_t { OFF, RECORDING, DONE };  // Learn Pan Mode (M6)
@@ -40,4 +41,8 @@ struct UiState {
   LearnPhase learnPhase = LearnPhase::OFF;
   uint8_t learnProgress = 0;     // 0..100 while RECORDING
   float learnedLagMinutes = 0;
+
+  // Battery / power (M7)
+  BatteryState battery;
+  bool pluginWarning = false;    // critical battery mid-cook -> "PLUG ME IN"
 };

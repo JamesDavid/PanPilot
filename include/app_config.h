@@ -98,6 +98,13 @@
 // ---- Learn Pan Mode (base spec §7 Phase 1.5) -------------------------------
 #define LEARN_DURATION_MS          30000   // record heating for 30 s
 
+// ---- Battery / power subsystem (roadmap spec §2.1) -------------------------
+#define BATTERY_LOW_PCT            15      // low-battery event threshold
+#define BATTERY_CRITICAL_PCT      5       // critical threshold
+#define BATTERY_REARM_PCT         3       // rise this far above to re-arm event
+#define BACKLIGHT_BATTERY_BRIGHT  178     // ~70% on battery (roadmap §2.1)
+#define MAX17048_I2C_ADDR         0x36    // fuel gauge (shared I2C bus)
+
 // ---- Power / idle / sessions (base spec §8) --------------------------------
 #define IDLE_TIMEOUT_MS            600000  // 10 min no touch + cool -> IDLE
 #define WAKE_TOUCH_MS              1500    // touch within this = wake

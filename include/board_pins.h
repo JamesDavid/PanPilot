@@ -91,6 +91,7 @@
 
   // Battery ADC — not documented by Elecrow; set once measured. -1 = none yet.
   #define BATTERY_ADC_PIN         -1
+  #define BATTERY_USB_DETECT_PIN  -1    // GPIO high when USB present; -1 = n/a
 
   #define CAP_DISPLAY_BUS_SPI     1
   #define CAP_DISPLAY_BUS_RGB     0

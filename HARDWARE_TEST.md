@@ -138,3 +138,26 @@ device announces “Add next batch” correctly for 3 consecutive batches.
 | 6.6 | Learn Pan → Start (empty pan, MEDIUM) | Progress bar fills over 30 s | ☐ |
 | 6.7 | Learn Pan → Save | Shows learned lag; serial `[profile] loaded lag=…` after reboot | ☐ |
 | 6.8 | Overshoot after learning | TURN DOWN NOW timing reflects the learned lag (vs generic) | ☐ |
+
+---
+# PHASE 2
+
+## M7 — Power & Battery
+
+Requires the battery add-ons (roadmap §2.1): 1S LiPo, charge/protect board,
+MAX17048 fuel gauge on the shared I²C bus, optional USB-detect GPIO. The firmware
+degrades gracefully to “USB, unknown SoC” when no gauge is fitted.
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 7.1 | Fit the MAX17048, boot | Home status bar shows a battery % (or ⚡ on USB) | ☐ |
+| 7.2 | Unplug mid-cook | Device keeps guiding; SoC reads plausibly; backlight dims to ~70% | ☐ |
+| 7.3 | Discharge to ≤15% | Serial `[batt] low` | ☐ |
+| 7.4 | Discharge to ≤5% | Full-screen red **“PLUG ME IN”** + urgent alarm; serial `CRITICAL` | ☐ |
+| 7.5 | Plug back in | Warning clears; battery shows ⚡ | ☐ |
+
+**Deferred to the battery-hardware bring-up (need the LiPo path to develop +
+measure):** DEEP IDLE light-sleep, SHIP MODE power-off, `SENSOR_PWR_EN` sensor
+power-gating, and the **≤3 mA deep-idle standby** measurement (roadmap §2.1).
+These are intentionally not yet implemented so they can be built and measured
+against real hardware rather than blind.
