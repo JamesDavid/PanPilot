@@ -12,11 +12,12 @@ namespace {
 lv_obj_t* s_home = nullptr;
 lv_obj_t* s_thermal = nullptr;
 lv_obj_t* s_presets = nullptr;
+lv_obj_t* s_idle = nullptr;
 bool s_useF = true;
 UnitChangeCb s_unitCb = nullptr;
 TargetDeltaCb s_targetCb = nullptr;
 PresetCb s_presetCb = nullptr;
-enum Active { HOME, THERMAL, PRESETS } s_active = HOME;
+enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN } s_active = HOME;
 }  // namespace
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
@@ -35,6 +36,25 @@ void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
 void show_home() { if (s_home) { lv_scr_load(s_home); s_active = HOME; } }
 void show_thermal() { if (s_thermal) { lv_scr_load(s_thermal); s_active = THERMAL; } }
 void show_presets() { if (s_presets) { lv_scr_load(s_presets); s_active = PRESETS; } }
+
+void show_idle() {
+  if (!s_idle) {
+    s_idle = lv_obj_create(nullptr);
+    lv_obj_set_style_bg_color(s_idle, lv_color_hex(0x000000), LV_PART_MAIN);
+    lv_obj_t* t = lv_label_create(s_idle);
+    lv_label_set_text(t, "PanPilot");
+    lv_obj_set_style_text_font(t, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_color(t, lv_color_hex(0x6A7480), 0);
+    lv_obj_align(t, LV_ALIGN_CENTER, 0, -14);
+    lv_obj_t* m = lv_label_create(s_idle);
+    lv_label_set_text(m, "monitoring - tap or heat a pan");
+    lv_obj_set_style_text_font(m, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(m, lv_color_hex(0x4A525C), 0);
+    lv_obj_align(m, LV_ALIGN_CENTER, 0, 20);
+  }
+  lv_scr_load(s_idle);
+  s_active = IDLE_SCREEN;
+}
 
 void toggle_unit() { s_useF = !s_useF; if (s_unitCb) s_unitCb(s_useF); }
 bool unit_useF() { return s_useF; }

@@ -19,6 +19,7 @@ void root_update(const ThermalFrame& f, const PanReading& r, const UiState& s);
 void show_home();
 void show_thermal();
 void show_presets();
+void show_idle();     // dim "monitoring" screen (base spec §8)
 void toggle_unit();
 bool unit_useF();
 void target_adjust(int deltaF);     // fires TargetDeltaCb

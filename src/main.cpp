@@ -19,6 +19,8 @@
 #include "core/thermal_model.h"
 #include "core/guidance.h"
 #include "core/presets.h"
+#include "core/power.h"
+#include "core/session.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
 #include "hal/storage.h"
@@ -33,10 +35,13 @@ struct Snapshot {
   ThermalFrame frame;
   PanReading reading;
   UiState ui;
+  bool sceneHot = false;        // scene meaningfully above ambient (§8)
+  bool heatingDetected = false; // rising heat event -> wake (§8)
   bool has = false;
 } g_snap;
 SemaphoreHandle_t g_snap_mtx = nullptr;
 volatile bool g_sensor_ok = false;
+volatile bool g_idle = false;   // set by UI loop, read by SensorTask (cadence)
 
 // Target owned by the logic layer; UI sends adjust/select commands (base spec
 // §7.3). Guarded because SensorTask (core 0) reads it while UI callbacks (loop,
@@ -63,9 +68,12 @@ void SensorTask(void*) {
   FrameAnalyzer analyzer;
   ThermalModel model;
   GuidanceEngine guidance;
+  SessionAccumulator session;
   Target target;
   ThermalFrame frame;
-  const TickType_t period = pdMS_TO_TICKS(1000 / MLX_REFRESH_HZ);
+  float prevSceneMax = -1000.0f;
+  int risingCount = 0;
+  uint32_t coolStart = 0;
   for (;;) {
     if (!g_sensor_ok) {
       g_sensor_ok = sensor::mlx_begin();
@@ -90,6 +98,35 @@ void SensorTask(void*) {
       GuidanceOutput go = guidance.step(gi, target, millis());
       fire_alert(go.alert);
 
+      // Scene-hot + heating detection for power/wake (base spec §8).
+      float sceneMax = frame.px[0][0];
+      for (int rr = 0; rr < THERM_ROWS; ++rr)
+        for (int cc = 0; cc < THERM_COLS; ++cc)
+          sceneMax = std::max(sceneMax, frame.px[rr][cc]);
+      const bool sceneHot = sceneMax > frame.ambientC + HEAT_WAKE_DELTA_C;
+      const bool rising = sceneMax > prevSceneMax + 0.5f;
+      risingCount = (sceneHot && rising) ? risingCount + 1 : 0;
+      prevSceneMax = sceneMax;
+      const bool heatingDetected = risingCount >= HEAT_WAKE_SAMPLES;
+
+      // Session lifecycle (§8): start on a hot pan, end when cool + stable.
+      const uint32_t nowm = millis();
+      if (!session.active() && r.presence == PanPresence::PRESENT && sceneHot)
+        session.begin(presetId, nowm);
+      if (session.active()) {
+        session.update(r, go.state, nowm);
+        if (r.panTempC < frame.ambientC + SESSION_END_AMBIENT_C) {
+          if (coolStart == 0) coolStart = nowm;
+          else if (nowm - coolStart > SESSION_END_STABLE_MS) {
+            hal::storage_session_push(session.finish(nowm));
+            coolStart = 0;
+            Serial.println("[session] saved");
+          }
+        } else {
+          coolStart = 0;
+        }
+      }
+
       UiState u;
       u.mode = Mode::TARGET;
       u.presence = r.presence;
@@ -108,11 +145,15 @@ void SensorTask(void*) {
       u.projectedPeakF = go.projectedPeakF;
 
       if (xSemaphoreTake(g_snap_mtx, pdMS_TO_TICKS(20)) == pdTRUE) {
-        g_snap.frame = frame; g_snap.reading = r; g_snap.ui = u; g_snap.has = true;
+        g_snap.frame = frame; g_snap.reading = r; g_snap.ui = u;
+        g_snap.sceneHot = sceneHot; g_snap.heatingDetected = heatingDetected;
+        g_snap.has = true;
         xSemaphoreGive(g_snap_mtx);
       }
     }
-    vTaskDelay(period);
+    // Slow the sensor right down while idle to save power (base spec §8).
+    vTaskDelay(pdMS_TO_TICKS(g_idle ? IDLE_SENSOR_PERIOD_MS
+                                    : 1000 / MLX_REFRESH_HZ));
   }
 }
 
@@ -175,6 +216,8 @@ void setup() {
 
 void loop() {
   static uint32_t last = 0;
+  static PowerFsm power;
+  static PowerState prevPower = PowerState::ACTIVE;
   lv_timer_handler();
   hal::buzzer_update();
 
@@ -186,7 +229,28 @@ void loop() {
       s = g_snap;
       xSemaphoreGive(g_snap_mtx);
     }
-    if (s.has) {
+
+    // Power/idle state machine (base spec §8).
+    const uint32_t inactive = lv_disp_get_inactive_time(nullptr);
+    PowerState ps = power.step({inactive, s.sceneHot, s.heatingDetected});
+    g_idle = (ps == PowerState::IDLE);
+    if (ps != prevPower) {
+      if (ps == PowerState::IDLE) {
+        hal::display_set_brightness(BACKLIGHT_IDLE_BRIGHT);
+        ui::show_idle();
+      } else {
+        hal::display_set_brightness(BACKLIGHT_ACTIVE_BRIGHT);
+        ui::show_home();
+      }
+      prevPower = ps;
+    }
+    if (power.wokeThisStep()) {
+      hal::buzzer_play(hal::BuzzPattern::Chirp);
+      if (power.wokeByHeat())
+        Serial.println("[power] heating detected — select a target or preset");
+    }
+
+    if (s.has && !g_idle) {
       ui::root_update(s.frame, s.reading, s.ui);
       const PanReading& r = s.reading;
       Serial.printf("[reading] %s pan=%.1fC disp=%.1fC rate=%.1fC/min conf=%u%s\n",

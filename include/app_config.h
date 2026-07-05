@@ -89,3 +89,13 @@
 #define TARGET_READY_WINDOW_F      10     // +/- around center (ready band)
 #define TARGET_WARN_OVER_F         100    // warn = center + this (clamped 650)
 #define TARGET_STEP_F              5       // adjuster step
+
+// ---- Power / idle / sessions (base spec §8) --------------------------------
+#define IDLE_TIMEOUT_MS            600000  // 10 min no touch + cool -> IDLE
+#define WAKE_TOUCH_MS              1500    // touch within this = wake
+#define HEAT_WAKE_DELTA_C          11.0f   // scene > ambient+this (~20F) = heat
+#define HEAT_WAKE_SAMPLES          3       // consecutive rising samples to wake
+#define SESSION_END_AMBIENT_C      8.0f    // within this of ambient = cool
+#define SESSION_END_STABLE_MS      600000  // cool + stable this long -> end
+#define IDLE_SENSOR_PERIOD_MS      10000   // IDLE: one frame per 10 s (§8)
+#define SESSION_RING_SIZE          10      // last N session summaries (§10)

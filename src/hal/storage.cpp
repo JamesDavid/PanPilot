@@ -2,6 +2,8 @@
 #if !defined(PANPILOT_SIM)
 #include "storage.h"
 #include <Preferences.h>
+#include "app_config.h"
+#include <cstdio>
 
 namespace hal {
 namespace {
@@ -30,6 +32,35 @@ void storage_set_target(int loF, int hiF, int warnF, int presetId) {
   s_prefs.putInt("thi", hiF);
   s_prefs.putInt("twarn", warnF);
   s_prefs.putInt("pidx", presetId);
+}
+
+// Session ring: a head index + count, entries under keys s0..s(N-1).
+void storage_session_push(const SessionSummary& s) {
+  ensure();
+  int head = s_prefs.getInt("shead", 0);
+  int count = s_prefs.getInt("scount", 0);
+  char key[8];
+  std::snprintf(key, sizeof(key), "s%d", head);
+  s_prefs.putBytes(key, &s, sizeof(s));
+  head = (head + 1) % SESSION_RING_SIZE;
+  if (count < SESSION_RING_SIZE) ++count;
+  s_prefs.putInt("shead", head);
+  s_prefs.putInt("scount", count);
+}
+
+int storage_session_count() { ensure(); return s_prefs.getInt("scount", 0); }
+
+bool storage_session_get(int newestIndex, SessionSummary& out) {
+  ensure();
+  const int count = s_prefs.getInt("scount", 0);
+  if (newestIndex < 0 || newestIndex >= count) return false;
+  const int head = s_prefs.getInt("shead", 0);
+  // head points at the next write slot; newest is head-1.
+  const int slot = ((head - 1 - newestIndex) % SESSION_RING_SIZE
+                    + SESSION_RING_SIZE) % SESSION_RING_SIZE;
+  char key[8];
+  std::snprintf(key, sizeof(key), "s%d", slot);
+  return s_prefs.getBytes(key, &out, sizeof(out)) == sizeof(out);
 }
 
 }  // namespace hal

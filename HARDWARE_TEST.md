@@ -108,3 +108,17 @@ ramp, TURN DOWN NOW fires *before* target and the predicted peak is within
 | 4.4 | **Overshoot on HIGH** | TURN DOWN NOW fires before target; the alert shows **peak ~XXX°F** | ☐ |
 | 4.5 | Predicted-peak accuracy | The predicted peak is within **±25 °F** of the actual peak reached | ☐ |
 | 4.6 | Nudge –/+ after a preset | Name reverts to “Generic” (custom); band shifts in 5 °F steps | ☐ |
+
+## M5 — Auto-wake + sessions
+
+Flash `crowpanel35_advance`. **Acceptance (base spec M5):** device dims after a
+cook and wakes by itself when a burner is lit. (Idle timeout is 10 min — to test
+faster, temporarily lower `IDLE_TIMEOUT_MS` in `app_config.h`.)
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 5.1 | Leave untouched, pan cool, 10 min | Screen dims to ~10% and shows **“PanPilot — monitoring”** | ☐ |
+| 5.2 | Tap the screen while idle | Wakes to full brightness + home, single chirp | ☐ |
+| 5.3 | From idle, put a pan on heat | **Wakes by itself** + chirp; serial: `heating detected — select a target` | ☐ |
+| 5.4 | Stays awake while cooking | No dimming while the scene is hot, even with no touches | ☐ |
+| 5.5 | Finish a cook, let it cool ~10 min | Serial: `[session] saved` (summary stored to the 10-slot NVS ring) | ☐ |

@@ -73,6 +73,11 @@ jobs:
     # Deploy only from main: the github-pages environment blocks tag refs, and
     # main already reflects the tagged commit at tag time (equivalent output).
     if: github.ref == 'refs/heads/main'
+    # Serialize pages deploys across runs; a superseded deploy (e.g. two
+    # milestones pushed back-to-back) is cancelled, not failed.
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     environment:
       name: github-pages
