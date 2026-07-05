@@ -16,6 +16,10 @@
 
 #include "hal/buzzer.h"
 #include "ui/ui_root.h"
+#include "ui/screen_thermal.h"
+#include "sensor/frame_analysis.h"
+#include <cmath>
+#include <string>
 
 // ---- buzzer stub (ui_root calls buzzer_play on button click; silent here) ----
 namespace hal {
@@ -63,9 +67,23 @@ void write_ppm(const char* path) {
 }
 }  // namespace
 
+// Synthetic hot-disc frame (a pan) for the thermal scene — mirrors the test
+// generator so the rendered view matches what frame_analysis sees.
+ThermalFrame synth_pan() {
+  ThermalFrame f{};
+  f.ambientC = 26.0f; f.t_ms = 1000; f.valid = true;
+  for (int r = 0; r < THERM_ROWS; ++r)
+    for (int c = 0; c < THERM_COLS; ++c) {
+      const float d = std::hypot(c - 17.0f, r - 12.0f);
+      f.px[r][c] = d <= 6.0f ? 205.0f - d * 3.0f      // hot pan, cooler rim
+                             : 26.0f + (d < 10 ? (10 - d) : 0);
+    }
+  return f;
+}
+
 int main(int argc, char** argv) {
   const char* out = (argc > 1) ? argv[1] : "screenshot.ppm";
-  // (argv[2] will select the scene/state as more screens land in M1+.)
+  const std::string scene = (argc > 2) ? argv[2] : "home";
 
   lv_init();
   static lv_disp_draw_buf_t draw_buf;
@@ -80,7 +98,15 @@ int main(int argc, char** argv) {
   drv.draw_buf = &draw_buf;
   lv_disp_drv_register(&drv);
 
-  ui::root_init();
+  if (scene == "thermal") {
+    ThermalFrame f = synth_pan();
+    FrameAnalyzer fa;
+    PanReading r = fa.process(f);
+    ui::thermal_create();
+    ui::thermal_update(f, r, /*useF=*/true);
+  } else {
+    ui::root_init();
+  }
 
   // Pump LVGL until fully drawn (static screen settles in a few passes).
   for (int i = 0; i < 40; ++i) lv_timer_handler();

@@ -77,7 +77,32 @@ pio device monitor                         # serial console @115200
 
 ---
 
-## 4. First boot & aiming _(coming in M1)_
+## 4. First boot & aiming
+
+On boot PanPilot shows the **live thermal view** — exactly what the sensor sees,
+false-colored (hot = white/yellow, cool = dark). This replaces a laser dot: aim
+by moving the sensor head until the pan sits under the center crosshair.
+
+<p align="center">
+  <img src="docs/screenshots/m1/thermal.png" width="420"
+       alt="Live thermal view: false-color pan, ROI circle, pan temperature, aim hint">
+</p>
+
+- The **green circle** is the region of interest (ROI) locked onto the pan; the
+  number is the pan-surface temperature (75th-percentile of the pan interior, so
+  a stray flame lick or hot spot doesn't spike the reading).
+- The bottom hint reads **“Center the pan in view”** → **“Good aim”** once the
+  pan blob is under the crosshair. **“No pan in view”** means nothing pan-like is
+  detected.
+- **Tap the pan** to lock the ROI there; the **Auto** button returns to
+  auto-follow. _(tap-to-lock interaction: bench-tested at M1.)_
+
+> _Synthesized simulator image; a device photo replaces it once the MLX90640 is
+> wired and aimed at a real pan._
+
+**Confidence:** every screen shows a confidence indicator. Bare stainless reads
+low and reflective, so PanPilot caps confidence and leans on the temperature
+*trend* rather than the absolute number (add oil/water for a true reading).
 ## 5. Modes: Thermometer, Target Assist, Presets _(coming in M2–M4)_
 ## 6. Food timer & cook database _(coming in M12.5)_
 ## 7. Attention levels — beep & flash patterns _(coming in M13)_

@@ -36,7 +36,29 @@ I'll fix `TOUCH_MAP_*` / rotation in `board_pins.h` / the LGFX config).
 
 ---
 
-## M1 — Thermal pipeline _(added when M1 lands)_
-## M2 — Thermometer Mode _(added when M2 lands)_
+## M1 — Thermal pipeline
 
-_(Later milestones append their sections here.)_
+Flash `crowpanel35_advance`. **Wire the MLX90640 first** (see wiring note below).
+
+> ⚠️ **#1 M1 bench item — shared I²C bus.** The MLX90640 shares SDA=15 / SCL=16
+> with the GT911 touch. Firmware puts touch on I²C port 0 (LovyanGFX) and the
+> MLX on port 1 (Wire1), same pins, serialized by a mutex. **Verify touch AND
+> sensor both work simultaneously.** If they interfere (touch dead while reading
+> frames, or sensor NACKs), the fix is to move the MLX to dedicated GPIO_D pins —
+> report which fails and I'll switch the bus config in `board_pins.h`.
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 1.1 | Boot with sensor wired, watch serial | `MLX90640 online`, then `[reading] ...` lines at ~4 Hz | ☐ |
+| 1.2 | Sensor missing/unplugged | No crash; retries every 2 s; no fake readings | ☐ |
+| 1.3 | Point at a hot mug/pan | Blob appears in the thermal view, tracks as you move the head | ☐ |
+| 1.4 | **Accuracy** — cast-iron pan vs a reference IR thermometer | `panTemp` within **±5 °C** of reference (base spec M1 accept) | ☐ |
+| 1.5 | Aim hint | “Center the pan” → “Good aim” as the blob nears the crosshair | ☐ |
+| 1.6 | Tap-to-lock | Tapping the pan locks the ROI; Auto returns to follow | ☐ |
+| 1.7 | Touch + sensor together | Touch still responds while frames stream (shared-bus check) | ☐ |
+| 1.8 | Bare stainless pan | Reads low + `STAINLESS?` in serial; confidence capped | ☐ |
+
+**Wiring (MLX90640 → CrowPanel Advance I²C header):** VIN→3V3, GND→GND,
+SDA→GPIO15, SCL→GPIO16. Keep the lead ≤ 30 cm for 400 kHz–1 MHz margin.
+
+## M2 — Thermometer Mode _(added when M2 lands)_

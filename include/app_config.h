@@ -41,3 +41,25 @@
 // NOTE (M1): on boards with CAP_I2C_SHARED_TOUCH_SENSOR, touch (UI core) and
 // MLX90640 frames (sensor core) share one I2C bus — guard bus access with a
 // mutex so a 1.7 KB frame read never collides with a touch poll (base spec §4).
+
+// ---- Sensor / MLX90640 (base spec §5) --------------------------------------
+#define MLX_REFRESH_HZ             8      // Hz — chess mode, 8 Hz subpages
+#define EMISSIVITY_DEFAULT         0.95f  // seasoned iron/steel/nonstick (§2.2)
+#define SENSOR_MIN_VALID_C         -40.0f // reject pixels outside this...
+#define SENSOR_MAX_VALID_C         600.0f // ...range (§5)
+#define SENSOR_BAD_FRAMES_FAULT    10     // consecutive bad frames -> SENSOR FAULT
+#define SENSOR_DIE_WARN_C          85.0f  // die temp warning (§5)
+
+// ---- Frame analysis / ROI (base spec §6) -----------------------------------
+#define PAN_DELTA_C                10.0f  // px > bg+this = candidate (§6.1)
+#define PAN_ABS_HOT_C              60.0f  // ...or absolute hot during cooking
+#define MIN_PAN_PIXELS             6      // min blob area (§6.1)
+#define COOLING_ABS_DELTA_C        8.0f   // ambient+this inside last ROI = still there
+#define ROI_PERCENTILE             75     // interior percentile -> panTemp (§6.2)
+#define CENTROID_LP_ALPHA          0.35f  // centroid low-pass (§6.3 anti-jitter)
+#define PRESENCE_ABSENT_MS         3000   // no blob this long -> ABSENT (§6.3)
+#define CONFIDENCE_UNCERTAIN       30     // below this -> UNCERTAIN (§6.3)
+#define STAINLESS_SPREAD_C         25.0f  // interior spread above this + low temp
+#define STAINLESS_CONF_CAP         50     // ...caps confidence, sets hint (§6.3)
+#define MOVED_JUMP_PX              4       // centroid jump -> PAN MOVED (§6.4)
+#define FOOD_DROP_C                15.0f  // panTemp drop -> FOOD ADDED (§6.4)

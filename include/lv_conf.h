@@ -15,7 +15,14 @@
 
 // ---- Memory ----
 #define LV_MEM_CUSTOM         0
-#define LV_MEM_SIZE           (48U * 1024U)   // internal LVGL heap
+// LVGL heap. The classic ESP32 (basic board) has much tighter contiguous DRAM
+// than the S3, and M1's frame-analysis scratch buffers eat into it — give it a
+// smaller heap; the S3 keeps the roomy one.
+#ifdef BOARD_CROWPANEL35_BASIC
+  #define LV_MEM_SIZE         (28U * 1024U)
+#else
+  #define LV_MEM_SIZE         (48U * 1024U)
+#endif
 
 // ---- HAL / tick ----
 // We drive lv_tick_inc() from a millis()-based hook in ui_root (base spec §4).

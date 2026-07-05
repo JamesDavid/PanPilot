@@ -7,6 +7,7 @@
 #include "display.h"
 #include "lgfx_panpilot.h"
 #include "app_config.h"
+#include "i2c_bus.h"
 
 namespace {
 
@@ -38,7 +39,9 @@ void flush_cb(lv_disp_drv_t* drv, const lv_area_t* area, lv_color_t* px) {
 
 void touch_read_cb(lv_indev_drv_t* drv, lv_indev_data_t* data) {
   uint16_t x = 0, y = 0;
-  if (lcd.getTouch(&x, &y)) {
+  // GT911 shares the I2C bus with the MLX90640 (base spec §4) — serialize.
+  hal::I2CGuard guard(10);
+  if (guard.held && lcd.getTouch(&x, &y)) {
     data->state = LV_INDEV_STATE_PRESSED;
     data->point.x = x;
     data->point.y = y;
