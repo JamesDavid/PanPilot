@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M19 — recipe sequencer (Track B).** This README grows one
+> **Status: M20 — Recipe Creator (Track B complete).** This README grows one
 > section at a time as each milestone lands. Sections below marked _(coming in
 > M#)_ aren't built yet.
 
@@ -279,7 +279,16 @@ Everything cooking-related keeps working with Wi-Fi off — the web UI is a
 convenience mirror. _(Browser screenshot added from a live device; the page is
 served from the ESP32 so it can't be rendered by the simulator.)_
 
-_Recipe Creator arrives in M20._
+### Recipe Creator _(M20)_
+
+At **http://panpilot.local/creator** you build repeatable cook programs in the
+browser: pick a food to auto-generate the steps (preheat → add → per-side timers
+with flip cues → remove with the safety note), tweak them, **validate**, and
+**save** to the device. The **firmware validator is the source of truth** — it
+rejects a 700 °F hold, adding butter before a 500 °F sear, or a bad loop. Saved
+programs run through the same sequencer as the built-in one, and it works fully
+offline. _(Compile-verified; browser flow is bench-tested — HARDWARE_TEST M20.)_
+
 ## 10. Home Assistant integration _(M9)_
 
 Enter your **MQTT broker** address during Wi-Fi setup (optional field) and

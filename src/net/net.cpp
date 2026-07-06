@@ -9,9 +9,16 @@
 #include <ESPAsyncWebServer.h>
 #include <ElegantOTA.h>
 
+#include <ArduinoJson.h>
+#include <LittleFS.h>
+
 #include "web_assets.h"
+#include "web_creator.h"
 #include "core/thermal_model.h"
 #include "core/presets.h"
+#include "core/foodlib.h"
+#include "core/recipe.h"
+#include "core/recipe_validate.h"
 #include "hal/storage.h"
 #include "hal/session_store.h"
 
@@ -21,6 +28,50 @@ WiFiManager s_wm;
 AsyncWebServer s_server(80);
 AsyncWebSocket s_ws("/ws");
 bool s_portal = false;
+
+StepType stepType(const char* s) {
+  if (!strcmp(s, "HOLD")) return StepType::HOLD;
+  if (!strcmp(s, "CUE")) return StepType::CUE;
+  if (!strcmp(s, "TIMER")) return StepType::TIMER;
+  if (!strcmp(s, "PREP")) return StepType::PREP;
+  if (!strcmp(s, "LOOP")) return StepType::LOOP;
+  return StepType::END;
+}
+
+// Parse a program JSON body into steps; validate; optionally save to LittleFS.
+// Replies {ok, badStep, reason}. Recipe strings are copied into a persistent
+// arena so validate() (which stores const char*) stays valid for the reply.
+void handleProgram(AsyncWebServerRequest* r, const String& body, bool save) {
+  static RecipeStep steps[40];
+  static char arena[40][40];
+  JsonDocument doc;
+  if (deserializeJson(doc, body)) { r->send(400, "application/json",
+      "{\"ok\":false,\"reason\":\"bad json\"}"); return; }
+  JsonArray arr = doc["steps"].as<JsonArray>();
+  int n = 0;
+  for (JsonObject st : arr) {
+    if (n >= 40) break;
+    steps[n].type = stepType(st["type"] | "END");
+    steps[n].a = st["a"] | 0;
+    steps[n].b = st["b"] | 0;
+    steps[n].expect = (uint8_t)(st["expect"] | 0);
+    strncpy(arena[n], st["say"] | "", sizeof(arena[n]) - 1);
+    arena[n][sizeof(arena[n]) - 1] = 0;
+    steps[n].say = arena[n];
+    ++n;
+  }
+  RecipeVerdict v = recipe_validate(steps, n);
+  if (v.ok && save) {
+    if (!LittleFS.exists("/programs")) LittleFS.mkdir("/programs");
+    File f = LittleFS.open("/programs/" + (doc["name"].as<String>().length()
+                               ? doc["name"].as<String>() : String("recipe")) + ".json", "w");
+    if (f) { serializeJson(doc, f); f.close(); }
+  }
+  char out[128];
+  snprintf(out, sizeof(out), "{\"ok\":%s,\"badStep\":%d,\"reason\":\"%s\"}",
+           v.ok ? "true" : "false", v.badStep, v.reason);
+  r->send(200, "application/json", out);
+}
 
 const char* gname(GuidanceState g) {
   switch (g) {
@@ -103,6 +154,37 @@ void begin() {
                     "attachment; filename=panpilot_cook.csv");
     r->send(resp);
   });
+  // Recipe Creator (roadmap §4.1.1)
+  s_server.on("/creator", HTTP_GET, [](AsyncWebServerRequest* r) {
+    r->send_P(200, "text/html", PANPILOT_CREATOR_HTML);
+  });
+  s_server.on("/api/foodlib", HTTP_GET, [](AsyncWebServerRequest* r) {
+    String j = "[";
+    for (int i = 0; i < foodlib_count(); ++i) {
+      const FoodEntry& f = foodlib_entry(i);
+      if (i) j += ',';
+      j += "{\"name\":\""; j += f.name; j += "\",\"variant\":\""; j += f.variant;
+      j += "\",\"lo\":"; j += f.panTargetF_lo; j += ",\"hi\":"; j += f.panTargetF_hi;
+      j += ",\"side1\":"; j += f.sideSec[0]; j += ",\"side2\":"; j += f.sideSec[1];
+      j += ",\"safe\":"; j += f.safeInternalF; j += '}';
+    }
+    j += ']';
+    r->send(200, "application/json", j);
+  });
+  auto bodyHandler = [](bool save) {
+    return [save](AsyncWebServerRequest* r, uint8_t* data, size_t len,
+                  size_t index, size_t total) {
+      static String body;
+      if (index == 0) { body = ""; body.reserve(total + 1); }
+      body.concat((const char*)data, len);
+      if (index + len == total) handleProgram(r, body, save);
+    };
+  };
+  s_server.on("/api/programs/validate", HTTP_POST,
+              [](AsyncWebServerRequest*) {}, nullptr, bodyHandler(false));
+  s_server.on("/api/programs/new", HTTP_PUT,
+              [](AsyncWebServerRequest*) {}, nullptr, bodyHandler(true));
+
   s_ws.onEvent([](AsyncWebSocket*, AsyncWebSocketClient*, AwsEventType,
                   void*, uint8_t*, size_t) {});
   s_server.addHandler(&s_ws);

@@ -286,3 +286,18 @@ and cueing butter onto a deliberately overheated pan triggers the too-hot hold.*
 
 _Note: recipes are authored on-device from the built-in program now; the web
 Recipe Creator (M20) adds custom JSON programs + prep-fat advice._
+
+## M20 — Recipe Creator (web)
+
+Advance env. **Acceptance (roadmap M20): the wizard generates a smash-burger
+program from a food; the validator rejects a 700 °F hold, a poultry program with
+the safety note stripped, and a butter-then-500 °F-sear; the page loads offline.**
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| 20.1 | Browse **/creator** (Wi-Fi isolated from internet) | Page loads (no CDN); food list populates | ☐ |
+| 20.2 | “New from food” → a food | Steps auto-generate (preheat → add → sides → remove) | ☐ |
+| 20.3 | Validate a good program | “Valid ✓” | ☐ |
+| 20.4 | Set a HOLD to 700 | “Invalid: hold above the 650F ceiling” | ☐ |
+| 20.5 | PREP butter then HOLD 500 | Rejected (smoke point) | ☐ |
+| 20.6 | Save a valid program | “Saved ✓”; persists in `/programs/*.json` (LittleFS) | ☐ |
