@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M11 — sessions + web history (Phase 2).** This README grows one section at a time as each
+> **Status: M13 — attention > **Status: M11 — sessions + web history (Phase 2) cue escalation (Phase 2).** This README grows one section at a time as each
 > milestone lands. Sections below marked _(coming in M#)_ aren't built yet.
 
 <p align="center">
@@ -189,7 +189,26 @@ The [web interface](#9-web-interface-m8) browses the full history and downloads
 any cook as **CSV** for a spreadsheet.
 
 ## 6. Food timer & cook database _(coming in M12.5)_
-## 7. Attention levels — beep & flash patterns _(coming in M13)_
+## 7. Attention levels — beep & flash patterns _(M13)_
+
+Every cue — from a gentle trend tick to a loud alarm — routes through one
+attention system with four escalation levels, so the device can reach you whether
+you're standing over the pan or across the kitchen:
+
+| Level | Screen | Sound | Used for |
+|---|---|---|---|
+| **L0** Passive | status text / bar color | silent | trend, HOLD, ETA ticks |
+| **L1** Notify | bar pulse | single chirp | READY, food-added ack, recovery done |
+| **L2** Act now | full-screen card + **backlight strobe** | double-beep every 5 s | TURN DOWN NOW, ADD BATCH, flip cue |
+| **L3** Alarm | full-screen red + strobe | urgent, repeats until cleared | TOO HOT, PLUG ME IN, interlock trips |
+
+- **Mute** silences L0–L2 but **never L3** (a too-hot pan always alarms).
+- **Compliance verification (Stovetop Advisor):** after a “TURN DOWN” cue,
+  PanPilot watches whether the pan's rate of change actually responds — if you
+  turned the knob, it chirps a confirmation; if not, it escalates. The device
+  knows whether you actually did the thing it asked.
+- The backlight strobe stays under 3 Hz (photosensitivity) and restores your
+  brightness afterward.
 ## 8. Learn Pan Mode
 
 Different pans and burners overshoot by different amounts. **Learn Pan Mode**

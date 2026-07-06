@@ -23,6 +23,8 @@
 #include "core/session.h"
 #include "core/profiles.h"
 #include "core/battery.h"
+#include "core/attention.h"
+#include "core/compliance.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
 #include "hal/storage.h"
@@ -116,15 +118,6 @@ void on_learn(uint8_t cmd) {
   }
 }
 
-void fire_alert(AlertAction a) {
-  switch (a) {
-    case AlertAction::READY_CHIME:   hal::buzzer_play(hal::BuzzPattern::Long);   break;
-    case AlertAction::TURN_DOWN:     hal::buzzer_play(hal::BuzzPattern::Double); break;
-    case AlertAction::TOO_HOT_ALARM: hal::buzzer_play(hal::BuzzPattern::Alarm);  break;
-    default: break;
-  }
-}
-
 void SensorTask(void*) {
   FrameAnalyzer analyzer;
   ThermalModel model;
@@ -161,7 +154,7 @@ void SensorTask(void*) {
       gi.moved = r.moved;
       gi.lagMinutes = g_applied_lag;    // learned lag (Learn Pan Mode)
       GuidanceOutput go = guidance.step(gi, target, millis());
-      fire_alert(go.alert);
+      // Alerts are routed through the attention manager in the UI loop (§3.5).
 
       // Learn Pan Mode recording: capture the peak heating rate over the window.
       if (g_learn_phase == 1) {
@@ -196,8 +189,7 @@ void SensorTask(void*) {
         session.foodAdded();
         Serial.println("[recovery] food added");
       } else if (ro.event == RecoveryEvent::RECOVERED) {
-        hal::buzzer_play(hal::BuzzPattern::Long);
-        addBatchUntil = nowm + 4000;
+        addBatchUntil = nowm + 4000;   // attention raises the ADD BATCH cue
         Serial.println("[recovery] pan recovered — add next batch");
       }
       const bool addBatch = nowm < addBatchUntil;
@@ -377,8 +369,7 @@ void loop() {
     BattEvent be = battMon.update(g_batt);
     if (be == BattEvent::LOW_BATT) Serial.println("[batt] low");
     else if (be == BattEvent::CRITICAL) {
-      g_pluginWarn = true;
-      hal::buzzer_play(hal::BuzzPattern::Alarm);   // distinct urgent pattern
+      g_pluginWarn = true;                          // attention raises an L3 cue
       Serial.println("[batt] CRITICAL — PLUG ME IN");
     }
     if (g_batt.usbPresent) g_pluginWarn = false;    // cleared once plugged in
@@ -412,6 +403,67 @@ void loop() {
       hal::buzzer_play(hal::BuzzPattern::Chirp);
       if (power.wokeByHeat())
         Serial.println("[power] heating detected — select a target or preset");
+    }
+
+    // ---- Attention & cue escalation (roadmap §3.5) ----
+    static AttentionManager attn;
+    static ComplianceChecker comply;
+    static bool prevTurnDown = false, complyFired = false;
+    static bool strobing = false, strobeOn = false;
+    static uint32_t strobeToggle = 0;
+    if (s.has) {
+      const UiState& u = s.ui;
+      attn.setMuted(hal::buzzer_is_muted());
+      if (u.pluginWarning)
+        attn.raise(AttnLevel::L3, "PLUG ME IN", "battery critical", now);
+      else if (u.guidance == GuidanceState::TOO_HOT)
+        attn.raise(AttnLevel::L3, "TOO HOT", "", now);
+      else if (u.addBatchPrompt)
+        attn.raise(AttnLevel::L2, "ADD BATCH", "", now);
+      else if (u.guidance == GuidanceState::TURN_DOWN_NOW)
+        attn.raise(AttnLevel::L2, "TURN DOWN NOW", "", now);
+      else if (u.guidance == GuidanceState::TURN_DOWN_SOON)
+        attn.raise(AttnLevel::L2, "TURN DOWN SOON", "", now);
+      else if (u.guidance == GuidanceState::READY)
+        attn.raise(AttnLevel::L1, "READY", "", now);
+      else
+        attn.clear();
+
+      // Compliance verification: after a TURN DOWN cue, confirm the rate fell.
+      const bool turnDown = u.guidance == GuidanceState::TURN_DOWN_NOW;
+      if (turnDown && !prevTurnDown) { comply.start(true, now); complyFired = false; }
+      if (turnDown && !complyFired) {
+        if (comply.update(u.rateCPerMin * 9.0f / 5.0f, now) == Compliance::COMPLIED) {
+          hal::buzzer_play(hal::BuzzPattern::Chirp);   // confirm the knob turn
+          complyFired = true;
+          Serial.println("[attn] knob turn confirmed by rate change");
+        }
+      }
+      if (!turnDown) comply.reset();
+      prevTurnDown = turnDown;
+
+      AttnOutput ao = attn.tick(now);
+      if (ao.buzz) {
+        switch (ao.level) {
+          case AttnLevel::L1: hal::buzzer_play(hal::BuzzPattern::Chirp); break;
+          case AttnLevel::L2: hal::buzzer_play(hal::BuzzPattern::Double); break;
+          case AttnLevel::L3: hal::buzzer_play(hal::BuzzPattern::Alarm); break;
+          default: break;
+        }
+      }
+      // Backlight strobe for L2/L3 (~2.5 Hz, under the 3 Hz cap), restore after.
+      if (ao.strobe && !g_idle) {
+        strobing = true;
+        if (now - strobeToggle >= 200) {
+          strobeToggle = now; strobeOn = !strobeOn;
+          hal::display_set_brightness(strobeOn ? BACKLIGHT_ACTIVE_BRIGHT : 40);
+        }
+      } else if (strobing) {
+        strobing = false;
+        hal::display_set_brightness(g_batt.valid && !g_batt.usbPresent
+                                        ? BACKLIGHT_BATTERY_BRIGHT
+                                        : BACKLIGHT_ACTIVE_BRIGHT);
+      }
     }
 
 #if defined(ENABLE_WIFI)

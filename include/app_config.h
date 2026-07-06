@@ -98,6 +98,13 @@
 // ---- Learn Pan Mode (base spec §7 Phase 1.5) -------------------------------
 #define LEARN_DURATION_MS          30000   // record heating for 30 s
 
+// ---- Attention & cue escalation (roadmap spec §3.5) ------------------------
+#define ATTN_L2_REPEAT_MS          5000    // L2 re-beep cadence
+#define ATTN_L3_REPEAT_MS          2000    // L3 alarm cadence
+#define ATTN_STROBE_MAX_HZ         3       // photosensitivity cap
+#define COMPLY_WINDOW_MS           20000   // watch for knob-turn effect this long
+#define COMPLY_RATE_FMIN           10.0f   // "turned down" => rate falls below this
+
 // ---- Battery / power subsystem (roadmap spec §2.1) -------------------------
 #define BATTERY_LOW_PCT            15      // low-battery event threshold
 #define BATTERY_CRITICAL_PCT      5       // critical threshold

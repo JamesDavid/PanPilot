@@ -219,3 +219,18 @@ render, CSV opens in a spreadsheet.**
 | 11.3 | Browse **/api/sessions** | JSON list of the 5 sessions | ☐ |
 | 11.4 | **/api/session?id=N** | Downloads a CSV that opens cleanly in a spreadsheet | ☐ |
 | 11.5 | Log > 20 cooks | Oldest are evicted (count-capped) | ☐ |
+
+## M13 — Attention & cue escalation
+
+Advance/basic. **Acceptance (roadmap M13): L0–L3 demonstrated; Advisor compliance
+verification works on a live burner.**
+
+| # | Step | Expected | ✅ |
+|---|---|---|---|
+| 13.1 | Reach READY | L1: single chirp, bar pulse | ☐ |
+| 13.2 | Overshoot band (not warn) | L2: full-screen card + backlight strobe + double-beep every 5 s | ☐ |
+| 13.3 | Exceed warn / 650 °F | L3: red + urgent alarm repeating until it clears | ☐ |
+| 13.4 | Mute, then trigger L2 vs L3 | L2 silent (still strobes); **L3 still alarms** | ☐ |
+| 13.5 | **Compliance** — on “TURN DOWN”, actually turn the knob down | Confirmation chirp; serial `knob turn confirmed by rate change` | ☐ |
+| 13.6 | On “TURN DOWN”, ignore it | No confirm; if temp keeps rising it escalates to L3 (TOO HOT) | ☐ |
+| 13.7 | Strobe safety | Backlight strobe is ≤ 3 Hz and brightness restores after the cue | ☐ |
