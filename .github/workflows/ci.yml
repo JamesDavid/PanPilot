@@ -46,6 +46,10 @@ jobs:
             chip: esp32s3
           - env: crowpanel35_basic
             chip: esp32
+          - env: crowpanel_adv_5_v11      # 5" 800x480 RGB (compile-verified;
+            chip: esp32s3                  # display bring-up bench-gated)
+          - env: crowpanel_adv_5_v12
+            chip: esp32s3
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }          # tags for git describe (version)
