@@ -98,6 +98,12 @@
 // ---- Learn Pan Mode (base spec §7 Phase 1.5) -------------------------------
 #define LEARN_DURATION_MS          30000   // record heating for 30 s
 
+// ---- Recipe prep / fats (roadmap §4.1.1) -----------------------------------
+#define PREP_MELT_DWELL_MS         20000   // butter/solid fats: this long in the
+                                           // add window = melted & ready
+#define PREP_EQUALIZE_RATE_FMIN    8.0f    // oils: |rate| below this in the add
+                                           // window = pan equalized (shimmering)
+
 // ---- Closed-loop control + interlocks (roadmap spec §3.2, §3.3) ------------
 #define IL_CONF_MIN                60      // S1: ROI confidence floor
 #define IL_CONF_MS                 5000    // S1: for this long

@@ -7,6 +7,8 @@ void RecipeEngine::enter(int i, uint32_t now) {
   idx_ = i;
   entered_ = true;
   step_start_ = now;
+  in_window_ = false;         // reset PREP add-window dwell for the new step
+  window_enter_ = now;
 }
 
 void RecipeEngine::start(const RecipeProgram* p, uint32_t now) {
@@ -41,13 +43,31 @@ RecipeOut RecipeEngine::step(const RecipeInput& in) {
         break;
       case StepType::PREP: {
         const PrepEntry& p = preplib_entry(s.a);
-        o.cue = p.name;
-        if (in.panTempF > p.maxAddTempF) {           // butter on a 425° pan burns
-          o.prepTooHot = true;
-          o.setpointF = p.addTempF_hi;               // cool to the add window
-        } else if (in.touch) {
-          advance = true;                            // confirmed added/melted
+        // Track continuous dwell in the fat's add window (melt-detection).
+        const bool inWin = in.panTempF >= (float)p.addTempF_lo &&
+                           in.panTempF <= (float)p.maxAddTempF;
+        if (inWin && !in_window_) { in_window_ = true; window_enter_ = in.now; }
+        else if (!inWin) in_window_ = false;
+        const uint32_t dwell = in_window_ ? (in.now - window_enter_) : 0;
+
+        PrepStatus ps = prep_evaluate(s.a, in.panTempF, in.rateFPerMin, dwell,
+                                      prog_->brownOnPurpose);
+        o.prepTooHot = ps.tooHot;
+        o.prepBelowWindow = ps.belowWindow;
+        o.prepReady = ps.ready;
+        o.fatClampWarnF = ps.fatClampWarnF;   // caller holds the pan below this
+        o.prepAdvice = ps.advice;
+        if (ps.tooHot) {
+          o.setpointF = ps.coolToF;                  // cool to the add window
+          o.cue = "Pan too hot - cooling for the fat";
+        } else if (ps.belowWindow) {
+          o.cue = "Heating - add the fat soon";
+        } else if (ps.ready) {
+          o.cue = p.name;                            // "Butter" -> add it now
+        } else {
+          o.cue = "Almost ready for the fat";
         }
+        if (in.touch) advance = true;                // human confirms it's in
         break;
       }
       case StepType::LOOP:
@@ -83,6 +103,7 @@ static const RecipeStep kSmash[] = {
   { StepType::END,     0, 0, EXP_NONE, "" },
 };
 static const RecipeProgram kSmashProg = { "Smash Burgers x4", kSmash,
-                                          (int)(sizeof(kSmash) / sizeof(kSmash[0])) };
+                                          (int)(sizeof(kSmash) / sizeof(kSmash[0])),
+                                          /*brownOnPurpose=*/false };
 
 const RecipeProgram* recipe_builtin_smashburger() { return &kSmashProg; }

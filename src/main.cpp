@@ -130,6 +130,9 @@ volatile bool g_recipe_start_req = false;
 volatile bool g_recipe_active = false;
 volatile bool g_recipe_touch = false;
 volatile int  g_recipe_setpoint = 0;   // recipe HOLD setpoint (drives guidance)
+// Fat-state clamp (roadmap §4.1.1): once a recipe's PREP adds a fat, hold the
+// pan below the fat's smoke point for the rest of the program. 0 = no clamp.
+volatile int  g_fatClampWarnF = 0;
 
 // Autopilot / ASSIST (M14-M18, M21). No actuator armed => pure ADVISORY, and
 // there is no code path here that can energize anything (roadmap §0.1).
@@ -178,7 +181,7 @@ void on_assist(uint8_t cmd) {
 }
 void on_recipe(uint8_t cmd) {
   if (cmd == 0) g_recipe_start_req = true;
-  else if (cmd == 1) g_recipe_active = false;
+  else if (cmd == 1) { g_recipe_active = false; g_fatClampWarnF = 0; }
   else if (cmd == 2) g_recipe_touch = true;
 }
 
@@ -276,8 +279,12 @@ void SensorTask(void*) {
         target = g_target; presetId = g_presetId;
         xSemaphoreGive(g_target_mtx);
       }
-      // A running recipe's HOLD step drives the guidance target (M19).
+      // A running recipe's HOLD step drives the guidance target (M19), and a
+      // fat-state clamp caps the overheat threshold so the pan can't be pushed
+      // past the fat's smoke point (roadmap §4.1.1).
       if (g_recipe_active && g_recipe_setpoint > 0) target.setCenter(g_recipe_setpoint);
+      if (g_recipe_active && g_fatClampWarnF > 0)
+        target.warnF = std::min(target.warnF, (float)g_fatClampWarnF);
 
       GuidanceInput gi;
       gi.tempF = ThermalModel::cToF(model.displayTempC());
@@ -375,19 +382,24 @@ void SensorTask(void*) {
       // Recipe sequencer (M19): drive setpoints + cues from a cook program.
       if (g_recipe_start_req) {
         recipe.start(recipe_builtin_smashburger(), nowm);
-        g_recipe_start_req = false; g_recipe_active = true;
+        g_recipe_start_req = false; g_recipe_active = true; g_fatClampWarnF = 0;
         Serial.println("[recipe] started: Smash Burgers x4");
       }
       RecipeOut rout;
       if (g_recipe_active) {
         RecipeInput ri;
         ri.panTempF = gi.tempF;
+        ri.rateFPerMin = gi.rateFPerMin;     // for fat equalize-detection (§4.1.1)
         ri.foodAdded = (ro.event == RecoveryEvent::FOOD_ADDED);
         ri.touch = g_recipe_touch; g_recipe_touch = false;
         ri.now = nowm;
         rout = recipe.step(ri);
         g_recipe_setpoint = rout.setpointF;
+        // Latch the fat clamp once a PREP fat is in play; hold it for the cook.
+        if (rout.type == StepType::PREP && rout.fatClampWarnF > 0)
+          g_fatClampWarnF = rout.fatClampWarnF;
         if (rout.finished) { g_recipe_active = false; g_recipe_setpoint = 0;
+          g_fatClampWarnF = 0;
           Serial.println("[recipe] finished"); }
       }
 

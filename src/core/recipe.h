@@ -29,10 +29,12 @@ struct RecipeProgram {
   const char* name;
   const RecipeStep* steps;
   int nSteps;
+  bool brownOnPurpose;   // relax the fat smoke-point clamp (author opted in)
 };
 
 struct RecipeInput {
   float panTempF;
+  float rateFPerMin = 0;   // for PREP equalize-detection (roadmap §4.1.1)
   bool foodAdded = false;
   bool touch = false;
   uint32_t now = 0;
@@ -46,6 +48,11 @@ struct RecipeOut {
   int setpointF = 0;       // current HOLD setpoint (0 = none)
   const char* cue = "";    // instruction for the human ("" = none)
   bool prepTooHot = false; // PREP: pan too hot for this fat -> cool first
+  // PREP fat monitor (roadmap §4.1.1):
+  bool prepReady = false;      // fat is in the add window and ready to add
+  bool prepBelowWindow = false;// pan still too cool to add the fat
+  int fatClampWarnF = 0;       // hold the pan below this while fat is in it (0=none)
+  const char* prepAdvice = ""; // the fat's ready hint
 };
 
 class RecipeEngine {
@@ -61,6 +68,8 @@ class RecipeEngine {
   bool entered_ = false;
   uint32_t step_start_ = 0;
   int loops_left_ = -1;     // for the current LOOP step
+  bool in_window_ = false;  // PREP: pan currently in the fat's add window
+  uint32_t window_enter_ = 0;
 
   void enter(int i, uint32_t now);
 };

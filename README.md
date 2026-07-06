@@ -354,6 +354,15 @@ rejects a 700 °F hold, adding butter before a 500 °F sear, or a bad loop. Save
 programs run through the same sequencer as the built-in one, and it works fully
 offline. _(Compile-verified; browser flow is bench-tested — HARDWARE_TEST M20.)_
 
+**Fats are watched, not just timed.** A recipe's **PREP** step runs a fat
+monitor: it waits for the pan to reach the fat's *add window*, tells you when
+it's **ready** (butter foamed/melted after a dwell, oil equalized when the climb
+flattens, water immediately), and warns if the pan is too hot to add it yet.
+Once a fat is in the pan, a **fat-state clamp** caps the overheat threshold at
+that fat's smoke point for the rest of the cook — so Autopilot (or a TURN DOWN
+cue) can't push the pan into burning it, unless the program is explicitly stamped
+*browning on purpose*. This logic is unit-tested (`test_prep`, `test_recipe`).
+
 ## 10. Home Assistant integration _(M9)_
 
 Enter your **MQTT broker** address during Wi-Fi setup (optional field) and
