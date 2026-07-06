@@ -6,8 +6,9 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M13 — attention > **Status: M11 — sessions + web history (Phase 2) cue escalation (Phase 2).** This README grows one section at a time as each
-> milestone lands. Sections below marked _(coming in M#)_ aren't built yet.
+> **Status: M13 — attention & cue escalation (Phase 2).** This README grows one
+> section at a time as each milestone lands. Sections below marked _(coming in
+> M#)_ aren't built yet.
 
 <p align="center">
   <img src="docs/screenshots/home.png" width="420"
