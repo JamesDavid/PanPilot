@@ -34,6 +34,7 @@
 #include "core/control/actuator.h"
 #include "core/control/autotune.h"
 #include "core/settings.h"
+#include "core/timezones.h"
 #include "core/foodfeedback.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
@@ -73,6 +74,11 @@ volatile bool g_pluginWarn = false;
 // Backlight brightness level (Settings, Phase 2). 0/1/2; read by SensorTask
 // into UiState and by the UI loop to pick the ACTIVE-state PWM.
 volatile uint8_t g_bright = 2;
+
+// NTP clock (Settings). g_tz indexes TIMEZONES; the clock is read in the UI loop.
+volatile uint8_t g_tz = 0;
+volatile bool g_timeValid = false;
+volatile uint8_t g_clockH = 0, g_clockM = 0;
 
 // Tap-to-lock ROI (§6.3). UI core requests; SensorTask applies to its analyzer.
 volatile uint8_t g_roi_req = 0;   // 0 none, 1 lock, 2 clear
@@ -571,6 +577,9 @@ void SensorTask(void*) {
       u.stainlessHint = r.stainlessHint;
       u.muted = hal::buzzer_is_muted();
       u.brightnessLevel = g_bright;
+      u.tzIndex = g_tz;
+      u.timeValid = g_timeValid;
+      u.clockHour = g_clockH; u.clockMin = g_clockM;
       u.guidance = ro.recovering ? GuidanceState::RECOVERING : go.state;
       u.targetCenterF = target.centerF;
       u.presetId = presetId;
@@ -695,6 +704,16 @@ void on_brightness(uint8_t level) {
   hal::display_set_brightness(panpilot::brightness_pwm(g_bright));
 }
 
+// Timezone (Settings NTP clock). Persist + re-point SNTP at the new zone; the
+// POSIX TZ string carries DST rules so the displayed time follows it.
+void on_timezone(uint8_t idx) {
+  g_tz = (uint8_t)tz_clamp(idx);
+  hal::storage_set_timezone(g_tz);
+#if defined(ENABLE_WIFI)
+  configTzTime(tz_posix(g_tz), "pool.ntp.org", "time.nist.gov");
+#endif
+}
+
 // Post-cook grade (spec §2.7): nudge the just-cooked food's timer ±8%, persist
 // the table, refresh the live factor, and dismiss the prompt.
 void on_feedback(uint8_t verdict) {
@@ -765,6 +784,7 @@ void setup() {
   if (hal::load_custom_foods(g_foodstore) > 0) foodlib_set_custom(&g_foodstore);
 #endif
   g_bright = panpilot::brightness_clamp(hal::storage_get_brightness());
+  g_tz = (uint8_t)tz_clamp(hal::storage_get_timezone());
   { uint8_t fbBlob[panpilot::FeedbackStore::MAX * 8];
     uint32_t n = hal::storage_get_foodfb(fbBlob, sizeof(fbBlob));
     if (n > 0) { g_feedback.loadBlob(fbBlob, n);
@@ -775,7 +795,7 @@ void setup() {
       Serial.printf("[presets] loaded %d custom\n", presets_custom_count()); } }
   ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
                 on_preset, on_learn, on_food, on_preset2, on_recipe);
-  ui::set_settings_cbs(on_mute, on_brightness);
+  ui::set_settings_cbs(on_mute, on_brightness, on_timezone);
   ui::set_food2_cb(on_food2);
   ui::set_feedback_cb(on_feedback);
   ui::set_preset_edit_cbs(on_preset_save, on_preset_delete);
@@ -798,6 +818,7 @@ void setup() {
 #if defined(ENABLE_WIFI)
   net::begin();   // Wi-Fi is a convenience mirror; cooking works without it
   ha::begin(net::mqtt_broker().c_str(), 1883, on_mute, on_target_abs, on_preset);
+  configTzTime(tz_posix(g_tz), "pool.ntp.org", "time.nist.gov");   // NTP clock
 #endif
 
   hal::buzzer_play(hal::BuzzPattern::Chirp);
@@ -817,6 +838,11 @@ void loop() {
   net::loop();
   ha::loop();
   g_plug.setAlive(ha::connected());   // actuator liveness feeds interlocks S7/S8
+  { struct tm ti;                     // NTP clock (getLocalTime returns fast)
+    if (getLocalTime(&ti, 0)) {
+      g_clockH = (uint8_t)ti.tm_hour; g_clockM = (uint8_t)ti.tm_min;
+      g_timeValid = true;
+    } }
 #endif
 
   const uint32_t now = millis();

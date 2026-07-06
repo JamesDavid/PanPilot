@@ -23,6 +23,8 @@ uint8_t storage_get_brightness(uint8_t def) { ensure(); return (uint8_t)s_prefs.
 void storage_set_brightness(uint8_t level) { ensure(); s_prefs.putUChar("bright", level); }
 bool storage_get_onboarded(bool def) { ensure(); return s_prefs.getBool("onboard", def); }
 void storage_set_onboarded(bool done) { ensure(); s_prefs.putBool("onboard", done); }
+int storage_get_timezone(int def) { ensure(); return s_prefs.getInt("tz", def); }
+void storage_set_timezone(int idx) { ensure(); s_prefs.putInt("tz", idx); }
 bool storage_get_gains(float& kp, float& ki, float& kd) {
   ensure();
   float g[3];

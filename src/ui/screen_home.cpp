@@ -16,6 +16,7 @@ namespace {
 
 lv_obj_t* s_screen = nullptr;
 lv_obj_t* s_mode = nullptr;
+lv_obj_t* s_clock = nullptr;
 lv_obj_t* s_conf = nullptr;
 lv_obj_t* s_batt = nullptr;
 lv_obj_t* s_unit_btn_lbl = nullptr;
@@ -109,6 +110,13 @@ lv_obj_t* home_create() {
   lv_obj_add_flag(s_mode, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_ext_click_area(s_mode, 20);
   lv_obj_add_event_cb(s_mode, preset_tap_cb, LV_EVENT_CLICKED, nullptr);
+
+  // NTP clock (top-center; shown only once time is valid).
+  s_clock = lv_label_create(scr);
+  lv_obj_set_style_text_color(s_clock, lv_color_hex(0xB7BEC8), 0);
+  lv_obj_set_style_text_font(s_clock, &lv_font_montserrat_14, 0);
+  lv_obj_align(s_clock, LV_ALIGN_TOP_MID, -36, 10);
+  lv_label_set_text(s_clock, "");
 
   s_conf = lv_label_create(scr);
   lv_obj_set_style_text_color(s_conf, lv_color_hex(0x8A93A0), 0);
@@ -366,6 +374,14 @@ void home_update(const UiState& s, bool useF) {
                                  ? 0xE07000 : 0x8A93A0), 0);
   } else {
     lv_label_set_text(s_batt, s.battery.usbPresent ? LV_SYMBOL_USB : "");
+  }
+
+  // NTP clock (top-center), blank until SNTP has synced (or on a Wi-Fi-less build).
+  if (s.timeValid) {
+    std::snprintf(buf, sizeof(buf), "%02u:%02u", s.clockHour, s.clockMin);
+    lv_label_set_text(s_clock, buf);
+  } else {
+    lv_label_set_text(s_clock, "");
   }
 
   // Layout swap: a second pan turns the home screen into a two-column split.

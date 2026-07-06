@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
     lv_scr_load(ui::foods_create());
   } else if (scene == "settings") {
     lv_scr_load(ui::settings_create());
-    ui::settings_update(/*useF=*/true, /*muted=*/false, /*brightness=*/2);
+    ui::settings_update(/*useF=*/true, /*muted=*/false, /*brightness=*/2, /*tz=*/5);
   } else if (scene == "presetedit") {
     lv_scr_load(ui::preset_edit_create());
     ui::preset_edit_load("Smash burger", 450, 500, false, /*canDelete=*/false);
@@ -265,6 +265,7 @@ int main(int argc, char** argv) {
     u.presence = PanPresence::PRESENT;
     u.modelValid = true;
     u.confidence = 91;
+    u.timeValid = true; u.clockHour = 18; u.clockMin = 42;   // NTP clock demo
     u.targetCenterF = 350;
     u.rateCPerMin = 8.0f;          // ~14 F/min
     u.trend = Trend::RISING_SLOW;

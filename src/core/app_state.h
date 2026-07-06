@@ -27,6 +27,11 @@ struct UiState {
   bool  muted = false;
   uint8_t brightnessLevel = 2;  // 0=Low,1=Medium,2=High (Settings, persisted)
 
+  // NTP clock (Settings). timeValid=false until SNTP syncs (or no Wi-Fi).
+  uint8_t tzIndex = 0;      // index into TIMEZONES
+  bool    timeValid = false;
+  uint8_t clockHour = 0, clockMin = 0;
+
   // Target Assist (M3) + presets (M4)
   GuidanceState guidance = GuidanceState::IDLE;
   int   targetCenterF = 350;

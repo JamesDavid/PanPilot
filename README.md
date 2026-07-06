@@ -340,8 +340,13 @@ aren't part of a cook. Tap any row to change it:
 - **Sound** — mute or unmute all chimes and alarms.
 - **Brightness** — cycle the backlight between **Low / Medium / High**. On
   battery the level is capped so a bright setting still saves power.
+- **Time zone** — pick your zone (US Eastern, Central Europe, India, Japan…).
+  On the Wi-Fi build PanPilot syncs the clock over **NTP** and shows the time on
+  the home screen; the zones carry full DST rules, so it springs forward and
+  falls back on its own.
 
-Every choice is saved to flash and restored on the next boot.
+Every choice is saved to flash and restored on the next boot. The settings list
+scrolls, and also holds entries for **Autopilot** and **PID autotune**.
 
 <p align="center">
   <img src="docs/screenshots/settings.png" width="380"
