@@ -23,17 +23,20 @@ bool s_useF = true;
 UnitChangeCb s_unitCb = nullptr;
 TargetDeltaCb s_targetCb = nullptr;
 PresetCb s_presetCb = nullptr;
+PresetCb s_preset2Cb = nullptr;
 LearnCb s_learnCb = nullptr;
 FoodCb s_foodCb = nullptr;
+uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS } s_active = HOME;
 }  // namespace
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
-               PresetCb onPreset, LearnCb onLearn, FoodCb onFood) {
+               PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2) {
   s_useF = useF;
   s_unitCb = onUnit;
   s_targetCb = onTargetDelta;
   s_presetCb = onPreset;
+  s_preset2Cb = onPreset2;
   s_learnCb = onLearn;
   s_foodCb = onFood;
   s_home = home_create();
@@ -48,7 +51,6 @@ void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
 
 void show_home() { if (s_home) { lv_scr_load(s_home); s_active = HOME; } }
 void show_thermal() { if (s_thermal) { lv_scr_load(s_thermal); s_active = THERMAL; } }
-void show_presets() { if (s_presets) { lv_scr_load(s_presets); s_active = PRESETS; } }
 
 void show_idle() {
   if (!s_idle) {
@@ -72,11 +74,18 @@ void show_idle() {
 void show_learn() { if (s_learn) { lv_scr_load(s_learn); s_active = LEARN; } }
 void show_lastcook() { if (s_lastcook) { lv_scr_load(s_lastcook); s_active = LASTCOOK; } }
 void show_foods() { if (s_foods) { lv_scr_load(s_foods); s_active = FOODS; } }
+void show_presets() { if (s_presets) { s_presetZone = 0; lv_scr_load(s_presets); s_active = PRESETS; } }
+void show_presets_zone2() { if (s_presets) { s_presetZone = 1; lv_scr_load(s_presets); s_active = PRESETS; } }
 
 void toggle_unit() { s_useF = !s_useF; if (s_unitCb) s_unitCb(s_useF); }
 bool unit_useF() { return s_useF; }
 void target_adjust(int deltaF) { if (s_targetCb) s_targetCb(deltaF); }
-void select_preset(uint8_t id) { if (s_presetCb) s_presetCb(id); show_home(); }
+void select_preset(uint8_t id) {
+  if (s_presetZone == 1 && s_preset2Cb) s_preset2Cb(id);
+  else if (s_presetCb) s_presetCb(id);
+  s_presetZone = 0;
+  show_home();
+}
 void learn_cmd(uint8_t cmd) { if (s_learnCb) s_learnCb(cmd); }
 void select_food(int id) { if (s_foodCb) s_foodCb(id); show_home(); }
 

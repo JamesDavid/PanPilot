@@ -23,6 +23,8 @@ lv_obj_t* s_temp = nullptr;
 lv_obj_t* s_rate = nullptr;
 lv_obj_t* s_eta = nullptr;
 lv_obj_t* s_note = nullptr;
+lv_obj_t* s_z2 = nullptr;       // secondary-pan tile (M12)
+lv_obj_t* s_z2_lbl = nullptr;
 lv_obj_t* s_arc = nullptr;
 lv_obj_t* s_cook = nullptr;
 lv_obj_t* s_bar = nullptr;
@@ -34,6 +36,7 @@ lv_obj_t* s_overlay_sub = nullptr;
 void temp_tap_cb(lv_event_t*) { ui::show_thermal(); }
 void unit_cb(lv_event_t*) { ui::toggle_unit(); }
 void preset_tap_cb(lv_event_t*) { ui::show_presets(); }
+void z2_tap_cb(lv_event_t*) { ui::show_presets_zone2(); }
 
 inline float cToF(float c) { return c * 9.0f / 5.0f + 32.0f; }
 
@@ -131,6 +134,17 @@ lv_obj_t* home_create() {
   lv_obj_set_style_text_font(s_eta, &lv_font_montserrat_14, 0);
   lv_obj_set_style_text_color(s_eta, lv_color_hex(0x8A93A0), 0);
   lv_obj_align(s_eta, LV_ALIGN_CENTER, 0, 70);
+
+  // Secondary-pan tile (M12): tap to set zone 2's target.
+  s_z2 = lv_btn_create(scr);
+  lv_obj_set_size(s_z2, 132, 46);
+  lv_obj_align(s_z2, LV_ALIGN_TOP_RIGHT, -8, 44);
+  lv_obj_set_style_bg_color(s_z2, lv_color_hex(0x1A2027), 0);
+  lv_obj_add_event_cb(s_z2, z2_tap_cb, LV_EVENT_CLICKED, nullptr);
+  s_z2_lbl = lv_label_create(s_z2);
+  lv_obj_set_style_text_font(s_z2_lbl, &lv_font_montserrat_14, 0);
+  lv_obj_center(s_z2_lbl);
+  lv_obj_add_flag(s_z2, LV_OBJ_FLAG_HIDDEN);
 
   // Food-timer countdown arc around the temperature (roadmap §2.7)
   s_arc = lv_arc_create(scr);
@@ -278,6 +292,17 @@ void home_update(const UiState& s, bool useF) {
   } else if (s.food && s.foodTimer.k < 0.9f &&
              s.foodTimer.phase == FoodTimerOut::COOKING) {
     lv_label_set_text(s_note, "Cooler pan - timer extended to match");
+  }
+
+  // Secondary-pan tile (M12): independent zone-2 temperature + guidance color.
+  if (s.zone2Present) {
+    const float t2 = useF ? cToF(s.zone2TempC) : s.zone2TempC;
+    std::snprintf(buf, sizeof(buf), "Pan 2\n%d\xC2\xB0%s", int(t2 + 0.5f), useF ? "F" : "C");
+    lv_label_set_text(s_z2_lbl, buf);
+    lv_obj_set_style_bg_color(s_z2, lv_color_hex(bar_for(s.zone2Guidance).color), 0);
+    lv_obj_clear_flag(s_z2, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_add_flag(s_z2, LV_OBJ_FLAG_HIDDEN);
   }
 
   // action bar

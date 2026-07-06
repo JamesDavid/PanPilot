@@ -17,10 +17,14 @@ LGFX_PanPilot lcd;
 constexpr uint16_t kHor = 480;
 constexpr uint16_t kVer = 320;
 
-// Two partial draw buffers, 16 lines each, in DMA-capable internal RAM. 16 (not
-// 32) lines keeps .bss within the classic ESP32-WROVER's tighter DRAM while
-// staying smooth on the S3 (base spec §4). ~30 KB total.
+// Two partial draw buffers in DMA-capable internal RAM. The classic ESP32-WROVER
+// (basic board) has much tighter DRAM and doesn't run the Phase-2 features that
+// eat it, so it gets 8-line buffers; the S3 keeps 16 (base spec §4).
+#ifdef BOARD_CROWPANEL35_BASIC
+constexpr uint32_t kBufPx = kHor * 8;
+#else
 constexpr uint32_t kBufPx = kHor * 16;
+#endif
 lv_color_t s_buf1[kBufPx];
 lv_color_t s_buf2[kBufPx];
 lv_disp_draw_buf_t s_draw_buf;

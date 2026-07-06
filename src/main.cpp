@@ -25,6 +25,7 @@
 #include "core/battery.h"
 #include "core/attention.h"
 #include "core/compliance.h"
+#include "core/multipan.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
 #include "hal/storage.h"
@@ -90,6 +91,14 @@ void save_target();   // defined below
 // target mutex alongside g_target (a food sets a custom target band).
 const FoodEntry* volatile g_food = nullptr;
 volatile uint8_t g_batch = 0;
+
+// Multi-pan zone 2 (M12): independent secondary target + a ready-edge chirp.
+volatile int g_target2 = 300;
+volatile bool g_z2ReadyChirp = false;
+
+void on_preset2(uint8_t id) {
+  g_target2 = (preset(id).loF + preset(id).hiF) / 2;   // zone-2 target band center
+}
 
 void on_food(int id) {
   if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) != pdTRUE) return;
@@ -159,6 +168,11 @@ void SensorTask(void*) {
   uint32_t foodCueUntil = 0;
   const char* foodVerb = "";
   const char* foodSub = "";
+  MultiPanTracker tracker;
+  ThermalModel model2;
+  GuidanceEngine guidance2;
+  Target target2;
+  GuidanceState prevZ2 = GuidanceState::IDLE;
   for (;;) {
     if (!g_sensor_ok) {
       g_sensor_ok = sensor::mlx_begin();
@@ -242,6 +256,30 @@ void SensorTask(void*) {
       }
       const bool foodCue = nowm < foodCueUntil;
 
+      // Multi-pan zone 2 (M12): independent guidance on a second burner.
+      PanReading zt[2];
+      const int npan = tracker.process(frame, zt);
+      const bool z2 = npan >= 2 && zt[1].presence != PanPresence::ABSENT;
+      GuidanceState z2g = GuidanceState::IDLE;
+      float z2temp = 0;
+      if (z2) {
+        model2.update(zt[1]);
+        target2.setCenter(g_target2);
+        GuidanceInput gi2;
+        gi2.tempF = ThermalModel::cToF(model2.displayTempC());
+        gi2.rateFPerMin = model2.rateFPerMin();
+        gi2.confidence = zt[1].confidence;
+        gi2.presence = zt[1].presence;
+        gi2.lagMinutes = g_applied_lag;
+        z2g = guidance2.step(gi2, target2, nowm).state;
+        z2temp = model2.displayTempC();
+        if (z2g == GuidanceState::READY && prevZ2 != GuidanceState::READY)
+          g_z2ReadyChirp = true;          // independent zone-2 READY alert
+        prevZ2 = z2g;
+      } else {
+        model2.reset(); guidance2.reset(); prevZ2 = GuidanceState::IDLE;
+      }
+
       // Session lifecycle (§8): start on a hot pan, end when cool + stable.
       // Records a 1 Hz temperature trace to LittleFS (roadmap §2.3).
       if (!session.active() && r.presence == PanPresence::PRESENT && sceneHot) {
@@ -292,6 +330,10 @@ void SensorTask(void*) {
       u.foodCue = foodCue;
       u.foodCueVerb = foodVerb;
       u.foodCueSub = foodSub;
+      u.zone2Present = z2;
+      u.zone2TempC = z2temp;
+      u.zone2Guidance = z2g;
+      u.zone2TargetF = g_target2;
       u.learnPhase = (LearnPhase)g_learn_phase;
       u.learnProgress = g_learn_progress;
       u.learnedLagMinutes = g_learned_lag;
@@ -380,7 +422,7 @@ void setup() {
     if (hal::storage_load_profile(pf)) { g_applied_lag = pf.lagMinutes;
       Serial.printf("[profile] loaded lag=%.2f min\n", pf.lagMinutes); } }
   ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
-                on_preset, on_learn, on_food);
+                on_preset, on_learn, on_food, on_preset2);
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot
 
@@ -404,6 +446,7 @@ void loop() {
   static BatteryMonitor battMon;
   lv_timer_handler();
   hal::buzzer_update();
+  if (g_z2ReadyChirp) { g_z2ReadyChirp = false; hal::buzzer_play(hal::BuzzPattern::Double); }
 #if defined(ENABLE_WIFI)
   net::loop();
   ha::loop();

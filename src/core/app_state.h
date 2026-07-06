@@ -54,4 +54,10 @@ struct UiState {
   // Battery / power (M7)
   BatteryState battery;
   bool pluginWarning = false;    // critical battery mid-cook -> "PLUG ME IN"
+
+  // Multi-pan zone 2 (M12)
+  bool zone2Present = false;
+  float zone2TempC = 0;
+  GuidanceState zone2Guidance = GuidanceState::IDLE;
+  int zone2TargetF = 300;
 };

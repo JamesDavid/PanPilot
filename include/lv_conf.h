@@ -19,7 +19,7 @@
 // than the S3, and M1's frame-analysis scratch buffers eat into it — give it a
 // smaller heap; the S3 keeps the roomy one.
 #ifdef BOARD_CROWPANEL35_BASIC
-  #define LV_MEM_SIZE         (28U * 1024U)
+  #define LV_MEM_SIZE         (26U * 1024U)
 #else
   #define LV_MEM_SIZE         (48U * 1024U)
 #endif

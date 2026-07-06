@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M12.5 — food timer + cook database (Phase 2).** This README grows one
+> **Status: M12 — multi-pan (Phase 2 complete).** This README grows one
 > section at a time as each milestone lands. Sections below marked _(coming in
 > M#)_ aren't built yet.
 
@@ -188,6 +188,18 @@ Cook** screen (from the preset picker) draws the trace as a sparkline:
 
 The [web interface](#9-web-interface-m8) browses the full history and downloads
 any cook as **CSV** for a spreadsheet.
+
+### Two pans at once _(M12)_
+
+The array sees two adjacent burners, so PanPilot tracks **both pans** with their
+own independent targets and guidance — e.g. eggs at 300 °F on one and a sear at
+500 °F on the other, each with its own READY alert. The second pan shows as a
+tile (tap it to set its target); each stays pinned to its burner frame-to-frame.
+
+<p align="center">
+  <img src="docs/screenshots/multipan.png" width="360"
+       alt="Two-pan home: Sear primary heating, Pan 2 at 300°F ready">
+</p>
 
 ## 6. Food timer & cook database _(M12.5)_
 

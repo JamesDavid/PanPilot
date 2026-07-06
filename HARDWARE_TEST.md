@@ -249,3 +249,18 @@ note on REMOVE; a cold pan visibly extends the countdown with the banner.**
 | 12.5.4 | 3 batches | Batch counter advances 1→2→3; each auto-starts on pour | ☐ |
 | 12.5.5 | **Cold pan** (−40 °F) | Countdown visibly longer; “Cooler pan — timer extended” banner | ☐ |
 | 12.5.6 | Chicken breast → REMOVE | Shows **“verify 165 °F internal”**; note cannot be dismissed | ☐ |
+
+## M12 — Multi-pan / multi-zone
+
+**Acceptance (roadmap M12): two pans on front burners — simultaneous eggs
+(300 °F) + sear preheat (500 °F) — correct independent READY alerts. Passes 3
+consecutive runs.**
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| 12.1 | Two pans on adjacent burners | Primary shows full-size; **Pan 2 tile** appears with its temp | ☐ |
+| 12.2 | Tap the Pan 2 tile → pick Eggs | Zone-2 target = 300 °F, independent of the primary | ☐ |
+| 12.3 | Primary = Sear (500 °F) | Two independent targets running at once | ☐ |
+| 12.4 | Each reaches its band | **Independent READY** alerts (primary full-screen; zone 2 double-chirp + tile turns green) | ☐ |
+| 12.5 | Move a pan | Each stays pinned to its zone (persistent IDs) — no swap | ☐ |
+| 12.6 | Repeat 3× | Passes 3 consecutive runs | ☐ |

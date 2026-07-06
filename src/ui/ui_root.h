@@ -15,7 +15,7 @@ using LearnCb = void (*)(uint8_t cmd);         // 0=start, 1=save, 2=cancel
 using FoodCb = void (*)(int foodId);           // user picked a food (-1 = clear)
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
-               PresetCb onPreset, LearnCb onLearn, FoodCb onFood);
+               PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2);
 void root_update(const ThermalFrame& f, const PanReading& r, const UiState& s);
 
 void show_home();
@@ -25,6 +25,7 @@ void show_idle();     // dim "monitoring" screen (base spec §8)
 void show_learn();    // Learn Pan Mode wizard (base spec §7 Phase 1.5)
 void show_lastcook(); // Last Cook summary (roadmap §2.3)
 void show_foods();    // food picker (roadmap §2.7)
+void show_presets_zone2();  // preset picker that sets zone-2's target (M12)
 void toggle_unit();
 bool unit_useF();
 void target_adjust(int deltaF);     // fires TargetDeltaCb

@@ -135,6 +135,24 @@ int main(int argc, char** argv) {
     u.batchCount = 1;
     lv_scr_load(ui::home_create());
     ui::home_update(u, true);
+  } else if (scene == "multipan") {
+    UiState u;
+    u.mode = Mode::TARGET;
+    u.presence = PanPresence::PRESENT;
+    u.modelValid = true;
+    u.confidence = 88;
+    u.displayTempC = fToC(470);        // primary: Sear, still heating
+    u.rateCPerMin = 12;
+    u.trend = Trend::RISING_SLOW;
+    u.guidance = GuidanceState::HOLD;
+    u.targetCenterF = 512;
+    u.presetId = PRESET_SEAR;
+    u.zone2Present = true;             // secondary: Eggs at 300
+    u.zone2TempC = fToC(300);
+    u.zone2Guidance = GuidanceState::READY;
+    u.zone2TargetF = 300;
+    lv_scr_load(ui::home_create());
+    ui::home_update(u, true);
   } else if (scene == "learn") {
     UiState u;
     u.learnPhase = LearnPhase::DONE;
