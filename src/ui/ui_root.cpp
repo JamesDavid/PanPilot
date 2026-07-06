@@ -34,6 +34,7 @@ FoodCb s_foodCb = nullptr;
 RecipeCb s_recipeCb = nullptr;
 MuteCb s_muteCb = nullptr;
 BrightnessCb s_brightCb = nullptr;
+FeedbackCb s_feedbackCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS, SETTINGS } s_active = HOME;
 
@@ -66,6 +67,9 @@ void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness) {
   s_muteCb = onMute;
   s_brightCb = onBrightness;
 }
+
+void set_feedback_cb(FeedbackCb onFeedback) { s_feedbackCb = onFeedback; }
+void food_feedback(uint8_t verdict) { if (s_feedbackCb) s_feedbackCb(verdict); }
 
 void show_home() { if (s_home) { lv_scr_load(s_home); s_active = HOME; } }
 void show_thermal() { if (s_thermal) { lv_scr_load(s_thermal); s_active = THERMAL; } }

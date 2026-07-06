@@ -139,6 +139,19 @@ int main(int argc, char** argv) {
     u.batchCount = 1;
     lv_scr_load(ui::home_create());
     ui::home_update(u, true);
+  } else if (scene == "feedback") {
+    UiState u;
+    u.mode = Mode::TARGET;
+    u.presence = PanPresence::PRESENT;
+    u.modelValid = true;
+    u.confidence = 90;
+    u.displayTempC = fToC(360);
+    u.guidance = GuidanceState::READY;
+    u.food = &foodlib_entry(0);        // Pancakes just removed
+    u.feedbackPrompt = true;
+    u.feedbackName = foodlib_entry(0).name;
+    lv_scr_load(ui::home_create());
+    ui::home_update(u, true);
   } else if (scene == "multipan") {
     UiState u;
     u.mode = Mode::TARGET;

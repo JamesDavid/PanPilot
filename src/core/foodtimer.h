@@ -18,7 +18,9 @@ struct FoodTimerOut {
 
 class FoodTimer {
  public:
-  void start(const FoodEntry* e, uint32_t now);   // e.g. on FOOD ADDED
+  // timeFactor scales every side time (post-cook personalization, spec §2.7):
+  // 1.0 = seed time, >1 longer, <1 shorter. Default keeps the seed value.
+  void start(const FoodEntry* e, uint32_t now, float timeFactor = 1.0f);
   void stop();
   FoodTimerOut update(float panTempF, uint32_t now);
   bool active() const { return e_ != nullptr && !done_; }
@@ -31,6 +33,7 @@ class FoodTimer {
  private:
   const FoodEntry* e_ = nullptr;
   uint32_t last_ = 0;
+  float timeFactor_ = 1.0f; // personalization multiplier on side times (§2.7)
   float progress_ = 0;      // doneness-seconds accrued for the current side
   uint8_t side_ = 0;        // 0-based
   bool resting_ = false;

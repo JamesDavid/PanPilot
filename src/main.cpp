@@ -31,6 +31,7 @@
 #include "core/control/controller.h"
 #include "core/control/actuator.h"
 #include "core/settings.h"
+#include "core/foodfeedback.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
 #include "hal/storage.h"
@@ -101,6 +102,14 @@ void save_target();   // defined below
 const FoodEntry* volatile g_food = nullptr;
 volatile uint8_t g_batch = 0;
 
+// Post-cook feedback (spec §2.7). The store lives on the UI/loop core (on_food,
+// on_feedback touch it); SensorTask only reads g_foodFactor (the current food's
+// personalization multiplier) and raises g_awaitFeedback on REMOVE.
+panpilot::FeedbackStore g_feedback;
+volatile float g_foodFactor = 1.0f;
+volatile bool g_awaitFeedback = false;
+const FoodEntry* volatile g_fbFood = nullptr;   // food being graded
+
 // Multi-pan zone 2 (M12): independent secondary target + a ready-edge chirp.
 volatile int g_target2 = 300;
 volatile bool g_z2ReadyChirp = false;
@@ -130,10 +139,11 @@ void on_recipe(uint8_t cmd) {
 
 void on_food(int id) {
   if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) != pdTRUE) return;
-  if (id < 0) { g_food = nullptr; }
+  if (id < 0) { g_food = nullptr; g_foodFactor = 1.0f; }
   else {
     const FoodEntry* e = &foodlib_entry(id);
     g_food = e;
+    g_foodFactor = g_feedback.factorFor(e->name, e->variant);  // personalization
     g_target.loF = e->panTargetF_lo; g_target.hiF = e->panTargetF_hi;
     g_target.warnF = std::min((float)e->panTargetF_hi + 100, ABS_MAX_TEMP_F);
     g_target.centerF = (e->panTargetF_lo + e->panTargetF_hi) / 2;
@@ -276,7 +286,7 @@ void SensorTask(void*) {
       FoodTimerOut fo;
       if (food) {
         if (ro.event == RecoveryEvent::FOOD_ADDED && !foodtimer.active())
-          foodtimer.start(food, nowm);
+          foodtimer.start(food, nowm, g_foodFactor);   // personalized (§2.7)
         fo = foodtimer.update(gi.tempF, nowm);
         if (fo.event == FoodTimerOut::FLIP) {
           foodCueUntil = nowm + 6000; foodVerb = "FLIP"; foodSub = food->flipHint;
@@ -285,6 +295,7 @@ void SensorTask(void*) {
           foodCueUntil = nowm + 6000; foodVerb = "REMOVE";
           foodSub = food->safeInternalF ? "verify internal temp" : "";
           g_batch++;
+          g_fbFood = food; g_awaitFeedback = true;   // ask Under/Perfect/Over (§2.7)
           Serial.println("[food] remove");
         }
       }
@@ -411,6 +422,8 @@ void SensorTask(void*) {
       u.foodCue = foodCue;
       u.foodCueVerb = foodVerb;
       u.foodCueSub = foodSub;
+      u.feedbackPrompt = g_awaitFeedback;
+      u.feedbackName = g_fbFood ? g_fbFood->name : "";
       u.zone2Present = z2;
       u.zone2TempC = z2temp;
       u.zone2Guidance = z2g;
@@ -483,6 +496,21 @@ void on_brightness(uint8_t level) {
   hal::display_set_brightness(panpilot::brightness_pwm(g_bright));
 }
 
+// Post-cook grade (spec §2.7): nudge the just-cooked food's timer ±8%, persist
+// the table, refresh the live factor, and dismiss the prompt.
+void on_feedback(uint8_t verdict) {
+  const FoodEntry* f = g_fbFood;
+  if (f) {
+    g_feedback.apply(f->name, f->variant, (panpilot::FeedbackStore::Verdict)verdict);
+    hal::storage_set_foodfb(g_feedback.blob(), g_feedback.blobBytes());
+    if (g_food == f) g_foodFactor = g_feedback.factorFor(f->name, f->variant);
+    Serial.printf("[feedback] %s graded %u -> factor %.3f\n", f->name, verdict,
+                  g_feedback.factorFor(f->name, f->variant));
+  }
+  g_awaitFeedback = false;
+  g_fbFood = nullptr;
+}
+
 // ACTIVE-state backlight: the user's level, dimmed no brighter than the
 // battery cap when unplugged (roadmap §2.1).
 uint8_t active_brightness() {
@@ -527,9 +555,14 @@ void setup() {
     if (hal::storage_load_profile(pf)) { g_applied_lag = pf.lagMinutes;
       Serial.printf("[profile] loaded lag=%.2f min\n", pf.lagMinutes); } }
   g_bright = panpilot::brightness_clamp(hal::storage_get_brightness());
+  { uint8_t fbBlob[panpilot::FeedbackStore::MAX * 8];
+    uint32_t n = hal::storage_get_foodfb(fbBlob, sizeof(fbBlob));
+    if (n > 0) { g_feedback.loadBlob(fbBlob, n);
+      Serial.printf("[feedback] loaded %d food(s)\n", g_feedback.count()); } }
   ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
                 on_preset, on_learn, on_food, on_preset2, on_recipe);
   ui::set_settings_cbs(on_mute, on_brightness);
+  ui::set_feedback_cb(on_feedback);
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot
 

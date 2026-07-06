@@ -9,8 +9,9 @@ float FoodTimer::compFactor(const FoodEntry* e, float panTempF) {
   return std::max(0.7f, std::min(1.3f, k));
 }
 
-void FoodTimer::start(const FoodEntry* e, uint32_t now) {
+void FoodTimer::start(const FoodEntry* e, uint32_t now, float timeFactor) {
   e_ = e; last_ = now; progress_ = 0; side_ = 0;
+  timeFactor_ = timeFactor > 0.0f ? timeFactor : 1.0f;
   resting_ = false; restProg_ = 0; done_ = false;
 }
 void FoodTimer::stop() { e_ = nullptr; done_ = false; }
@@ -40,10 +41,11 @@ FoodTimerOut FoodTimer::update(float panTempF, uint32_t now) {
   o.k = k;
   o.phase = FoodTimerOut::COOKING;
   o.side = side_ + 1;
+  const float target = e_->sideSec[side_] * timeFactor_;   // personalized (§2.7)
   o.remainingSec =
-      std::max(0, (int)((e_->sideSec[side_] - progress_) / std::max(k, 0.1f)));
+      std::max(0, (int)((target - progress_) / std::max(k, 0.1f)));
 
-  if (progress_ >= e_->sideSec[side_]) {
+  if (progress_ >= target) {
     if (side_ + 1 < e_->sides) {                 // more sides -> FLIP/turn
       o.event = FoodTimerOut::FLIP;
       ++side_; progress_ = 0;

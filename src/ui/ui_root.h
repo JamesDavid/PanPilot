@@ -16,6 +16,7 @@ using FoodCb = void (*)(int foodId);           // user picked a food (-1 = clear
 using RecipeCb = void (*)(uint8_t cmd);        // 0=start, 1=stop, 2=ack cue
 using MuteCb = void (*)(bool muted);           // Settings: sound on/off
 using BrightnessCb = void (*)(uint8_t level);  // Settings: backlight 0/1/2
+using FeedbackCb = void (*)(uint8_t verdict);  // post-cook: 0=under,1=perfect,2=over
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
                PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2,
@@ -32,6 +33,8 @@ void show_foods();    // food picker (roadmap §2.7)
 void show_presets_zone2();  // preset picker that sets zone-2's target (M12)
 void show_settings(); // device Settings (Phase 2)
 void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness);
+void set_feedback_cb(FeedbackCb onFeedback);
+void food_feedback(uint8_t verdict);   // fires FeedbackCb (0=under,1=perfect,2=over)
 void settings_toggle_unit();       // fires UnitChangeCb + refreshes Settings
 void settings_toggle_mute();       // fires MuteCb + refreshes Settings
 void settings_cycle_brightness();  // fires BrightnessCb + refreshes Settings

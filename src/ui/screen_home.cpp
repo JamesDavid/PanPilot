@@ -39,6 +39,8 @@ lv_obj_t* s_bar_lbl = nullptr;
 lv_obj_t* s_overlay = nullptr;
 lv_obj_t* s_overlay_lbl = nullptr;
 lv_obj_t* s_overlay_sub = nullptr;
+lv_obj_t* s_fb = nullptr;          // post-cook feedback prompt (spec §2.7)
+lv_obj_t* s_fb_title = nullptr;
 
 void temp_tap_cb(lv_event_t*) { ui::show_thermal(); }
 void unit_cb(lv_event_t*) { ui::toggle_unit(); }
@@ -46,6 +48,9 @@ void preset_tap_cb(lv_event_t*) { ui::show_presets(); }
 void sp_tap1_cb(lv_event_t*) { ui::show_presets(); }         // split: pan 1 preset
 void sp_tap2_cb(lv_event_t*) { ui::show_presets_zone2(); }   // split: pan 2 preset
 void bar_tap_cb(lv_event_t*) { ui::recipe_cmd(2); }   // ack a recipe cue
+void fb_under_cb(lv_event_t*)   { ui::food_feedback(0); }
+void fb_perfect_cb(lv_event_t*) { ui::food_feedback(1); }
+void fb_over_cb(lv_event_t*)    { ui::food_feedback(2); }
 
 inline float cToF(float c) { return c * 9.0f / 5.0f + 32.0f; }
 
@@ -195,6 +200,42 @@ lv_obj_t* home_create() {
   lv_obj_align(s_overlay_sub, LV_ALIGN_CENTER, 0, 44);
   lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
 
+  // --- Post-cook feedback prompt (spec §2.7) -------------------------------
+  // After REMOVE, ask how it turned out; the answer nudges this food's timer
+  // ±8% for next time. Three buttons; tapping any one answers and dismisses.
+  s_fb = lv_obj_create(scr);
+  lv_obj_remove_style_all(s_fb);
+  lv_obj_set_size(s_fb, 480, 320);
+  lv_obj_center(s_fb);
+  lv_obj_set_style_bg_color(s_fb, lv_color_hex(0x101418), 0);
+  lv_obj_set_style_bg_opa(s_fb, LV_OPA_COVER, 0);
+  s_fb_title = lv_label_create(s_fb);
+  lv_obj_set_style_text_font(s_fb_title, &lv_font_montserrat_28, 0);
+  lv_obj_set_style_text_color(s_fb_title, lv_color_hex(0xF5F5F5), 0);
+  lv_obj_align(s_fb_title, LV_ALIGN_TOP_MID, 0, 60);
+  lv_obj_t* fbsub = lv_label_create(s_fb);
+  lv_label_set_text(fbsub, "How did it turn out? I'll tune the timer.");
+  lv_obj_set_style_text_font(fbsub, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_color(fbsub, lv_color_hex(0x8A93A0), 0);
+  lv_obj_align(fbsub, LV_ALIGN_TOP_MID, 0, 104);
+  struct { const char* txt; lv_event_cb_t cb; uint32_t col; int dx; } fbb[] = {
+    {"Undercooked", fb_under_cb,   0x2E5AAC, -150},
+    {"Perfect",     fb_perfect_cb, 0x2E7D32, 0},
+    {"Overcooked",  fb_over_cb,    0xC0700A, 150},
+  };
+  for (auto& b : fbb) {
+    lv_obj_t* btn = lv_btn_create(s_fb);
+    lv_obj_set_size(btn, 146, 64);
+    lv_obj_align(btn, LV_ALIGN_CENTER, b.dx, 30);
+    lv_obj_set_style_bg_color(btn, lv_color_hex(b.col), 0);
+    lv_obj_add_event_cb(btn, b.cb, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t* l = lv_label_create(btn);
+    lv_label_set_text(l, b.txt);
+    lv_obj_set_style_text_font(l, &lv_font_montserrat_20, 0);
+    lv_obj_center(l);
+  }
+  lv_obj_add_flag(s_fb, LV_OBJ_FLAG_HIDDEN);
+
   // --- Split-screen two-pan layout (M12) -----------------------------------
   // A vertical divider and two mirrored columns, each with a pan label, a big
   // temperature, its target, and a color-coded guidance bar. Built hidden;
@@ -315,6 +356,7 @@ void home_update(const UiState& s, bool useF) {
     } else {
       lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
     }
+    lv_obj_add_flag(s_fb, LV_OBJ_FLAG_HIDDEN);
     return;
   }
 
@@ -455,6 +497,21 @@ void home_update(const UiState& s, bool useF) {
     lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
   } else {
     lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
+  }
+
+  // Post-cook feedback prompt (spec §2.7). The cook is finished, so it takes
+  // precedence over the guidance overlays (READY / TURN DOWN) — only a genuine
+  // safety or battery alert still wins.
+  const bool safetyOverlay = s.pluginWarning ||
+                             s.guidance == GuidanceState::TOO_HOT;
+  if (s.feedbackPrompt && !safetyOverlay) {
+    std::snprintf(buf, sizeof(buf), "%s",
+                  s.feedbackName && s.feedbackName[0] ? s.feedbackName : "Your cook");
+    lv_label_set_text(s_fb_title, buf);
+    lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);   // feedback replaces it
+    lv_obj_clear_flag(s_fb, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_add_flag(s_fb, LV_OBJ_FLAG_HIDDEN);
   }
 }
 

@@ -52,6 +52,10 @@ struct UiState {
   const char* foodCueVerb = "";
   const char* foodCueSub = "";
 
+  // Post-cook feedback prompt (spec §2.7): after REMOVE, ask Under/Perfect/Over.
+  bool feedbackPrompt = false;
+  const char* feedbackName = "";    // food being graded
+
   // Battery / power (M7)
   BatteryState battery;
   bool pluginWarning = false;    // critical battery mid-cook -> "PLUG ME IN"

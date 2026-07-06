@@ -79,5 +79,14 @@ bool storage_load_profile(PanProfile& out) {
 String storage_get_mqtt_broker() { ensure(); return s_prefs.getString("mqtt", ""); }
 void storage_set_mqtt_broker(const String& b) { ensure(); s_prefs.putString("mqtt", b); }
 
+uint32_t storage_get_foodfb(void* out, uint32_t maxBytes) {
+  ensure();
+  return (uint32_t)s_prefs.getBytes("foodfb", out, maxBytes);
+}
+void storage_set_foodfb(const void* data, uint32_t bytes) {
+  ensure();
+  s_prefs.putBytes("foodfb", data, bytes);
+}
+
 }  // namespace hal
 #endif

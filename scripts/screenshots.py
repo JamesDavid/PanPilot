@@ -29,6 +29,7 @@ SCENES = [
     ("cooking", "docs/screenshots/cooking.png"),   # food timer countdown
     ("multipan", "docs/screenshots/multipan.png"), # two-pan home
     ("settings", "docs/screenshots/settings.png"), # device settings
+    ("feedback", "docs/screenshots/feedback.png"), # post-cook Under/Perfect/Over
 ]
 
 ROOT = Path(__file__).resolve().parents[1]

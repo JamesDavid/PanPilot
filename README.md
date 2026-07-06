@@ -231,6 +231,21 @@ actual pan temperature**.
 The 28-entry seed database (`src/core/foodlib/foodlib_seed.h`) covers breakfast,
 burgers, steak, poultry, pork, seafood, melts and vegetarian — authored from
 standard references, pending human review before release.
+
+### It learns your stove
+
+When a cook finishes, PanPilot asks **how it turned out** — *Undercooked /
+Perfect / Overcooked*. Each answer nudges that food's timer by **±8%** and
+remembers it, so the seed times drift toward *your* burner and pans over a few
+cooks. The adjustment is per food **and** variant (4-inch vs 6-inch pancakes are
+tracked separately), bounded to 0.6×–1.5× of the original so it can't run away,
+and saved to flash.
+
+<p align="center">
+  <img src="docs/screenshots/feedback.png" width="360"
+       alt="Post-cook prompt: Undercooked / Perfect / Overcooked">
+</p>
+
 ## 7. Attention levels — beep & flash patterns _(M13)_
 
 Every cue — from a gentle trend tick to a loud alarm — routes through one
