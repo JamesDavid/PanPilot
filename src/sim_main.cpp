@@ -23,6 +23,7 @@
 #include "ui/screen_foods.h"
 #include "ui/screen_settings.h"
 #include "ui/screen_preset_edit.h"
+#include "ui/screen_assist.h"
 #include "core/foodlib.h"
 #include "core/app_state.h"
 #include "core/thermal_model.h"
@@ -124,6 +125,27 @@ int main(int argc, char** argv) {
   } else if (scene == "presetedit") {
     lv_scr_load(ui::preset_edit_create());
     ui::preset_edit_load("Smash burger", 450, 500, false, /*canDelete=*/false);
+  } else if (scene == "assistarm") {
+    lv_scr_load(ui::assist_create());
+    ui::assist_load("SSR box", /*ready=*/true);
+  } else if (scene == "assist") {
+    UiState u;
+    u.mode = Mode::TARGET;
+    u.presence = PanPresence::PRESENT;
+    u.modelValid = true;
+    u.confidence = 90;
+    u.displayTempC = fToC(455);
+    u.rateCPerMin = 2;
+    u.trend = Trend::RISING_SLOW;
+    u.guidance = GuidanceState::HOLD;
+    u.targetCenterF = 475;
+    u.presetId = PRESET_SEAR;
+    u.assistArmed = true;
+    u.actuatorAvailable = true;
+    u.assistDuty = 0.45f;
+    u.actuatorName = "SSR box";
+    lv_scr_load(ui::home_create());
+    ui::home_update(u, true);
   } else if (scene == "cooking") {
     UiState u;
     u.mode = Mode::TARGET;

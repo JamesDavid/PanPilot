@@ -380,8 +380,22 @@ them. All fail safe to **power off**:
 **Arming ceremony:** ASSIST is available *only* when a watchdog-capable actuator
 is discovered and armed through an explicit confirm screen naming it — with no
 actuator present, every control element is hidden and there is no code path to
-energize anything. The box's own **hardware watchdog** turns the SSR off within
-15 s if PanPilot ever goes quiet.
+energize anything. Open it from **Settings → Autopilot**: the screen names the
+actuator, spells out that you're still the cook, and keeps the **ARM** button
+disabled until you flip the *"I'll stay nearby"* switch. The box's own
+**hardware watchdog** turns the SSR off within 15 s if PanPilot ever goes quiet.
+
+Once armed, the home screen carries a persistent red **STOP bar** showing the
+commanded duty (or the interlock reason when power is being held) — tap it to cut
+power instantly (that's interlock S9).
+
+<p align="center">
+  <img src="docs/screenshots/assistarm.png" width="330"
+       alt="ASSIST arming ceremony with the stay-nearby switch and ARM button">
+  &nbsp;
+  <img src="docs/screenshots/assist.png" width="330"
+       alt="Home while armed: red STOP bar showing ASSIST duty">
+</p>
 
 _The control logic — interlocks (S1–S11), bang-bang & PID against a simulated
 plant — is unit-tested (`test_interlocks`, `test_controller`); the SSR box

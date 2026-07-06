@@ -39,6 +39,7 @@
 #include "hal/power.h"
 #include "hal/ota.h"
 #include "hal/session_store.h"
+#include "hal/mqtt_plug_actuator.h"
 #include "ui/screen_lastcook.h"
 #include "sensor/mlx90640_source.h"
 #include "sensor/frame_analysis.h"
@@ -130,7 +131,32 @@ HeatActuator* volatile g_actuator = nullptr;   // set only after the arming cere
 volatile bool g_assist_armed = false;
 volatile bool g_assist_stop = false;
 volatile float g_assist_duty = 0;
-void on_stop() { g_assist_stop = true; g_assist_armed = false; }   // big STOP bar (S9)
+#if defined(ENABLE_WIFI)
+// The one actuator PanPilot can arm: the SSR box / watchdog plug over MQTT.
+// Duty is time-proportioned; the box's own watchdog fails safe on comms loss.
+hal::MqttPlugActuator g_plug("SSR box", CTRL_WINDOW_SSR_MS, ha::actuator_publish,
+                             "panpilot/plug/set");
+#endif
+void on_stop() {                                  // big STOP bar (interlock S9)
+  g_assist_stop = true; g_assist_armed = false;
+  if (g_actuator) g_actuator->emergencyOff();
+}
+// Arming ceremony result (roadmap §3.3). cmd 0 = arm, 1 = STOP/disarm.
+void on_assist(uint8_t cmd) {
+  if (cmd == 0) {
+#if defined(ENABLE_WIFI)
+    g_assist_stop = false;
+    g_actuator = &g_plug;      // interlocks still gate every tick before the PID
+    g_assist_armed = true;
+    Serial.println("[assist] ARMED - Autopilot has burner authority");
+#else
+    Serial.println("[assist] no actuator on this build - advisory only");
+#endif
+  } else {
+    on_stop();
+    Serial.println("[assist] STOP");
+  }
+}
 void on_recipe(uint8_t cmd) {
   if (cmd == 0) g_recipe_start_req = true;
   else if (cmd == 1) g_recipe_active = false;
@@ -434,7 +460,13 @@ void SensorTask(void*) {
       u.assistArmed = g_assist_armed;
       u.assistDuty = assistDuty;
       u.assistInterlock = ilv;
-      u.actuatorName = g_actuator ? g_actuator->name() : "";
+#if defined(ENABLE_WIFI)
+      u.actuatorAvailable = true;          // SSR box actuator compiled in
+      u.actuatorName = g_plug.name();
+#else
+      u.actuatorAvailable = false;
+      u.actuatorName = "";
+#endif
       u.learnPhase = (LearnPhase)g_learn_phase;
       u.learnProgress = g_learn_progress;
       u.learnedLagMinutes = g_learned_lag;
@@ -583,6 +615,7 @@ void setup() {
   ui::set_settings_cbs(on_mute, on_brightness);
   ui::set_feedback_cb(on_feedback);
   ui::set_preset_edit_cbs(on_preset_save, on_preset_delete);
+  ui::set_assist_cb(on_assist);
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot
 
@@ -610,6 +643,7 @@ void loop() {
 #if defined(ENABLE_WIFI)
   net::loop();
   ha::loop();
+  g_plug.setAlive(ha::connected());   // actuator liveness feeds interlocks S7/S8
 #endif
 
   const uint32_t now = millis();

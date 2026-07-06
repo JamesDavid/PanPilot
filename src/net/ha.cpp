@@ -147,5 +147,13 @@ void publish(const UiState& s, bool useF) {
   s_mqtt.publish(STATE, buf, true);
 }
 
+bool connected() { return s_mqtt.connected(); }
+
+// ASSIST duty output (roadmap §3.2). Not retained — a stale duty must never
+// re-energize a plug after a reconnect; the box's own watchdog fails safe.
+void actuator_publish(const char* topic, const char* payload) {
+  if (s_mqtt.connected()) s_mqtt.publish(topic, payload, false);
+}
+
 }  // namespace ha
 #endif

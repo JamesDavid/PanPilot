@@ -31,6 +31,8 @@ SCENES = [
     ("settings", "docs/screenshots/settings.png"), # device settings
     ("feedback", "docs/screenshots/feedback.png"), # post-cook Under/Perfect/Over
     ("presetedit", "docs/screenshots/presetedit.png"), # custom preset editor
+    ("assistarm", "docs/screenshots/assistarm.png"),   # ASSIST arming ceremony
+    ("assist", "docs/screenshots/assist.png"),         # home with STOP bar armed
 ]
 
 ROOT = Path(__file__).resolve().parents[1]

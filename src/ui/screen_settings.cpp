@@ -16,6 +16,7 @@ void done_cb(lv_event_t*) { ui::show_home(); }
 void unit_cb(lv_event_t*) { ui::settings_toggle_unit(); }
 void sound_cb(lv_event_t*) { ui::settings_toggle_mute(); }
 void bright_cb(lv_event_t*) { ui::settings_cycle_brightness(); }
+void assist_cb(lv_event_t*) { ui::show_assist_arm(); }
 
 // One "Label ............ value" row that fires cb on tap. Returns the value
 // label so settings_update() can refresh it.
@@ -61,15 +62,17 @@ lv_obj_t* settings_create() {
   lv_label_set_text(dl, "Done");
   lv_obj_center(dl);
 
-  s_val_unit = mk_row(scr, "Temperature", unit_cb, 44);
-  s_val_sound = mk_row(scr, "Sound", sound_cb, 102);
-  s_val_bright = mk_row(scr, "Brightness", bright_cb, 160);
+  s_val_unit = mk_row(scr, "Temperature", unit_cb, 40);
+  s_val_sound = mk_row(scr, "Sound", sound_cb, 96);
+  s_val_bright = mk_row(scr, "Brightness", bright_cb, 152);
+  lv_obj_t* av = mk_row(scr, "Autopilot", assist_cb, 208);
+  lv_label_set_text(av, "Set up  " LV_SYMBOL_RIGHT);
 
   lv_obj_t* about = lv_label_create(scr);
   lv_label_set_text(about, "PanPilot  " PANPILOT_FW_VERSION "     tap a row to change");
   lv_obj_set_style_text_font(about, &lv_font_montserrat_14, 0);
   lv_obj_set_style_text_color(about, lv_color_hex(0x5A626C), 0);
-  lv_obj_align(about, LV_ALIGN_BOTTOM_MID, 0, -14);
+  lv_obj_align(about, LV_ALIGN_BOTTOM_MID, 0, -8);
   return s_screen;
 }
 

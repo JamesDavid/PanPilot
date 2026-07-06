@@ -14,6 +14,24 @@ enum class Interlock : uint8_t {
   S6_SENSOR, S7_ACTUATOR, S8_COMMS, S9_STOP, S10_UNATTENDED, S11_DIEHEAT
 };
 
+// Short human-readable reason for the STOP-bar / alert (roadmap §3.3).
+inline const char* interlock_name(int i) {
+  switch ((Interlock)i) {
+    case Interlock::S1_CONFIDENCE: return "low confidence";
+    case Interlock::S2_PRESENCE:   return "no pan";
+    case Interlock::S3_OBSTRUCT:   return "obstructed";
+    case Interlock::S4_RUNAWAY:    return "runaway heat";
+    case Interlock::S5_MAXTEMP:    return "over max temp";
+    case Interlock::S6_SENSOR:     return "sensor fault";
+    case Interlock::S7_ACTUATOR:   return "actuator lost";
+    case Interlock::S8_COMMS:      return "comms lost";
+    case Interlock::S9_STOP:       return "STOP pressed";
+    case Interlock::S10_UNATTENDED:return "unattended";
+    case Interlock::S11_DIEHEAT:   return "device too hot";
+    default:                       return "";
+  }
+}
+
 struct InterlockInput {
   uint8_t confidence = 100;
   PanPresence presence = PanPresence::PRESENT;

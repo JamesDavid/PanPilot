@@ -16,5 +16,7 @@ void begin(const char* broker, uint16_t port, MuteCb, TargetCb, PresetCb);
 void loop();                        // reconnect + pump MQTT
 void publish(const UiState& s, bool useF);
 bool enabled();
+bool connected();                   // MQTT link up (actuator liveness for S7/S8)
+void actuator_publish(const char* topic, const char* payload);  // ASSIST duty out
 }  // namespace ha
 #endif

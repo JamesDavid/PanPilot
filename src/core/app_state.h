@@ -73,6 +73,7 @@ struct UiState {
 
   // Autopilot / ASSIST control (M14-M18, M21). armed=false => pure ADVISORY.
   bool assistArmed = false;
+  bool actuatorAvailable = false; // an actuator is configured (arming allowed)
   float assistDuty = 0;          // 0..1 commanded to the actuator
   int  assistInterlock = 0;      // Interlock enum (0 = NONE)
   const char* actuatorName = "";

@@ -11,6 +11,7 @@
 #include "ui/screen_foods.h"
 #include "ui/screen_settings.h"
 #include "ui/screen_preset_edit.h"
+#include "ui/screen_assist.h"
 #include "core/settings.h"
 #include "core/presets.h"
 
@@ -25,7 +26,10 @@ lv_obj_t* s_lastcook = nullptr;
 lv_obj_t* s_foods = nullptr;
 lv_obj_t* s_settings = nullptr;
 lv_obj_t* s_preset_edit = nullptr;
+lv_obj_t* s_assist = nullptr;
 int s_editId = -1;                 // preset id being edited (-1 = new)
+bool s_assistAvail = false;        // actuator configured (from the snapshot)
+const char* s_actuatorName = "";
 bool s_useF = true;
 bool s_muted = false;        // cached from the per-tick snapshot for Settings
 uint8_t s_bright = 2;
@@ -41,9 +45,10 @@ BrightnessCb s_brightCb = nullptr;
 FeedbackCb s_feedbackCb = nullptr;
 PresetSaveCb s_presetSaveCb = nullptr;
 PresetDeleteCb s_presetDelCb = nullptr;
+AssistCb s_assistCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS,
-              SETTINGS, PRESET_EDIT } s_active = HOME;
+              SETTINGS, PRESET_EDIT, ASSIST } s_active = HOME;
 
 void settings_refresh() { settings_update(s_useF, s_muted, s_bright); }
 }  // namespace
@@ -67,6 +72,7 @@ void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
   s_foods = foods_create();
   s_settings = settings_create();
   s_preset_edit = preset_edit_create();
+  s_assist = assist_create();
   lv_scr_load(s_home);
   s_active = HOME;
 }
@@ -75,6 +81,7 @@ void set_preset_edit_cbs(PresetSaveCb onSave, PresetDeleteCb onDelete) {
   s_presetSaveCb = onSave;
   s_presetDelCb = onDelete;
 }
+void set_assist_cb(AssistCb onAssist) { s_assistCb = onAssist; }
 
 void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness) {
   s_muteCb = onMute;
@@ -140,6 +147,15 @@ void preset_edit_delete() {
   show_presets();
 }
 
+void show_assist_arm() {
+  if (!s_assist) s_assist = assist_create();
+  assist_load(s_actuatorName, s_assistAvail);
+  lv_scr_load(s_assist);
+  s_active = ASSIST;
+}
+void assist_arm() { if (s_assistCb) s_assistCb(0); show_home(); }
+void assist_stop() { if (s_assistCb) s_assistCb(1); }
+
 void toggle_unit() { s_useF = !s_useF; if (s_unitCb) s_unitCb(s_useF); }
 
 void settings_toggle_unit() { toggle_unit(); settings_refresh(); }
@@ -171,6 +187,8 @@ void start_recipe() { if (s_recipeCb) s_recipeCb(0); show_home(); }
 void root_update(const ThermalFrame& f, const PanReading& r, const UiState& s) {
   s_muted = s.muted;                 // keep Settings' cache in sync with device truth
   s_bright = s.brightnessLevel;
+  s_assistAvail = s.actuatorAvailable;
+  s_actuatorName = s.actuatorName;
   if (s_active == HOME) home_update(s, s_useF);
   else if (s_active == THERMAL) thermal_update(f, r, s_useF);
   else if (s_active == LEARN) learn_update(s);

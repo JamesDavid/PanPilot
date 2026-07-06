@@ -9,6 +9,7 @@
 #include "ui/ui_root.h"
 #include "app_config.h"
 #include "core/presets.h"
+#include "core/control/interlocks.h"
 
 namespace ui {
 namespace {
@@ -41,6 +42,8 @@ lv_obj_t* s_overlay_lbl = nullptr;
 lv_obj_t* s_overlay_sub = nullptr;
 lv_obj_t* s_fb = nullptr;          // post-cook feedback prompt (spec §2.7)
 lv_obj_t* s_fb_title = nullptr;
+lv_obj_t* s_stop = nullptr;        // ASSIST STOP bar (roadmap §3.3)
+lv_obj_t* s_stop_lbl = nullptr;
 
 void temp_tap_cb(lv_event_t*) { ui::show_thermal(); }
 void unit_cb(lv_event_t*) { ui::toggle_unit(); }
@@ -51,6 +54,7 @@ void bar_tap_cb(lv_event_t*) { ui::recipe_cmd(2); }   // ack a recipe cue
 void fb_under_cb(lv_event_t*)   { ui::food_feedback(0); }
 void fb_perfect_cb(lv_event_t*) { ui::food_feedback(1); }
 void fb_over_cb(lv_event_t*)    { ui::food_feedback(2); }
+void stop_cb(lv_event_t*)       { ui::assist_stop(); }
 
 inline float cToF(float c) { return c * 9.0f / 5.0f + 32.0f; }
 
@@ -236,6 +240,23 @@ lv_obj_t* home_create() {
   }
   lv_obj_add_flag(s_fb, LV_OBJ_FLAG_HIDDEN);
 
+  // --- ASSIST STOP bar (roadmap §3.3) --------------------------------------
+  // While Autopilot is armed a persistent red STOP bar covers the action bar;
+  // tapping it cuts power immediately (interlock S9).
+  s_stop = lv_obj_create(scr);
+  lv_obj_remove_style_all(s_stop);
+  lv_obj_set_size(s_stop, 480, 52);
+  lv_obj_align(s_stop, LV_ALIGN_BOTTOM_MID, 0, 0);
+  lv_obj_set_style_bg_color(s_stop, lv_color_hex(0xC62828), 0);
+  lv_obj_set_style_bg_opa(s_stop, LV_OPA_COVER, 0);
+  lv_obj_add_flag(s_stop, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(s_stop, stop_cb, LV_EVENT_CLICKED, nullptr);
+  s_stop_lbl = lv_label_create(s_stop);
+  lv_obj_set_style_text_font(s_stop_lbl, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(s_stop_lbl, lv_color_hex(0xFFFFFF), 0);
+  lv_obj_center(s_stop_lbl);
+  lv_obj_add_flag(s_stop, LV_OBJ_FLAG_HIDDEN);
+
   // --- Split-screen two-pan layout (M12) -----------------------------------
   // A vertical divider and two mirrored columns, each with a pan label, a big
   // temperature, its target, and a color-coded guidance bar. Built hidden;
@@ -357,6 +378,7 @@ void home_update(const UiState& s, bool useF) {
       lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
     }
     lv_obj_add_flag(s_fb, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_stop, LV_OBJ_FLAG_HIDDEN);
     return;
   }
 
@@ -497,6 +519,22 @@ void home_update(const UiState& s, bool useF) {
     lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
   } else {
     lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
+  }
+
+  // ASSIST STOP bar (roadmap §3.3): while armed it replaces the action bar and
+  // shows the commanded duty, or the interlock reason if power is being held.
+  if (s.assistArmed) {
+    if (s.assistInterlock != 0)
+      std::snprintf(buf, sizeof(buf), LV_SYMBOL_STOP "  STOP   -   HELD: %s",
+                    interlock_name(s.assistInterlock));
+    else
+      std::snprintf(buf, sizeof(buf), LV_SYMBOL_STOP "  STOP   -   ASSIST %s %d%%",
+                    s.actuatorName && s.actuatorName[0] ? s.actuatorName : "",
+                    (int)(s.assistDuty * 100.0f + 0.5f));
+    lv_label_set_text(s_stop_lbl, buf);
+    lv_obj_clear_flag(s_stop, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_add_flag(s_stop, LV_OBJ_FLAG_HIDDEN);
   }
 
   // Post-cook feedback prompt (spec §2.7). The cook is finished, so it takes
