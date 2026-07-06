@@ -106,6 +106,8 @@ void storage_set_active_profile(int idx) { ensure(); s_prefs.putInt("profact", i
 
 String storage_get_mqtt_broker() { ensure(); return s_prefs.getString("mqtt", ""); }
 void storage_set_mqtt_broker(const String& b) { ensure(); s_prefs.putString("mqtt", b); }
+String storage_get_web_pin() { ensure(); return s_prefs.getString("webpin", ""); }
+void storage_set_web_pin(const String& p) { ensure(); s_prefs.putString("webpin", p); }
 
 uint32_t storage_get_foodfb(void* out, uint32_t maxBytes) {
   ensure();

@@ -19,6 +19,7 @@
 #include "core/foodlib.h"
 #include "core/recipe.h"
 #include "core/recipe_validate.h"
+#include "core/timezones.h"
 #include "hal/storage.h"
 #include "hal/session_store.h"
 
@@ -28,6 +29,23 @@ WiFiManager s_wm;
 AsyncWebServer s_server(80);
 AsyncWebSocket s_ws("/ws");
 bool s_portal = false;
+
+// Settings mirror. GET reads this cache (refreshed by publishState); POST stages
+// an edit that net::loop() applies on the loop core via these callbacks.
+UnitCb s_unitCb = nullptr;
+SetMuteCb s_muteCb = nullptr;
+SetBrightCb s_brightCb = nullptr;
+SetTzCb s_tzCb = nullptr;
+volatile bool s_cUseF = true, s_cMuted = false, s_cTimeValid = false;
+volatile uint8_t s_cBright = 2, s_cTz = 0, s_cH = 0, s_cM = 0;
+volatile bool s_pUnit = false, s_pMute = false, s_pBright = false, s_pTz = false;
+volatile bool s_pUnitVal = true, s_pMuteVal = false;
+volatile uint8_t s_pBrightVal = 2, s_pTzVal = 0;
+
+bool pinOk(const String& given) {
+  const String pin = hal::storage_get_web_pin();
+  return pin.isEmpty() || given == pin;   // empty PIN = open
+}
 
 StepType stepType(const char* s) {
   if (!strcmp(s, "HOLD")) return StepType::HOLD;
@@ -112,12 +130,16 @@ void begin() {
            (uint16_t)(ESP.getEfuseMac() & 0xFFFF));
   static WiFiManagerParameter mqttParam("mqtt", "MQTT broker (optional)",
                                         hal::storage_get_mqtt_broker().c_str(), 40);
+  static WiFiManagerParameter pinParam("pin", "Web settings PIN (optional)",
+                                       hal::storage_get_web_pin().c_str(), 8);
   s_wm.addParameter(&mqttParam);
+  s_wm.addParameter(&pinParam);
   s_wm.setConfigPortalBlocking(false);
   s_wm.setConfigPortalTimeout(180);
   s_portal = !s_wm.autoConnect(ap);      // opens captive portal if unprovisioned
   if (strlen(mqttParam.getValue()) > 0)
     hal::storage_set_mqtt_broker(mqttParam.getValue());
+  hal::storage_set_web_pin(pinParam.getValue());
 
   if (MDNS.begin("panpilot")) MDNS.addService("http", "tcp", 80);
 
@@ -185,6 +207,59 @@ void begin() {
   s_server.on("/api/programs/new", HTTP_PUT,
               [](AsyncWebServerRequest*) {}, nullptr, bodyHandler(true));
 
+  // Web settings mirror (Phase 2).
+  s_server.on("/settings", HTTP_GET, [](AsyncWebServerRequest* r) {
+    r->send_P(200, "text/html", PANPILOT_SETTINGS_HTML);
+  });
+  s_server.on("/api/settings", HTTP_GET, [](AsyncWebServerRequest* r) {
+    String z = "[";
+    for (int i = 0; i < tz_count(); ++i) {
+      if (i) z += ',';
+      z += '"'; z += tz_name(i); z += '"';
+    }
+    z += ']';
+    char clk[8];
+    snprintf(clk, sizeof(clk), "%02u:%02u", s_cH, s_cM);
+    char buf[512];
+    snprintf(buf, sizeof(buf),
+             "{\"unit\":\"%s\",\"muted\":%s,\"brightness\":%u,\"tz\":%u,"
+             "\"timeValid\":%s,\"clock\":\"%s\",\"pinReq\":%s,\"zones\":%s}",
+             s_cUseF ? "F" : "C", s_cMuted ? "true" : "false", s_cBright, s_cTz,
+             s_cTimeValid ? "true" : "false", clk,
+             hal::storage_get_web_pin().isEmpty() ? "false" : "true", z.c_str());
+    r->send(200, "application/json", buf);
+  });
+  s_server.on("/api/settings", HTTP_POST, [](AsyncWebServerRequest*) {}, nullptr,
+      [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t index,
+         size_t total) {
+        static String body;
+        if (index == 0) { body = ""; body.reserve(total + 1); }
+        body.concat((const char*)data, len);
+        if (index + len != total) return;
+        JsonDocument doc;
+        if (deserializeJson(doc, body)) {
+          r->send(400, "application/json", "{\"ok\":false,\"reason\":\"bad json\"}");
+          return;
+        }
+        if (!pinOk(doc["pin"] | "")) {
+          r->send(403, "application/json", "{\"ok\":false,\"reason\":\"wrong PIN\"}");
+          return;
+        }
+        // Stage each provided field; net::loop() applies it on the loop core.
+        if (doc["unit"].is<const char*>()) {
+          s_pUnitVal = (String((const char*)doc["unit"]) == "F"); s_pUnit = true;
+        }
+        if (doc["muted"].is<bool>()) { s_pMuteVal = doc["muted"]; s_pMute = true; }
+        if (doc["brightness"].is<int>()) {
+          int b = doc["brightness"]; s_pBrightVal = (uint8_t)(b < 0 ? 0 : b > 2 ? 2 : b);
+          s_pBright = true;
+        }
+        if (doc["tz"].is<int>()) {
+          s_pTzVal = (uint8_t)tz_clamp(doc["tz"]); s_pTz = true;
+        }
+        r->send(200, "application/json", "{\"ok\":true}");
+      });
+
   s_ws.onEvent([](AsyncWebSocket*, AsyncWebSocketClient*, AwsEventType,
                   void*, uint8_t*, size_t) {});
   s_server.addHandler(&s_ws);
@@ -193,16 +268,29 @@ void begin() {
   Serial.printf("[net] AP=%s  http://panpilot.local/  (OTA: /update)\n", ap);
 }
 
+void set_settings_cbs(UnitCb u, SetMuteCb m, SetBrightCb b, SetTzCb t) {
+  s_unitCb = u; s_muteCb = m; s_brightCb = b; s_tzCb = t;
+}
+
 void loop() {
   if (s_portal) s_wm.process();
   s_ws.cleanupClients();
   ElegantOTA.loop();
+  // Apply any web settings edits here, on the loop core (safe for NVS/UI).
+  if (s_pUnit)   { s_pUnit = false;   if (s_unitCb)   s_unitCb(s_pUnitVal); }
+  if (s_pMute)   { s_pMute = false;   if (s_muteCb)   s_muteCb(s_pMuteVal); }
+  if (s_pBright) { s_pBright = false; if (s_brightCb) s_brightCb(s_pBrightVal); }
+  if (s_pTz)     { s_pTz = false;     if (s_tzCb)     s_tzCb(s_pTzVal); }
 }
 
 bool connected() { return WiFi.status() == WL_CONNECTED; }
 String mqtt_broker() { return hal::storage_get_mqtt_broker(); }
 
 void publishState(const UiState& s, bool useF) {
+  // Cache for the settings API's GET (runs even with no WebSocket clients).
+  s_cUseF = useF; s_cMuted = s.muted; s_cBright = s.brightnessLevel;
+  s_cTz = s.tzIndex; s_cTimeValid = s.timeValid;
+  s_cH = s.clockHour; s_cM = s.clockMin;
   if (s_ws.count() == 0) return;
   const int temp = (int)((useF ? ThermalModel::cToF(s.displayTempC)
                                 : s.displayTempC) + 0.5f);

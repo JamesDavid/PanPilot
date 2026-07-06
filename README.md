@@ -364,6 +364,12 @@ open **http://panpilot.local/** from any phone or laptop on the same network:
 - **Live thermal view in the browser** — the 32×24 array streamed and rendered
   to a canvas with the same ironbow palette as the device, so you can aim and
   watch the pan from your phone.
+- **Settings mirror** at **http://panpilot.local/settings** — change the
+  temperature unit, sound, brightness, and time zone from your phone, exactly
+  like the on-device Settings screen (with the clock in the header). Set an
+  optional **Web PIN** during Wi-Fi setup and edits require it. Changes are
+  applied on the device's main loop (never from the web task), so they're safe
+  and show up on the panel instantly.
 
 Everything cooking-related keeps working with Wi-Fi off — the web UI is a
 convenience mirror. _(Browser screenshot added from a live device; the page is

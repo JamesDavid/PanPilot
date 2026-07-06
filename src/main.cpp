@@ -704,6 +704,11 @@ void on_brightness(uint8_t level) {
   hal::display_set_brightness(panpilot::brightness_pwm(g_bright));
 }
 
+// Web settings mirror (Phase 2): the browser sets the unit through the same
+// path as the on-device toggle (updates the UI + persists). Runs on the loop
+// core via net::loop, so touching ui/NVS here is safe.
+void web_set_unit(bool useF) { ui::set_display_unit(useF); }
+
 // Timezone (Settings NTP clock). Persist + re-point SNTP at the new zone; the
 // POSIX TZ string carries DST rules so the displayed time follows it.
 void on_timezone(uint8_t idx) {
@@ -818,6 +823,7 @@ void setup() {
 #if defined(ENABLE_WIFI)
   net::begin();   // Wi-Fi is a convenience mirror; cooking works without it
   ha::begin(net::mqtt_broker().c_str(), 1883, on_mute, on_target_abs, on_preset);
+  net::set_settings_cbs(web_set_unit, on_mute, on_brightness, on_timezone);
   configTzTime(tz_posix(g_tz), "pool.ntp.org", "time.nist.gov");   // NTP clock
 #endif
 
