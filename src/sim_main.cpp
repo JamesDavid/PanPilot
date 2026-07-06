@@ -24,6 +24,7 @@
 #include "ui/screen_settings.h"
 #include "ui/screen_preset_edit.h"
 #include "ui/screen_assist.h"
+#include "ui/screen_onboarding.h"
 #include "core/foodlib.h"
 #include "core/app_state.h"
 #include "core/thermal_model.h"
@@ -125,6 +126,9 @@ int main(int argc, char** argv) {
   } else if (scene == "presetedit") {
     lv_scr_load(ui::preset_edit_create());
     ui::preset_edit_load("Smash burger", 450, 500, false, /*canDelete=*/false);
+  } else if (scene == "onboarding") {
+    lv_scr_load(ui::onboarding_create());
+    ui::onboarding_reset(/*useF=*/true);
   } else if (scene == "assistarm") {
     lv_scr_load(ui::assist_create());
     ui::assist_load("SSR box", /*ready=*/true);

@@ -21,6 +21,7 @@ using FeedbackCb = void (*)(uint8_t verdict);  // post-cook: 0=under,1=perfect,2
 using PresetSaveCb = void (*)(int editId, const char* name, int loF, int hiF, bool stainless);
 using PresetDeleteCb = void (*)(int id);
 using AssistCb = void (*)(uint8_t cmd);   // ASSIST: 0=arm, 1=stop/disarm
+using OnboardingDoneCb = void (*)();      // first-boot wizard finished
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
                PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2,
@@ -51,7 +52,11 @@ void settings_toggle_unit();       // fires UnitChangeCb + refreshes Settings
 void settings_toggle_mute();       // fires MuteCb + refreshes Settings
 void settings_cycle_brightness();  // fires BrightnessCb + refreshes Settings
 void toggle_unit();
+void set_display_unit(bool useF);   // set unit directly (onboarding); fires UnitChangeCb
 bool unit_useF();
+void set_onboarding_cb(OnboardingDoneCb onDone);
+void show_onboarding();             // first-boot wizard
+void onboarding_finish();           // fires OnboardingDoneCb, returns home
 void target_adjust(int deltaF);     // fires TargetDeltaCb
 void select_preset(uint8_t id);     // fires PresetCb, returns home
 void learn_cmd(uint8_t cmd);        // fires LearnCb

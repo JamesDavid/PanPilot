@@ -12,6 +12,7 @@
 #include "ui/screen_settings.h"
 #include "ui/screen_preset_edit.h"
 #include "ui/screen_assist.h"
+#include "ui/screen_onboarding.h"
 #include "core/settings.h"
 #include "core/presets.h"
 
@@ -27,6 +28,7 @@ lv_obj_t* s_foods = nullptr;
 lv_obj_t* s_settings = nullptr;
 lv_obj_t* s_preset_edit = nullptr;
 lv_obj_t* s_assist = nullptr;
+lv_obj_t* s_onboarding = nullptr;
 int s_editId = -1;                 // preset id being edited (-1 = new)
 bool s_assistAvail = false;        // actuator configured (from the snapshot)
 const char* s_actuatorName = "";
@@ -46,9 +48,10 @@ FeedbackCb s_feedbackCb = nullptr;
 PresetSaveCb s_presetSaveCb = nullptr;
 PresetDeleteCb s_presetDelCb = nullptr;
 AssistCb s_assistCb = nullptr;
+OnboardingDoneCb s_onboardCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS,
-              SETTINGS, PRESET_EDIT, ASSIST } s_active = HOME;
+              SETTINGS, PRESET_EDIT, ASSIST, ONBOARDING } s_active = HOME;
 
 void settings_refresh() { settings_update(s_useF, s_muted, s_bright); }
 }  // namespace
@@ -73,9 +76,19 @@ void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
   s_settings = settings_create();
   s_preset_edit = preset_edit_create();
   s_assist = assist_create();
+  s_onboarding = onboarding_create();
   lv_scr_load(s_home);
   s_active = HOME;
 }
+
+void set_onboarding_cb(OnboardingDoneCb onDone) { s_onboardCb = onDone; }
+void show_onboarding() {
+  if (!s_onboarding) s_onboarding = onboarding_create();
+  onboarding_reset(s_useF);
+  lv_scr_load(s_onboarding);
+  s_active = ONBOARDING;
+}
+void onboarding_finish() { if (s_onboardCb) s_onboardCb(); show_home(); }
 
 void set_preset_edit_cbs(PresetSaveCb onSave, PresetDeleteCb onDelete) {
   s_presetSaveCb = onSave;
@@ -157,6 +170,7 @@ void assist_arm() { if (s_assistCb) s_assistCb(0); show_home(); }
 void assist_stop() { if (s_assistCb) s_assistCb(1); }
 
 void toggle_unit() { s_useF = !s_useF; if (s_unitCb) s_unitCb(s_useF); }
+void set_display_unit(bool useF) { s_useF = useF; if (s_unitCb) s_unitCb(s_useF); }
 
 void settings_toggle_unit() { toggle_unit(); settings_refresh(); }
 void settings_toggle_mute() {

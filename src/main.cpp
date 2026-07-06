@@ -488,6 +488,9 @@ void SensorTask(void*) {
 
 void persist_unit(bool useF) { hal::storage_set_unit_useF(useF); }
 
+// First-boot wizard finished (base spec §4 first-run) — don't show it again.
+void on_onboarding_done() { hal::storage_set_onboarded(true); }
+
 void on_target_delta(int deltaF) {
   if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) != pdTRUE) return;
   g_target.loF += deltaF; g_target.hiF += deltaF;
@@ -616,6 +619,8 @@ void setup() {
   ui::set_feedback_cb(on_feedback);
   ui::set_preset_edit_cbs(on_preset_save, on_preset_delete);
   ui::set_assist_cb(on_assist);
+  ui::set_onboarding_cb(on_onboarding_done);
+  if (!hal::storage_get_onboarded()) ui::show_onboarding();   // first boot only
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot
 

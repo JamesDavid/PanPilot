@@ -85,7 +85,17 @@ boot-loops (3 failed boots), so a bad update can't brick it.
 
 ## 4. First boot & aiming
 
-On boot PanPilot shows the **live thermal view** — exactly what the sensor sees,
+**The very first boot** runs a short setup wizard: a welcome, your temperature
+unit (°F/°C), where to mount and aim the sensor, and a "you're all set" screen.
+It appears once — a saved flag skips it on every boot after — and you can change
+anything later in **Settings**.
+
+<p align="center">
+  <img src="docs/screenshots/onboarding.png" width="380"
+       alt="First-boot wizard: welcome step with progress dots">
+</p>
+
+After setup, PanPilot shows the **live thermal view** — exactly what the sensor sees,
 false-colored (hot = white/yellow, cool = dark). This replaces a laser dot: aim
 by moving the sensor head until the pan sits under the center crosshair.
 

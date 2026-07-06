@@ -21,6 +21,8 @@ bool storage_get_muted(bool def) { ensure(); return s_prefs.getBool("mute", def)
 void storage_set_muted(bool m) { ensure(); s_prefs.putBool("mute", m); }
 uint8_t storage_get_brightness(uint8_t def) { ensure(); return (uint8_t)s_prefs.getUChar("bright", def); }
 void storage_set_brightness(uint8_t level) { ensure(); s_prefs.putUChar("bright", level); }
+bool storage_get_onboarded(bool def) { ensure(); return s_prefs.getBool("onboard", def); }
+void storage_set_onboarded(bool done) { ensure(); s_prefs.putBool("onboard", done); }
 void storage_get_target(int& loF, int& hiF, int& warnF, int& presetId) {
   ensure();
   loF = s_prefs.getInt("tlo", 340);
