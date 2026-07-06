@@ -35,14 +35,22 @@ lv_obj_t* presets_create() {
   lv_obj_set_style_text_color(title, lv_color_hex(0x8A93A0), 0);
   lv_obj_align(title, LV_ALIGN_TOP_LEFT, 12, 8);
 
-  // 3x2 grid of cards
+  // Scrollable grid of cards. Three across; rows past the first two scroll
+  // into view by swipe, so custom presets can grow the list without a redesign.
+  lv_obj_t* grid = lv_obj_create(scr);
+  lv_obj_remove_style_all(grid);
+  lv_obj_set_size(grid, 480, 250);
+  lv_obj_align(grid, LV_ALIGN_TOP_MID, 0, 34);
+  lv_obj_set_scroll_dir(grid, LV_DIR_VER);
+  lv_obj_set_scrollbar_mode(grid, LV_SCROLLBAR_MODE_AUTO);
+
   const int cols = 3, cw = 148, ch = 116, gx = 8, gy = 6;
   const int x0 = (480 - (cols * cw + (cols - 1) * gx)) / 2;
-  const int y0 = 36;
+  const int y0 = 4;
   for (uint8_t id = 0; id < PRESET_COUNT; ++id) {
     const Preset& p = preset(id);
     const int r = id / cols, c = id % cols;
-    lv_obj_t* card = lv_btn_create(scr);
+    lv_obj_t* card = lv_btn_create(grid);
     lv_obj_set_size(card, cw, ch);
     lv_obj_set_pos(card, x0 + c * (cw + gx), y0 + r * (ch + gy));
     lv_obj_set_style_bg_color(card, lv_color_hex(0x1E2530), 0);

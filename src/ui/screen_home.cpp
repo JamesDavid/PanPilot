@@ -18,13 +18,20 @@ lv_obj_t* s_mode = nullptr;
 lv_obj_t* s_conf = nullptr;
 lv_obj_t* s_batt = nullptr;
 lv_obj_t* s_unit_btn_lbl = nullptr;
+lv_obj_t* s_minus = nullptr;
+lv_obj_t* s_plus = nullptr;
 lv_obj_t* s_target_lbl = nullptr;
 lv_obj_t* s_temp = nullptr;
 lv_obj_t* s_rate = nullptr;
 lv_obj_t* s_eta = nullptr;
 lv_obj_t* s_note = nullptr;
-lv_obj_t* s_z2 = nullptr;       // secondary-pan tile (M12)
-lv_obj_t* s_z2_lbl = nullptr;
+// Split-screen two-pan layout (M12) — shown only when a second pan is present.
+lv_obj_t* s_sp_div = nullptr;
+lv_obj_t* s_sp_name[2] = {nullptr, nullptr};
+lv_obj_t* s_sp_temp[2] = {nullptr, nullptr};
+lv_obj_t* s_sp_sub[2] = {nullptr, nullptr};
+lv_obj_t* s_sp_bar[2] = {nullptr, nullptr};
+lv_obj_t* s_sp_barlbl[2] = {nullptr, nullptr};
 lv_obj_t* s_arc = nullptr;
 lv_obj_t* s_cook = nullptr;
 lv_obj_t* s_bar = nullptr;
@@ -36,7 +43,8 @@ lv_obj_t* s_overlay_sub = nullptr;
 void temp_tap_cb(lv_event_t*) { ui::show_thermal(); }
 void unit_cb(lv_event_t*) { ui::toggle_unit(); }
 void preset_tap_cb(lv_event_t*) { ui::show_presets(); }
-void z2_tap_cb(lv_event_t*) { ui::show_presets_zone2(); }
+void sp_tap1_cb(lv_event_t*) { ui::show_presets(); }         // split: pan 1 preset
+void sp_tap2_cb(lv_event_t*) { ui::show_presets_zone2(); }   // split: pan 2 preset
 void bar_tap_cb(lv_event_t*) { ui::recipe_cmd(2); }   // ack a recipe cue
 
 inline float cToF(float c) { return c * 9.0f / 5.0f + 32.0f; }
@@ -107,11 +115,11 @@ lv_obj_t* home_create() {
   lv_obj_align(ubtn, LV_ALIGN_TOP_RIGHT, -8, 6);
   s_unit_btn_lbl = lv_obj_get_child(ubtn, 0);
 
-  // target adjuster:  [-]  350°F  [+]
-  lv_obj_t* minus = mk_btn(scr, "-", minus_cb, 52, 40);
-  lv_obj_align(minus, LV_ALIGN_TOP_MID, -104, 40);
-  lv_obj_t* plus = mk_btn(scr, "+", plus_cb, 52, 40);
-  lv_obj_align(plus, LV_ALIGN_TOP_MID, 104, 40);
+  // target adjuster:  [-]  350°F  [+]  (hidden while a food timer runs)
+  s_minus = mk_btn(scr, "-", minus_cb, 52, 40);
+  lv_obj_align(s_minus, LV_ALIGN_TOP_MID, -104, 40);
+  s_plus = mk_btn(scr, "+", plus_cb, 52, 40);
+  lv_obj_align(s_plus, LV_ALIGN_TOP_MID, 104, 40);
   s_target_lbl = lv_label_create(scr);
   lv_obj_set_style_text_font(s_target_lbl, &lv_font_montserrat_28, 0);
   lv_obj_set_style_text_color(s_target_lbl, lv_color_hex(0xF5F5F5), 0);
@@ -136,20 +144,9 @@ lv_obj_t* home_create() {
   lv_obj_set_style_text_color(s_eta, lv_color_hex(0x8A93A0), 0);
   lv_obj_align(s_eta, LV_ALIGN_CENTER, 0, 70);
 
-  // Secondary-pan tile (M12): tap to set zone 2's target.
-  s_z2 = lv_btn_create(scr);
-  lv_obj_set_size(s_z2, 132, 46);
-  lv_obj_align(s_z2, LV_ALIGN_TOP_RIGHT, -8, 44);
-  lv_obj_set_style_bg_color(s_z2, lv_color_hex(0x1A2027), 0);
-  lv_obj_add_event_cb(s_z2, z2_tap_cb, LV_EVENT_CLICKED, nullptr);
-  s_z2_lbl = lv_label_create(s_z2);
-  lv_obj_set_style_text_font(s_z2_lbl, &lv_font_montserrat_14, 0);
-  lv_obj_center(s_z2_lbl);
-  lv_obj_add_flag(s_z2, LV_OBJ_FLAG_HIDDEN);
-
   // Food-timer countdown arc around the temperature (roadmap §2.7)
   s_arc = lv_arc_create(scr);
-  lv_obj_set_size(s_arc, 214, 214);
+  lv_obj_set_size(s_arc, 186, 186);
   lv_obj_align(s_arc, LV_ALIGN_CENTER, 0, -6);
   lv_arc_set_rotation(s_arc, 270);
   lv_arc_set_bg_angles(s_arc, 0, 360);
@@ -163,7 +160,7 @@ lv_obj_t* home_create() {
   s_cook = lv_label_create(scr);
   lv_obj_set_style_text_font(s_cook, &lv_font_montserrat_20, 0);
   lv_obj_set_style_text_color(s_cook, lv_color_hex(0xE07000), 0);
-  lv_obj_align(s_cook, LV_ALIGN_CENTER, 0, 96);
+  lv_obj_align(s_cook, LV_ALIGN_BOTTOM_MID, 0, -54);
 
   // stainless banner (base spec §7.5) — just above the action bar
   s_note = lv_label_create(scr);
@@ -197,8 +194,77 @@ lv_obj_t* home_create() {
   lv_obj_set_style_text_color(s_overlay_sub, lv_color_hex(0xFFFFFF), 0);
   lv_obj_align(s_overlay_sub, LV_ALIGN_CENTER, 0, 44);
   lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
+
+  // --- Split-screen two-pan layout (M12) -----------------------------------
+  // A vertical divider and two mirrored columns, each with a pan label, a big
+  // temperature, its target, and a color-coded guidance bar. Built hidden;
+  // home_update() swaps between this and the single-pan layout.
+  s_sp_div = lv_obj_create(scr);
+  lv_obj_remove_style_all(s_sp_div);
+  lv_obj_set_size(s_sp_div, 2, 226);
+  lv_obj_align(s_sp_div, LV_ALIGN_TOP_MID, 0, 42);
+  lv_obj_set_style_bg_color(s_sp_div, lv_color_hex(0x2A323C), 0);
+  lv_obj_set_style_bg_opa(s_sp_div, LV_OPA_COVER, 0);
+  for (int i = 0; i < 2; ++i) {
+    const int dx = (i == 0) ? -120 : 120;
+    s_sp_name[i] = lv_label_create(scr);
+    lv_obj_set_style_text_font(s_sp_name[i], &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_sp_name[i], lv_color_hex(0x8A93A0), 0);
+    lv_obj_align(s_sp_name[i], LV_ALIGN_TOP_MID, dx, 48);
+
+    s_sp_temp[i] = lv_label_create(scr);
+    lv_obj_set_style_text_font(s_sp_temp[i], &lv_font_montserrat_48, 0);
+    lv_obj_set_style_text_color(s_sp_temp[i], lv_color_hex(0xF5F5F5), 0);
+    lv_obj_align(s_sp_temp[i], LV_ALIGN_TOP_MID, dx, 92);
+
+    s_sp_sub[i] = lv_label_create(scr);
+    lv_obj_set_style_text_font(s_sp_sub[i], &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_sp_sub[i], lv_color_hex(0x8A93A0), 0);
+    lv_obj_align(s_sp_sub[i], LV_ALIGN_TOP_MID, dx, 158);
+
+    s_sp_bar[i] = lv_obj_create(scr);
+    lv_obj_remove_style_all(s_sp_bar[i]);
+    lv_obj_set_size(s_sp_bar[i], 238, 46);
+    lv_obj_align(s_sp_bar[i], (i == 0) ? LV_ALIGN_BOTTOM_LEFT : LV_ALIGN_BOTTOM_RIGHT, 0, 0);
+    lv_obj_add_flag(s_sp_bar[i], LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_sp_bar[i], (i == 0) ? sp_tap1_cb : sp_tap2_cb,
+                        LV_EVENT_CLICKED, nullptr);
+    s_sp_barlbl[i] = lv_label_create(s_sp_bar[i]);
+    lv_obj_set_style_text_font(s_sp_barlbl[i], &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(s_sp_barlbl[i], lv_color_hex(0xFFFFFF), 0);
+    lv_obj_center(s_sp_barlbl[i]);
+
+    lv_obj_add_flag(s_sp_name[i], LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_sp_temp[i], LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_sp_sub[i], LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_sp_bar[i], LV_OBJ_FLAG_HIDDEN);
+  }
+  lv_obj_add_flag(s_sp_div, LV_OBJ_FLAG_HIDDEN);
   return s_screen;
 }
+
+namespace {
+// Fill one split-screen column with a pan's current state.
+void fill_split_col(int i, const char* name, float tempC, int targetF,
+                    GuidanceState g, bool useF, bool valid) {
+  char b[48];
+  lv_label_set_text(s_sp_name[i], name);
+  if (valid) {
+    const float t = useF ? cToF(tempC) : tempC;
+    std::snprintf(b, sizeof(b), "%d\xC2\xB0%s", int(t + 0.5f), useF ? "F" : "C");
+  } else {
+    std::snprintf(b, sizeof(b), "--");
+  }
+  lv_label_set_text(s_sp_temp[i], b);
+  const int tg = useF ? targetF : int((targetF - 32) * 5 / 9);
+  std::snprintf(b, sizeof(b), "target %d\xC2\xB0%s", tg, useF ? "F" : "C");
+  lv_label_set_text(s_sp_sub[i], b);
+  const BarStyle bs = bar_for(g);
+  lv_obj_set_style_bg_color(s_sp_bar[i], lv_color_hex(bs.color), 0);
+  lv_obj_set_style_bg_opa(s_sp_bar[i], LV_OPA_COVER, 0);
+  lv_label_set_text(s_sp_barlbl[i], bs.text);
+}
+}  // namespace
 
 void home_update(const UiState& s, bool useF) {
   if (!s_screen) home_create();
@@ -218,6 +284,38 @@ void home_update(const UiState& s, bool useF) {
                                  ? 0xE07000 : 0x8A93A0), 0);
   } else {
     lv_label_set_text(s_batt, s.battery.usbPresent ? LV_SYMBOL_USB : "");
+  }
+
+  // Layout swap: a second pan turns the home screen into a two-column split.
+  const bool split = s.zone2Present;
+  lv_obj_t* singleOnly[] = {s_mode, s_minus, s_plus, s_target_lbl, s_temp,
+                            s_rate, s_eta, s_note, s_arc, s_cook, s_bar};
+  lv_obj_t* splitOnly[] = {s_sp_div, s_sp_name[0], s_sp_temp[0], s_sp_sub[0],
+                           s_sp_bar[0], s_sp_name[1], s_sp_temp[1], s_sp_sub[1],
+                           s_sp_bar[1]};
+  for (auto* o : singleOnly)
+    split ? lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN) : lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
+  for (auto* o : splitOnly)
+    split ? lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN) : lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+
+  if (split) {
+    const bool p1 = s.modelValid && s.presence != PanPresence::ABSENT;
+    fill_split_col(0, "Pan 1", s.displayTempC, s.targetCenterF, s.guidance, useF, p1);
+    fill_split_col(1, "Pan 2", s.zone2TempC, s.zone2TargetF, s.zone2Guidance, useF, true);
+    // Only a genuine safety alert (TOO HOT on either pan) still takes over.
+    const bool loud2 = s.guidance == GuidanceState::TOO_HOT ||
+                       s.zone2Guidance == GuidanceState::TOO_HOT;
+    if (loud2) {
+      lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0xC62828), 0);
+      lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
+      lv_label_set_text(s_overlay_lbl, "TOO HOT");
+      lv_label_set_text(s_overlay_sub,
+                        s.guidance == GuidanceState::TOO_HOT ? "Pan 1" : "Pan 2");
+      lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
+    } else {
+      lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
+    }
+    return;
   }
 
   std::snprintf(buf, sizeof(buf), "%s " LV_SYMBOL_LIST, preset(s.presetId).name);
@@ -267,8 +365,19 @@ void home_update(const UiState& s, bool useF) {
                                   ? "Bare stainless reads low - trust the trend"
                                   : "");
 
-  // Food timer: countdown arc + side/batch + safety note (roadmap §2.7)
-  if (s.food && s.foodTimer.phase == FoodTimerOut::COOKING) {
+  // Food timer: countdown arc + side/batch + safety note (roadmap §2.7). While a
+  // cook is running the target adjuster + ETA give way to the timer.
+  const bool cooking = s.food && s.foodTimer.phase == FoodTimerOut::COOKING;
+  const bool showAdj = !cooking;
+  lv_obj_t* adj[] = {s_minus, s_plus, s_target_lbl};
+  for (auto* o : adj)
+    showAdj ? lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN) : lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+  if (cooking) {
+    lv_obj_add_flag(s_eta, LV_OBJ_FLAG_HIDDEN);
+    std::snprintf(buf, sizeof(buf), "%s", s.food->name);
+    lv_label_set_text(s_mode, buf);            // food name replaces the preset
+  }
+  if (cooking) {
     const int total = s.food->sideSec[s.foodTimer.side - 1];
     const int rem = s.foodTimer.remainingSec;
     const int pct = total > 0 ? (100 * (total - rem)) / total : 0;
@@ -297,16 +406,7 @@ void home_update(const UiState& s, bool useF) {
     lv_label_set_text(s_note, "Cooler pan - timer extended to match");
   }
 
-  // Secondary-pan tile (M12): independent zone-2 temperature + guidance color.
-  if (s.zone2Present) {
-    const float t2 = useF ? cToF(s.zone2TempC) : s.zone2TempC;
-    std::snprintf(buf, sizeof(buf), "Pan 2\n%d\xC2\xB0%s", int(t2 + 0.5f), useF ? "F" : "C");
-    lv_label_set_text(s_z2_lbl, buf);
-    lv_obj_set_style_bg_color(s_z2, lv_color_hex(bar_for(s.zone2Guidance).color), 0);
-    lv_obj_clear_flag(s_z2, LV_OBJ_FLAG_HIDDEN);
-  } else {
-    lv_obj_add_flag(s_z2, LV_OBJ_FLAG_HIDDEN);
-  }
+  // (Two-pan rendering handled by the split-screen layout above.)
 
   // action bar — a running recipe's cue takes it over (tap to advance).
   const BarStyle bs = bar_for(s.guidance);
@@ -322,7 +422,6 @@ void home_update(const UiState& s, bool useF) {
   // full-screen overlay for the loud states (§9.3). "Add next batch" (recovery
   // complete, §7.4) takes priority. While actively cooking a food, the timer is
   // the focus — only TOO_HOT (safety) still takes over the screen.
-  const bool cooking = s.food && s.foodTimer.phase == FoodTimerOut::COOKING;
   const bool loud = s.guidance == GuidanceState::TOO_HOT ||
                     (!cooking && (s.guidance == GuidanceState::READY ||
                                   s.guidance == GuidanceState::TURN_DOWN_NOW));
