@@ -71,6 +71,22 @@ static void test_too_hot_alarm_cadence(void) {
   TEST_ASSERT_EQUAL(int(AlertAction::TOO_HOT_ALARM), int(b.alert));
 }
 
+static void test_stainless_suppresses_toohot_below_300(void) {
+  Target t; t.setCenter(180);        // lo170 hi190 warn280 (a low target)
+  GuidanceInput hot = mk(282, 0);    // >= warn 280 but < 300 °F
+  // Non-stainless: a genuine TOO_HOT.
+  { GuidanceEngine g; TEST_ASSERT_EQUAL(int(GuidanceState::TOO_HOT),
+                                        int(run(g, t, hot, 3).state)); }
+  // Stainless: suppressed to LOW_CONFIDENCE (trust the trend).
+  GuidanceInput hotS = hot; hotS.stainlessHint = true;
+  { GuidanceEngine g; TEST_ASSERT_EQUAL(int(GuidanceState::LOW_CONFIDENCE),
+                                        int(run(g, t, hotS, 3).state)); }
+  // Stainless but >= 300 °F: NOT suppressed — that's a real overheat.
+  GuidanceInput reallyHot = mk(320, 0); reallyHot.stainlessHint = true;
+  { GuidanceEngine g; TEST_ASSERT_EQUAL(int(GuidanceState::TOO_HOT),
+                                        int(run(g, t, reallyHot, 3).state)); }
+}
+
 static void test_no_pan(void) {
   GuidanceEngine g; Target t = tgt350();
   GuidanceOutput o = run(g, t, mk(0, 0, 0, PanPresence::ABSENT), 3);
@@ -99,6 +115,7 @@ int main(int, char**) {
   RUN_TEST(test_overshoot_turn_down_before_target);
   RUN_TEST(test_turn_down_soon);
   RUN_TEST(test_too_hot_alarm_cadence);
+  RUN_TEST(test_stainless_suppresses_toohot_below_300);
   RUN_TEST(test_no_pan);
   RUN_TEST(test_ready_rearms_after_leaving);
   UNITY_END();

@@ -31,6 +31,7 @@ struct GuidanceInput {
   uint8_t confidence;
   PanPresence presence;
   bool moved;
+  bool stainlessHint = false;    // bare stainless read (reflective, unreliable)
   float lagMinutes = LAG_MINUTES_DEFAULT;
 };
 

@@ -292,6 +292,7 @@ void SensorTask(void*) {
       gi.confidence = r.confidence;
       gi.presence = r.presence;
       gi.moved = r.moved;
+      gi.stainlessHint = r.stainlessHint;   // suppress reflective misread alarms
       gi.lagMinutes = g_applied_lag;    // learned lag (Learn Pan Mode)
       GuidanceOutput go = guidance.step(gi, target, millis());
       // Alerts are routed through the attention manager in the UI loop (§3.5).

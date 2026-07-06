@@ -61,6 +61,8 @@
 #define CONFIDENCE_UNCERTAIN       30     // below this -> UNCERTAIN (§6.3)
 #define STAINLESS_SPREAD_C         25.0f  // interior spread above this + low temp
 #define STAINLESS_CONF_CAP         50     // ...caps confidence, sets hint (§6.3)
+#define STAINLESS_TOOHOT_MIN_F     300    // below this, a stainless TOO_HOT is a
+                                          // reflective misread — suppress it (§7.5)
 #define MOVED_JUMP_PX              4       // centroid jump -> PAN MOVED (§6.4)
 #define FOOD_DROP_C                15.0f  // panTemp drop -> FOOD ADDED (§6.4)
 

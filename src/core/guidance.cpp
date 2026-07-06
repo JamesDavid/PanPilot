@@ -24,7 +24,13 @@ GuidanceState GuidanceEngine::classify(const GuidanceInput& in, const Target& t,
     return GuidanceState::LOW_CONFIDENCE;
 
   const float T = in.tempF, rate = in.rateFPerMin;
-  if (T >= t.warnF || T >= ABS_MAX_TEMP_F) return GuidanceState::TOO_HOT;
+  if (T >= t.warnF || T >= ABS_MAX_TEMP_F) {
+    // Bare stainless is reflective and reads erratically; a "too hot" below
+    // 300 °F is almost always a misread — trust the trend instead (§7.5).
+    if (in.stainlessHint && T < STAINLESS_TOOHOT_MIN_F && T < ABS_MAX_TEMP_F)
+      return GuidanceState::LOW_CONFIDENCE;
+    return GuidanceState::TOO_HOT;
+  }
   if (T > t.hiF) return GuidanceState::TURN_DOWN_NOW;
   if (T >= t.loF) return GuidanceState::READY;
 
