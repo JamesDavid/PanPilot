@@ -110,8 +110,10 @@ by moving the sensor head until the pan sits under the center crosshair.
 - The bottom hint reads **“Center the pan in view”** → **“Good aim”** once the
   pan blob is under the crosshair. **“No pan in view”** means nothing pan-like is
   detected.
-- **Tap the pan** to lock the ROI there; the **Auto** button returns to
-  auto-follow. _(tap-to-lock interaction: bench-tested at M1.)_
+- **Tap the pan** to lock the ROI onto it — on a two-burner scene this pins
+  tracking to the pan you tapped even if the other is larger. The **Auto**
+  button (top-left, shown while locked) returns to auto-follow; the ROI ring
+  turns amber while locked.
 
 > _Synthesized simulator image; a device photo replaces it once the MLX90640 is
 > wired and aimed at a real pan._
@@ -368,7 +370,8 @@ cue) can't push the pan into burning it, unless the program is explicitly stampe
 Enter your **MQTT broker** address during Wi-Fi setup (optional field) and
 PanPilot appears in Home Assistant automatically via MQTT discovery — no YAML:
 
-- **Sensors:** pan temperature, rate, guidance state.
+- **Sensors:** pan temperature, rate, guidance state, and the current **Alert**
+  cue (mirrored the instant PanPilot escalates — flash the lights on "Too hot").
 - **Binary sensor:** pan present.
 - **Controls:** mute (switch), target (number), active preset (select) — all
   commandable from HA.

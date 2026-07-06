@@ -52,6 +52,7 @@ PresetDeleteCb s_presetDelCb = nullptr;
 AssistCb s_assistCb = nullptr;
 OnboardingDoneCb s_onboardCb = nullptr;
 AutotuneCb s_autotuneCb = nullptr;
+RoiCb s_roiCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS,
               SETTINGS, PRESET_EDIT, ASSIST, ONBOARDING, AUTOTUNE } s_active = HOME;
@@ -95,6 +96,10 @@ void autotune_cmd(uint8_t cmd) {
   if (s_autotuneCb) s_autotuneCb(cmd);
   if (cmd == 2) show_settings();          // Cancel/Discard/Back -> Settings
 }
+
+void set_roi_cb(RoiCb onRoi) { s_roiCb = onRoi; }
+void roi_lock(float px, float py) { if (s_roiCb) s_roiCb(px, py, true); }
+void roi_clear() { if (s_roiCb) s_roiCb(0, 0, false); }
 
 void set_onboarding_cb(OnboardingDoneCb onDone) { s_onboardCb = onDone; }
 void show_onboarding() {

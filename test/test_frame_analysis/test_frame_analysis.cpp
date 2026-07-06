@@ -121,6 +121,29 @@ static void test_warm_mass_without_prior_pan(void) {
   TEST_ASSERT_NOT_EQUAL(int(PanPresence::OBSTRUCTED), int(r.presence));
 }
 
+static void test_tap_to_lock_picks_locked_blob(void) {
+  // Two pans: a big one left (8,12) and a smaller one right (26,6).
+  ThermalFrame f = make_disc(8, 12, 6, 200.0f, 100);
+  for (int r = 0; r < THERM_ROWS; ++r)
+    for (int c = 0; c < THERM_COLS; ++c)
+      if (std::hypot(c - 26, r - 6) <= 3) f.px[r][c] = 205.0f;
+
+  // Unlocked -> largest (left) wins.
+  { FrameAnalyzer fa;
+    TEST_ASSERT_FLOAT_WITHIN(3.0f, 8.0f, fa.process(f).roiCx); }
+
+  // Locked onto the smaller right pan -> ROI follows it despite being smaller.
+  { FrameAnalyzer fa; fa.lockRoi(26, 6);
+    PanReading r = fa.process(f);
+    TEST_ASSERT_FLOAT_WITHIN(3.0f, 26.0f, r.roiCx);
+    TEST_ASSERT_FLOAT_WITHIN(3.0f, 6.0f, r.roiCy);
+    fa.clearLock();
+    PanReading b{};
+    for (int i = 0; i < 12; ++i) b = fa.process(f);  // centroid low-pass settles
+    TEST_ASSERT_FLOAT_WITHIN(3.0f, 8.0f, b.roiCx);   // back to the largest pan
+  }
+}
+
 static void test_stainless_signature(void) {
   // Low-ish reading with a big interior spread -> stainless hint + capped conf.
   FrameAnalyzer fa;
@@ -146,6 +169,7 @@ int main(int, char**) {
   RUN_TEST(test_removed_pan_is_absent_not_obstructed);
   RUN_TEST(test_cooling_pan_not_obstructed);
   RUN_TEST(test_warm_mass_without_prior_pan);
+  RUN_TEST(test_tap_to_lock_picks_locked_blob);
   RUN_TEST(test_stainless_signature);
   return UNITY_END();
 }

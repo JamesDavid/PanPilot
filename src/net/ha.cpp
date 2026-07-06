@@ -22,6 +22,7 @@ uint32_t s_lastTry = 0;
 
 const char* STATE = "panpilot/state";
 const char* AVTY = "panpilot/status";
+const char* ALERT = "panpilot/attention";
 const char* MUTE_SET = "panpilot/mute/set";
 const char* TGT_SET = "panpilot/target/set";
 const char* PRESET_SET = "panpilot/preset/set";
@@ -64,6 +65,13 @@ void publishDiscovery() {
   sensor("temp", "Pan temperature", "{{ value_json.temp }}", "°");
   sensor("rate", "Rate", "{{ value_json.rate }}", "°/min");
   sensor("guid", "Guidance", "{{ value_json.g }}", nullptr);
+
+  // Attention mirror (roadmap §3.5): the current cue text, on its own topic so
+  // an HA automation can fire the moment PanPilot escalates.
+  disco("sensor", "alert",
+        String("{\"name\":\"Alert\",\"stat_t\":\"") + ALERT + "\",\"avty_t\":\"" +
+            AVTY + "\",\"uniq_id\":\"pp_alert\","
+            "\"val_tpl\":\"{{ value_json.cue }}\"," + DEV + "}");
 
   disco("binary_sensor", "pan",
         String("{\"name\":\"Pan present\",\"stat_t\":\"") + STATE +
@@ -148,6 +156,16 @@ void publish(const UiState& s, bool useF) {
 }
 
 bool connected() { return s_mqtt.connected(); }
+
+// Attention mirror (roadmap §3.5). Retained so HA shows the last cue; level is
+// 0..3 (passive/notify/act/alarm).
+void publishAttention(int level, const char* verb, const char* sub) {
+  if (!s_mqtt.connected()) return;
+  char buf[160];
+  snprintf(buf, sizeof(buf), "{\"level\":%d,\"cue\":\"%s\",\"sub\":\"%s\"}",
+           level, verb ? verb : "", sub ? sub : "");
+  s_mqtt.publish(ALERT, buf, true);
+}
 
 // ASSIST duty output (roadmap §3.2). Not retained — a stale duty must never
 // re-energize a plug after a reconnect; the box's own watchdog fails safe.

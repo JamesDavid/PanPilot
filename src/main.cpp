@@ -72,6 +72,10 @@ volatile bool g_pluginWarn = false;
 // into UiState and by the UI loop to pick the ACTIVE-state PWM.
 volatile uint8_t g_bright = 2;
 
+// Tap-to-lock ROI (§6.3). UI core requests; SensorTask applies to its analyzer.
+volatile uint8_t g_roi_req = 0;   // 0 none, 1 lock, 2 clear
+volatile float g_roi_px = 0, g_roi_py = 0;
+
 // Session trace (M11): 1 Hz temperature samples during a cook, written to
 // LittleFS at session end. Owned by SensorTask.
 int16_t g_trace[1800];           // tempC*10, up to 30 min
@@ -272,6 +276,8 @@ void SensorTask(void*) {
       Serial.println("[PanPilot] MLX90640 online");
     }
     if (sensor::mlx_read(frame)) {
+      if (g_roi_req == 1) { analyzer.lockRoi(g_roi_px, g_roi_py); g_roi_req = 0; }
+      else if (g_roi_req == 2) { analyzer.clearLock(); g_roi_req = 0; }
       PanReading r = analyzer.process(frame);
       model.update(r);
       uint8_t presetId = PRESET_GENERIC;
@@ -566,6 +572,12 @@ void persist_unit(bool useF) { hal::storage_set_unit_useF(useF); }
 // First-boot wizard finished (base spec §4 first-run) — don't show it again.
 void on_onboarding_done() { hal::storage_set_onboarded(true); }
 
+// Tap-to-lock ROI (§6.3). g_roi_* declared above; SensorTask applies them.
+void on_roi(float px, float py, bool lock) {
+  if (lock) { g_roi_px = px; g_roi_py = py; g_roi_req = 1; }
+  else g_roi_req = 2;
+}
+
 void on_target_delta(int deltaF) {
   if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) != pdTRUE) return;
   g_target.loF += deltaF; g_target.hiF += deltaF;
@@ -703,6 +715,7 @@ void setup() {
       g_kp = kp; g_ki = ki; g_kd = kd; g_gains_valid = true;
       Serial.printf("[pid] loaded gains kp=%.3f ki=%.4f kd=%.3f\n", kp, ki, kd); } }
   ui::set_onboarding_cb(on_onboarding_done);
+  ui::set_roi_cb(on_roi);
   if (!hal::storage_get_onboarded()) ui::show_onboarding();   // first boot only
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot
@@ -826,6 +839,15 @@ void loop() {
       prevTurnDown = turnDown;
 
       AttnOutput ao = attn.tick(now);
+#if defined(ENABLE_WIFI)
+      // Mirror the cue to Home Assistant the moment it changes (roadmap §3.5).
+      static AttnLevel prevAttn = AttnLevel::L0;
+      static const char* prevVerb = "";
+      if (ao.level != prevAttn || ao.verb != prevVerb) {
+        ha::publishAttention((int)ao.level, ao.verb, ao.sub);
+        prevAttn = ao.level; prevVerb = ao.verb;
+      }
+#endif
       if (ao.buzz) {
         switch (ao.level) {
           case AttnLevel::L1: hal::buzzer_play(hal::BuzzPattern::Chirp); break;

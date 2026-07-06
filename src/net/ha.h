@@ -18,5 +18,6 @@ void publish(const UiState& s, bool useF);
 bool enabled();
 bool connected();                   // MQTT link up (actuator liveness for S7/S8)
 void actuator_publish(const char* topic, const char* payload);  // ASSIST duty out
+void publishAttention(int level, const char* verb, const char* sub);  // §3.5 mirror
 }  // namespace ha
 #endif

@@ -28,10 +28,30 @@ lv_obj_t* s_cross_v = nullptr;
 lv_obj_t* s_temp_lbl = nullptr;
 lv_obj_t* s_range_lbl = nullptr;
 lv_obj_t* s_hint_lbl = nullptr;
+lv_obj_t* s_auto_btn = nullptr;
+bool s_locked = false;
 
 inline float cToF(float c) { return c * 9.0f / 5.0f + 32.0f; }
 
 void done_cb(lv_event_t*) { ui::show_home(); }
+
+// Tap on the thermal image pins the ROI to that pixel (§6.3 tap-to-lock).
+void image_click_cb(lv_event_t*) {
+  lv_indev_t* indev = lv_indev_get_act();
+  if (!indev) return;
+  lv_point_t p;
+  lv_indev_get_point(indev, &p);
+  const int px = (p.x - OX) / SCALE, py = (p.y - OY) / SCALE;
+  if (px < 0 || px >= THERM_COLS || py < 0 || py >= THERM_ROWS) return;
+  s_locked = true;
+  lv_obj_clear_flag(s_auto_btn, LV_OBJ_FLAG_HIDDEN);
+  ui::roi_lock((float)px, (float)py);
+}
+void auto_cb(lv_event_t*) {
+  s_locked = false;
+  lv_obj_add_flag(s_auto_btn, LV_OBJ_FLAG_HIDDEN);
+  ui::roi_clear();
+}
 
 }  // namespace
 
@@ -86,6 +106,16 @@ lv_obj_t* thermal_create() {
   lv_obj_set_style_text_font(s_hint_lbl, &lv_font_montserrat_20, 0);
   lv_obj_align(s_hint_lbl, LV_ALIGN_BOTTOM_MID, 0, -8);
 
+  // Transparent tap layer over the image (the zoomed canvas keeps source-size
+  // hit-testing, so a same-size overlay gives reliable pixel coordinates).
+  lv_obj_t* touch = lv_obj_create(scr);
+  lv_obj_remove_style_all(touch);
+  lv_obj_set_size(touch, IMG_W, IMG_H);
+  lv_obj_set_pos(touch, OX, OY);
+  lv_obj_set_style_bg_opa(touch, LV_OPA_0, 0);
+  lv_obj_add_flag(touch, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(touch, image_click_cb, LV_EVENT_CLICKED, nullptr);
+
   // Done -> back to home (base spec §9.2)
   lv_obj_t* done = lv_btn_create(scr);
   lv_obj_set_size(done, 84, 44);
@@ -94,6 +124,17 @@ lv_obj_t* thermal_create() {
   lv_obj_t* dl = lv_label_create(done);
   lv_label_set_text(dl, "Done");
   lv_obj_center(dl);
+
+  // "Auto" -> release a locked ROI (shown only while locked).
+  s_auto_btn = lv_btn_create(scr);
+  lv_obj_set_size(s_auto_btn, 84, 44);
+  lv_obj_align(s_auto_btn, LV_ALIGN_TOP_LEFT, 6, 6);
+  lv_obj_set_style_bg_color(s_auto_btn, lv_color_hex(0xC08A00), 0);
+  lv_obj_add_event_cb(s_auto_btn, auto_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* al = lv_label_create(s_auto_btn);
+  lv_label_set_text(al, LV_SYMBOL_LOOP " Auto");
+  lv_obj_center(al);
+  lv_obj_add_flag(s_auto_btn, LV_OBJ_FLAG_HIDDEN);
 
   return s_screen;
 }
@@ -128,6 +169,8 @@ void thermal_update(const ThermalFrame& f, const PanReading& r, bool useF) {
     lv_obj_set_size(s_roi, dia, dia);
     lv_obj_set_pos(s_roi, OX + int(r.roiCx * SCALE) - dia / 2,
                    OY + int(r.roiCy * SCALE) - dia / 2);
+    lv_obj_set_style_border_color(
+        s_roi, lv_color_hex(s_locked ? 0xFFC000 : 0x33FF88), 0);  // amber = locked
     lv_obj_clear_flag(s_roi, LV_OBJ_FLAG_HIDDEN);
 
     char buf[24];

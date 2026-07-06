@@ -80,6 +80,21 @@ PanReading FrameAnalyzer::process(const ThermalFrame& f) {
         ++id;
       }
     }
+    // Tap-to-lock (§6.3): if the user pinned an ROI, prefer the blob under the
+    // lock point (disambiguates which pan on a two-burner scene) over the
+    // largest; fall back to largest if the lock lands off any blob. The locked
+    // blob's size is counted on demand (no per-blob array, to spare DRAM).
+    if (locked_) {
+      const int lr = (int)(lock_cy_ + 0.5f), lc = (int)(lock_cx_ + 0.5f);
+      if (lr >= 0 && lr < R && lc >= 0 && lc < C) {
+        const int ll = label[idx(lr, lc)];
+        if (ll >= 0) {
+          int sz = 0;
+          for (int i = 0; i < N; ++i) if (label[i] == ll) ++sz;
+          if (sz >= cfg_.minPanPixels) return ll;
+        }
+      }
+    }
     return (bestSize >= cfg_.minPanPixels) ? bestId : -1;
   };
 
