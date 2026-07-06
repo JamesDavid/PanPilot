@@ -163,16 +163,35 @@
   #define RGB_PIN_B2              48
   #define RGB_PIN_B3              45
   #define RGB_PIN_B4              38
+  // ST7262 RGB timings — typical 5" 800x480 (cyd-radio/config.h). PCLK 12 MHz is
+  // the empirically-lowest stable rate on this panel. Sync polarity + pclk edge
+  // are BENCH-GATED (flip on glass if the panel stays black — see HARDWARE_TEST).
+  #define RGB_HSYNC_FRONT_PORCH   8
+  #define RGB_HSYNC_PULSE_WIDTH   4
+  #define RGB_HSYNC_BACK_PORCH    8
+  #define RGB_VSYNC_FRONT_PORCH   8
+  #define RGB_VSYNC_PULSE_WIDTH   4
+  #define RGB_VSYNC_BACK_PORCH    8
+  #define RGB_PCLK_HZ             12000000
+  #define RGB_PCLK_IDLE_HIGH      0
   #define TOUCH_SDA               15
   #define TOUCH_SCL               16
+  #define TOUCH_INT               -1
+  #define TOUCH_RST               -1     // pulsed via the I/O expander, not a GPIO
+  #define TOUCH_I2C_ADDR          0x14
   #define I2C_SDA                 15
   #define I2C_SCL                 16
   #define MLX90640_I2C_ADDR       0x33
-  #define IO_EXPANDER_I2C_ADDR    0x20   // TCA9534 (verify addr)
+  // I/O expander drives LCD/touch reset + backlight. v1.1 uses a TCA9534-style
+  // bit register at 0x20 (bits below). BENCH-VERIFY the address + bit map before
+  // relying on it; some CrowPanel 5" revisions use an STC8 µC (single-byte
+  // commands @ 0x30) instead — see ../BladeKey-Overhead/src/hal/Board.h.
+  #define IO_EXPANDER_I2C_ADDR    0x20   // TCA9534 (BENCH-VERIFY)
   #define EXP_BIT_TOUCH_RST       1      // EXP_PIN_TOUCH_RST
   #define EXP_BIT_LCD_RST         2      // EXP_PIN_LCD_RST
   #define EXP_BIT_BACKLIGHT       3      // EXP_PIN_BACKLIGHT
   #define EXP_BIT_AMP_SD          4
+  #define TFT_BL                  -1     // backlight is behind the expander
   #define BUZZER_PIN              -1
   #define BATTERY_ADC_PIN         -1
   #define CAP_DISPLAY_BUS_SPI     0
@@ -212,15 +231,30 @@
   #define RGB_PIN_B2              48
   #define RGB_PIN_B3              45
   #define RGB_PIN_B4              38
+  // v1.2 factory LovyanGFX driver: 21 MHz pclk + pclk_idle_high=1 (the v1.2
+  // ST7262 needs it). Porches match the v1.1 panel. Polarity BENCH-GATED.
+  #define RGB_HSYNC_FRONT_PORCH   8
+  #define RGB_HSYNC_PULSE_WIDTH   4
+  #define RGB_HSYNC_BACK_PORCH    8
+  #define RGB_VSYNC_FRONT_PORCH   8
+  #define RGB_VSYNC_PULSE_WIDTH   4
+  #define RGB_VSYNC_BACK_PORCH    8
   #define RGB_PCLK_HZ             21000000  // v1.2-specific
   #define RGB_PCLK_IDLE_HIGH      1
   #define TOUCH_SDA               15
   #define TOUCH_SCL               16
+  #define TOUCH_INT               -1
+  #define TOUCH_RST               -1
+  #define TOUCH_I2C_ADDR          0x14
   #define I2C_SDA                 15
   #define I2C_SCL                 16
   #define MLX90640_I2C_ADDR       0x33
-  #define IO_EXPANDER_I2C_ADDR    0x18   // TCA9534 @ 0x18 (v1.x)
-  #define TFT_BL                  2
+  // v1.2 backlight is a DIRECT GPIO (IO2), not the expander. The expander story
+  // varies by sub-revision (TCA9534 @ 0x18 vs an STC8 µC @ 0x30 with single-byte
+  // commands) — BENCH-VERIFY against ../BladeKey-Overhead/src/hal/Board.h before
+  // trusting reset/backlight bytes.
+  #define IO_EXPANDER_I2C_ADDR    0x18   // (BENCH-VERIFY: may be STC8 @ 0x30)
+  #define TFT_BL                  2      // direct-GPIO backlight (active HIGH)
   #define BUZZER_PIN              -1
   #define BATTERY_ADC_PIN         -1
   #define CAP_DISPLAY_BUS_SPI     0

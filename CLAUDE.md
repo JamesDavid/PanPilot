@@ -73,8 +73,14 @@ go-ahead at every hardware gate.
   is a full check, not a stub. If a fresh shell can't find `gcc`, its bin is at
   `%LOCALAPPDATA%\Microsoft\WinGet\Packages\BrechtSanders.WinLibs.*\mingw64\bin`.
 - **Additional (secondary) targets:** CrowPanel Advance 5" v1.1 (`../cyd-radio`)
-  and v1.2 (`../BladeKey-Overhead`) — RGB-parallel ST7262. Pin maps captured in
-  `board_pins.h`; RGB display HAL is a follow-up after the 3.5" bench board works.
+  and v1.2 (`../BladeKey-Overhead`) — RGB-parallel ST7262, `env:crowpanel_adv_5_v11`
+  / `_v12`. Pin maps in `board_pins.h`; RGB display HAL is
+  `src/hal/lgfx_panpilot_rgb.h` (LovyanGFX `Bus_RGB`/`Panel_RGB`), the 480×320 UI
+  centered on 800×480. **Compile-verified only** — RGB polarity/pclk + the
+  I/O-expander backlight/reset sequence are bench-gated (HARDWARE_TEST "SECONDARY
+  BOARDS"); the v1.2 expander may be an STC8 µC @ 0x30, not a TCA9534.
+- **CYD targets (cyd2usb / elegoocyd):** deferred by decision — the CYD is 320×240
+  (the 480×320 UI doesn't fit) and has no PSRAM; needs a compact UI variant first.
 
 ## Milestone gates that need James
 

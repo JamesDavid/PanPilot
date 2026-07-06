@@ -350,3 +350,23 @@ fault, actuator heartbeat, comms loss, STOP bar, unattended 45 min, die > 85 °C
 | # | Step | Expected | ☐ |
 |---|---|---|---|
 | 18.1 | 4 pancake batches under control | Recovery-to-ready **faster + more consistent** than the M6 advisory baseline (compare logs) | ☐ |
+
+---
+# SECONDARY BOARDS — CrowPanel Advance 5" (800×480 RGB)
+
+> The 5" targets (`crowpanel_adv_5_v11`, `crowpanel_adv_5_v12`) are
+> **compile-verified only**. The RGB display path uses LovyanGFX `Bus_RGB`/
+> `Panel_RGB` (`src/hal/lgfx_panpilot_rgb.h`); the 480×320 UI is centered on the
+> 800×480 panel (touch de-offset in `display.cpp`). The items below are **bench-
+> gated** — none has been observed on glass. Pins/timings are captured from
+> `../cyd-radio` (v1.1) and `../BladeKey-Overhead` (v1.2); flip the flagged
+> values there if the panel misbehaves.
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| 5.1 | Flash `crowpanel_adv_5_v11` (or `_v12`), power on | Boot banner names the 5" board; no crash | ☐ |
+| 5.2 | **Backlight / reset** — the I/O-expander bring-up (`panel_power_on`) | Panel lit. If dark: the expander may be an **STC8 µC @ 0x30** (single-byte cmds), not the assumed TCA9534 @ 0x20/0x18 — see `board_pins.h` / BladeKey `Board.h` | ☐ |
+| 5.3 | **Sync polarity / pclk** | Stable image. If black/rolling: flip `pclk_active_neg`, `hsync/vsync_polarity`, or `RGB_PCLK_HZ` in `lgfx_panpilot_rgb.h` / `board_pins.h` (v1.2 wants 21 MHz + `pclk_idle_high=1`) | ☐ |
+| 5.4 | **Colours** | Reds/oranges correct (not cyan/blue). If swapped: the RGB byte/bit order needs adjusting for this panel | ☐ |
+| 5.5 | UI centered on the 800×480 panel | 480×320 UI centered, black margins; **tap a target** → hits the right control (touch de-offset correct) | ☐ |
+| 5.6 | MLX90640 on I²C 15/16 | Thermal view renders — sensor shares the touch bus (mutex), same as the 3.5" | ☐ |
