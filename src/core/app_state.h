@@ -77,4 +77,9 @@ struct UiState {
   float assistDuty = 0;          // 0..1 commanded to the actuator
   int  assistInterlock = 0;      // Interlock enum (0 = NONE)
   const char* actuatorName = "";
+
+  // PID autotune wizard (roadmap §3.2). 0=idle, 1=running, 2=done.
+  uint8_t autotuneState = 0;
+  uint8_t autotuneProgress = 0;  // observed oscillation cycles (0..5)
+  float autotuneKp = 0, autotuneKi = 0, autotuneKd = 0;
 };

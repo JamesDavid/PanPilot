@@ -25,6 +25,7 @@
 #include "ui/screen_preset_edit.h"
 #include "ui/screen_assist.h"
 #include "ui/screen_onboarding.h"
+#include "ui/screen_autotune.h"
 #include "core/foodlib.h"
 #include "core/app_state.h"
 #include "core/thermal_model.h"
@@ -129,6 +130,16 @@ int main(int argc, char** argv) {
   } else if (scene == "onboarding") {
     lv_scr_load(ui::onboarding_create());
     ui::onboarding_reset(/*useF=*/true);
+  } else if (scene == "autotune") {
+    UiState u;
+    u.assistArmed = true;
+    u.autotuneState = 2;               // show the result state
+    u.autotuneProgress = 5;
+    u.autotuneKp = 0.382f;
+    u.autotuneKi = 0.109f;
+    u.autotuneKd = 0.334f;
+    lv_scr_load(ui::autotune_create());
+    ui::autotune_update(u);
   } else if (scene == "assistarm") {
     lv_scr_load(ui::assist_create());
     ui::assist_load("SSR box", /*ready=*/true);

@@ -407,10 +407,23 @@ power instantly (that's interlock S9).
        alt="Home while armed: red STOP bar showing ASSIST duty">
 </p>
 
+**PID autotune.** Every griddle heats differently, so PanPilot can tune its own
+PID gains. From **Settings → PID autotune** (with Autopilot armed and an empty
+pan on the heat), it runs a relay autotuner — briefly pulsing the burner to
+induce a controlled oscillation — measures the ultimate gain and period, and
+derives Ziegler-Nichols gains. It shows the result to **Save** or **Discard**;
+saved gains persist and drive every later hold.
+
+<p align="center">
+  <img src="docs/screenshots/autotune.png" width="360"
+       alt="PID autotune result: derived Kp/Ki/Kd with Save/Discard">
+</p>
+
 _The control logic — interlocks (S1–S11), bang-bang & PID against a simulated
-plant — is unit-tested (`test_interlocks`, `test_controller`); the SSR box
-firmware is `hardware/panpilot_ssr_box.yaml`. Live control is bench-gated on
-building the box — see HARDWARE_TEST M14–M18._
+plant, and the relay autotuner — is unit-tested (`test_interlocks`,
+`test_controller`, `test_autotune`); the SSR box firmware is
+`hardware/panpilot_ssr_box.yaml`. Live control is bench-gated on building the
+box — see HARDWARE_TEST M14–M18._
 ## 12. Troubleshooting & FAQ _(grows per milestone)_
 
 ---

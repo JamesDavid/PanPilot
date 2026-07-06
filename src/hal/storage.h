@@ -17,6 +17,8 @@ uint8_t storage_get_brightness(uint8_t def = 2);  // Settings backlight level 0/
 void storage_set_brightness(uint8_t level);
 bool storage_get_onboarded(bool def = false);     // first-boot wizard completed
 void storage_set_onboarded(bool done);
+bool storage_get_gains(float& kp, float& ki, float& kd);  // PID autotune result
+void storage_set_gains(float kp, float ki, float kd);
 // Target band + last preset (base spec §7.3, §10).
 void storage_get_target(int& loF, int& hiF, int& warnF, int& presetId);
 void storage_set_target(int loF, int hiF, int warnF, int presetId);

@@ -23,6 +23,18 @@ uint8_t storage_get_brightness(uint8_t def) { ensure(); return (uint8_t)s_prefs.
 void storage_set_brightness(uint8_t level) { ensure(); s_prefs.putUChar("bright", level); }
 bool storage_get_onboarded(bool def) { ensure(); return s_prefs.getBool("onboard", def); }
 void storage_set_onboarded(bool done) { ensure(); s_prefs.putBool("onboard", done); }
+bool storage_get_gains(float& kp, float& ki, float& kd) {
+  ensure();
+  float g[3];
+  if (s_prefs.getBytes("pidg", g, sizeof(g)) != sizeof(g)) return false;
+  kp = g[0]; ki = g[1]; kd = g[2];
+  return true;
+}
+void storage_set_gains(float kp, float ki, float kd) {
+  ensure();
+  float g[3] = {kp, ki, kd};
+  s_prefs.putBytes("pidg", g, sizeof(g));
+}
 void storage_get_target(int& loF, int& hiF, int& warnF, int& presetId) {
   ensure();
   loF = s_prefs.getInt("tlo", 340);

@@ -34,6 +34,7 @@ SCENES = [
     ("assistarm", "docs/screenshots/assistarm.png"),   # ASSIST arming ceremony
     ("assist", "docs/screenshots/assist.png"),         # home with STOP bar armed
     ("onboarding", "docs/screenshots/onboarding.png"), # first-boot wizard
+    ("autotune", "docs/screenshots/autotune.png"),     # PID autotune result
 ]
 
 ROOT = Path(__file__).resolve().parents[1]

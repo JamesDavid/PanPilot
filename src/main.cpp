@@ -30,6 +30,7 @@
 #include "core/control/interlocks.h"
 #include "core/control/controller.h"
 #include "core/control/actuator.h"
+#include "core/control/autotune.h"
 #include "core/settings.h"
 #include "core/foodfeedback.h"
 #include "hal/display.h"
@@ -141,6 +142,19 @@ void on_stop() {                                  // big STOP bar (interlock S9)
   g_assist_stop = true; g_assist_armed = false;
   if (g_actuator) g_actuator->emergencyOff();
 }
+
+// PID gains (roadmap §3.2). Applied to the controller each tick; default to the
+// hand-tuned values until an autotune (or a loaded set) replaces them.
+volatile float g_kp = 0.02f, g_ki = 0.0008f, g_kd = 0.02f;
+volatile bool g_gains_valid = false;
+volatile bool g_persist_gains = false;
+// Autotune handshake. UI core -> SensorTask via g_autotune_req (1 start, 2 save,
+// 3 discard); SensorTask -> UI via g_autotune_state/prog and the g_at_* result.
+volatile uint8_t g_autotune_req = 0;
+volatile uint8_t g_autotune_state = 0;   // 0 idle, 1 running, 2 done
+volatile uint8_t g_autotune_prog = 0;
+volatile float g_at_kp = 0, g_at_ki = 0, g_at_kd = 0;
+void on_autotune(uint8_t cmd) { g_autotune_req = (cmd == 0) ? 1 : (cmd == 1 ? 2 : 3); }
 // Arming ceremony result (roadmap §3.3). cmd 0 = arm, 1 = STOP/disarm.
 void on_assist(uint8_t cmd) {
   if (cmd == 0) {
@@ -240,6 +254,8 @@ void SensorTask(void*) {
   RecipeEngine recipe;
   InterlockMonitor interlocks;
   Controller controller;
+  RelayAutotuner autotune;
+  bool atActive = false;
   uint32_t lastCtrlMs = 0;
   for (;;) {
     if (!g_sensor_ok) {
@@ -374,6 +390,31 @@ void SensorTask(void*) {
       // actuator; interlocks (§3.3) run before the PID and can only cut power.
       // The same recipe HOLD setpoints (above) drive it, so a recipe file runs
       // closed-loop unchanged on the SSR griddle (M21).
+      // PID gains: apply the current set every tick (autotune / persisted).
+      controller.setLaw(g_gains_valid ? ControlLaw::PID : ControlLaw::BANGBANG);
+      controller.setGains(g_kp, g_ki, g_kd);
+
+      // Autotune handshake (UI core -> here). Start only while armed; save copies
+      // the converged gains out for the loop to persist; discard aborts.
+      if (g_autotune_req == 1) {
+        if (g_assist_armed && g_actuator) {
+          autotune.start(target.centerF, 0.0f, 1.0f, 2.0f, nowm);
+          atActive = true; g_autotune_state = 1; g_autotune_prog = 0;
+          Serial.println("[autotune] started - pulsing burner");
+        }
+        g_autotune_req = 0;
+      } else if (g_autotune_req == 2) {
+        g_kp = g_at_kp; g_ki = g_at_ki; g_kd = g_at_kd;
+        g_gains_valid = true; g_persist_gains = true;
+        atActive = false; g_autotune_state = 0;
+        Serial.println("[autotune] gains saved");
+        g_autotune_req = 0;
+      } else if (g_autotune_req == 3) {
+        atActive = false; g_autotune_state = 0;
+        g_autotune_req = 0;
+      }
+      if (!g_assist_armed && atActive) { atActive = false; g_autotune_state = 0; }
+
       float assistDuty = 0; int ilv = 0;
       if (g_assist_armed && g_actuator) {
         float dt = (nowm - lastCtrlMs) / 1000.0f; if (dt <= 0) dt = 0.25f;
@@ -389,10 +430,23 @@ void SensorTask(void*) {
         ii.lastInteractionMs = nowm;    // (wire to last touch/food for S10 on hw)
         ii.dieTempC = sensor::mlx_die_tempC(); ii.now = nowm;
         Interlock il = interlocks.evaluate(ii); ilv = (int)il;
-        if (il == Interlock::NONE)
-          assistDuty = controller.update(gi.tempF, target.centerF, dt);
-        else if (InterlockMonitor::isEmergency(il)) { g_actuator->emergencyOff(); assistDuty = 0; }
-        else assistDuty = 0;
+        if (il == Interlock::NONE) {
+          if (atActive) {               // relay autotune drives the actuator
+            assistDuty = autotune.update(gi.tempF, nowm);
+            g_autotune_prog = (uint8_t)autotune.cycles();
+            if (autotune.converged()) {
+              g_at_kp = autotune.kp(); g_at_ki = autotune.ki(); g_at_kd = autotune.kd();
+              g_autotune_state = 2; atActive = false;
+              Serial.printf("[autotune] converged Ku=%.3f Tu=%.1fs\n",
+                            autotune.ku(), autotune.tuSeconds());
+            }
+          } else {
+            assistDuty = controller.update(gi.tempF, target.centerF, dt);
+          }
+        } else { atActive = false;      // interlock -> abort any autotune
+          if (InterlockMonitor::isEmergency(il)) { g_actuator->emergencyOff(); assistDuty = 0; }
+          else assistDuty = 0;
+        }
         g_actuator->setDuty(assistDuty);
         g_assist_duty = assistDuty;
       }
@@ -460,6 +514,9 @@ void SensorTask(void*) {
       u.assistArmed = g_assist_armed;
       u.assistDuty = assistDuty;
       u.assistInterlock = ilv;
+      u.autotuneState = g_autotune_state;
+      u.autotuneProgress = g_autotune_prog;
+      u.autotuneKp = g_at_kp; u.autotuneKi = g_at_ki; u.autotuneKd = g_at_kd;
 #if defined(ENABLE_WIFI)
       u.actuatorAvailable = true;          // SSR box actuator compiled in
       u.actuatorName = g_plug.name();
@@ -619,6 +676,11 @@ void setup() {
   ui::set_feedback_cb(on_feedback);
   ui::set_preset_edit_cbs(on_preset_save, on_preset_delete);
   ui::set_assist_cb(on_assist);
+  ui::set_autotune_cb(on_autotune);
+  { float kp, ki, kd;
+    if (hal::storage_get_gains(kp, ki, kd)) {
+      g_kp = kp; g_ki = ki; g_kd = kd; g_gains_valid = true;
+      Serial.printf("[pid] loaded gains kp=%.3f ki=%.4f kd=%.3f\n", kp, ki, kd); } }
   ui::set_onboarding_cb(on_onboarding_done);
   if (!hal::storage_get_onboarded()) ui::show_onboarding();   // first boot only
 
@@ -657,6 +719,8 @@ void loop() {
   if (!otaMarked && now > 8000) { otaMarked = true; hal::ota_mark_stable(); }
 
   if (g_new_session) { g_new_session = false; refresh_lastcook(ui::unit_useF()); }
+  if (g_persist_gains) { g_persist_gains = false;
+    hal::storage_set_gains(g_kp, g_ki, g_kd); }
 
   // Poll the fuel gauge every 2 s (roadmap §2.1).
   if (now - lastBatt >= 2000) {

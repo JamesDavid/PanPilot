@@ -22,6 +22,7 @@ using PresetSaveCb = void (*)(int editId, const char* name, int loF, int hiF, bo
 using PresetDeleteCb = void (*)(int id);
 using AssistCb = void (*)(uint8_t cmd);   // ASSIST: 0=arm, 1=stop/disarm
 using OnboardingDoneCb = void (*)();      // first-boot wizard finished
+using AutotuneCb = void (*)(uint8_t cmd); // PID autotune: 0=start, 1=save, 2=cancel
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
                PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2,
@@ -48,6 +49,9 @@ void set_assist_cb(AssistCb onAssist);
 void show_assist_arm();                 // open the ASSIST arming ceremony
 void assist_arm();                      // fires AssistCb(0), returns home
 void assist_stop();                     // fires AssistCb(1) — the STOP bar
+void set_autotune_cb(AutotuneCb onAutotune);
+void show_autotune();                   // PID autotune wizard
+void autotune_cmd(uint8_t cmd);         // fires AutotuneCb (0=start,1=save,2=cancel)
 void settings_toggle_unit();       // fires UnitChangeCb + refreshes Settings
 void settings_toggle_mute();       // fires MuteCb + refreshes Settings
 void settings_cycle_brightness();  // fires BrightnessCb + refreshes Settings

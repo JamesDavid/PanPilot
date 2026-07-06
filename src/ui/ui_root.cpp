@@ -13,6 +13,7 @@
 #include "ui/screen_preset_edit.h"
 #include "ui/screen_assist.h"
 #include "ui/screen_onboarding.h"
+#include "ui/screen_autotune.h"
 #include "core/settings.h"
 #include "core/presets.h"
 
@@ -29,6 +30,7 @@ lv_obj_t* s_settings = nullptr;
 lv_obj_t* s_preset_edit = nullptr;
 lv_obj_t* s_assist = nullptr;
 lv_obj_t* s_onboarding = nullptr;
+lv_obj_t* s_autotune = nullptr;
 int s_editId = -1;                 // preset id being edited (-1 = new)
 bool s_assistAvail = false;        // actuator configured (from the snapshot)
 const char* s_actuatorName = "";
@@ -49,9 +51,10 @@ PresetSaveCb s_presetSaveCb = nullptr;
 PresetDeleteCb s_presetDelCb = nullptr;
 AssistCb s_assistCb = nullptr;
 OnboardingDoneCb s_onboardCb = nullptr;
+AutotuneCb s_autotuneCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS,
-              SETTINGS, PRESET_EDIT, ASSIST, ONBOARDING } s_active = HOME;
+              SETTINGS, PRESET_EDIT, ASSIST, ONBOARDING, AUTOTUNE } s_active = HOME;
 
 void settings_refresh() { settings_update(s_useF, s_muted, s_bright); }
 }  // namespace
@@ -77,8 +80,20 @@ void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
   s_preset_edit = preset_edit_create();
   s_assist = assist_create();
   s_onboarding = onboarding_create();
+  s_autotune = autotune_create();
   lv_scr_load(s_home);
   s_active = HOME;
+}
+
+void set_autotune_cb(AutotuneCb onAutotune) { s_autotuneCb = onAutotune; }
+void show_autotune() {
+  if (!s_autotune) s_autotune = autotune_create();
+  lv_scr_load(s_autotune);
+  s_active = AUTOTUNE;
+}
+void autotune_cmd(uint8_t cmd) {
+  if (s_autotuneCb) s_autotuneCb(cmd);
+  if (cmd == 2) show_settings();          // Cancel/Discard/Back -> Settings
 }
 
 void set_onboarding_cb(OnboardingDoneCb onDone) { s_onboardCb = onDone; }
@@ -207,6 +222,7 @@ void root_update(const ThermalFrame& f, const PanReading& r, const UiState& s) {
   else if (s_active == THERMAL) thermal_update(f, r, s_useF);
   else if (s_active == LEARN) learn_update(s);
   else if (s_active == SETTINGS) settings_refresh();
+  else if (s_active == AUTOTUNE) autotune_update(s);
   // presets / idle screens are static; nothing to update per tick
 }
 
