@@ -27,6 +27,9 @@
 #include "core/compliance.h"
 #include "core/multipan.h"
 #include "core/recipe.h"
+#include "core/control/interlocks.h"
+#include "core/control/controller.h"
+#include "core/control/actuator.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
 #include "hal/storage.h"
@@ -106,6 +109,14 @@ volatile bool g_recipe_start_req = false;
 volatile bool g_recipe_active = false;
 volatile bool g_recipe_touch = false;
 volatile int  g_recipe_setpoint = 0;   // recipe HOLD setpoint (drives guidance)
+
+// Autopilot / ASSIST (M14-M18, M21). No actuator armed => pure ADVISORY, and
+// there is no code path here that can energize anything (roadmap §0.1).
+HeatActuator* volatile g_actuator = nullptr;   // set only after the arming ceremony
+volatile bool g_assist_armed = false;
+volatile bool g_assist_stop = false;
+volatile float g_assist_duty = 0;
+void on_stop() { g_assist_stop = true; g_assist_armed = false; }   // big STOP bar (S9)
 void on_recipe(uint8_t cmd) {
   if (cmd == 0) g_recipe_start_req = true;
   else if (cmd == 1) g_recipe_active = false;
@@ -186,6 +197,9 @@ void SensorTask(void*) {
   Target target2;
   GuidanceState prevZ2 = GuidanceState::IDLE;
   RecipeEngine recipe;
+  InterlockMonitor interlocks;
+  Controller controller;
+  uint32_t lastCtrlMs = 0;
   for (;;) {
     if (!g_sensor_ok) {
       g_sensor_ok = sensor::mlx_begin();
@@ -314,6 +328,33 @@ void SensorTask(void*) {
           Serial.println("[recipe] finished"); }
       }
 
+      // Autopilot / ASSIST closed loop (M14-M18). Runs ONLY with an armed
+      // actuator; interlocks (§3.3) run before the PID and can only cut power.
+      // The same recipe HOLD setpoints (above) drive it, so a recipe file runs
+      // closed-loop unchanged on the SSR griddle (M21).
+      float assistDuty = 0; int ilv = 0;
+      if (g_assist_armed && g_actuator) {
+        float dt = (nowm - lastCtrlMs) / 1000.0f; if (dt <= 0) dt = 0.25f;
+        lastCtrlMs = nowm;
+        InterlockInput ii;
+        ii.confidence = r.confidence; ii.presence = r.presence;
+        ii.duty = g_assist_duty; ii.rateFPerMin = gi.rateFPerMin;
+        ii.tempF = gi.tempF; ii.warnF = target.warnF;
+        ii.sensorFault = sensor::mlx_faulted(); ii.lastFrameMs = nowm;
+        ii.actuatorAlive = g_actuator->isAlive(); ii.lastAckMs = nowm;
+        ii.commsOk = true;              // the box's own watchdog covers comms (S8)
+        ii.stopPressed = g_assist_stop;
+        ii.lastInteractionMs = nowm;    // (wire to last touch/food for S10 on hw)
+        ii.dieTempC = sensor::mlx_die_tempC(); ii.now = nowm;
+        Interlock il = interlocks.evaluate(ii); ilv = (int)il;
+        if (il == Interlock::NONE)
+          assistDuty = controller.update(gi.tempF, target.centerF, dt);
+        else if (InterlockMonitor::isEmergency(il)) { g_actuator->emergencyOff(); assistDuty = 0; }
+        else assistDuty = 0;
+        g_actuator->setDuty(assistDuty);
+        g_assist_duty = assistDuty;
+      }
+
       // Session lifecycle (§8): start on a hot pan, end when cool + stable.
       // Records a 1 Hz temperature trace to LittleFS (roadmap §2.3).
       if (!session.active() && r.presence == PanPresence::PRESENT && sceneHot) {
@@ -371,6 +412,10 @@ void SensorTask(void*) {
       u.recipeActive = g_recipe_active;
       u.recipeCue = g_recipe_active ? rout.cue : "";
       u.recipeStepIndex = rout.stepIndex;
+      u.assistArmed = g_assist_armed;
+      u.assistDuty = assistDuty;
+      u.assistInterlock = ilv;
+      u.actuatorName = g_actuator ? g_actuator->name() : "";
       u.learnPhase = (LearnPhase)g_learn_phase;
       u.learnProgress = g_learn_progress;
       u.learnedLagMinutes = g_learned_lag;
