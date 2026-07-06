@@ -2,6 +2,7 @@
 // cues, and the cold-pan stretch (roadmap §2.7).
 #include <unity.h>
 #include "core/foodtimer.cpp"
+#include "core/foodlib.cpp"   // foodlib_count/entry now live here (custom merge)
 #include <cstring>
 
 namespace {

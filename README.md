@@ -254,6 +254,14 @@ The 28-entry seed database (`src/core/foodlib/foodlib_seed.h`) covers breakfast,
 burgers, steak, poultry, pork, seafood, melts and vegetarian — authored from
 standard references, pending human review before release.
 
+**Add your own foods.** Drop a `/foods.json` on the device filesystem and
+PanPilot merges it over the seed at boot: a new *name + variant* adds a food to
+the picker, while a matching pair **overrides** the seed values (times, temps,
+flip hint) — so you can retune "Pancakes / 4-inch" to your griddle without
+touching firmware. See [`docs/foods.example.json`](docs/foods.example.json) for
+the schema. The `safeInternalF` field still forces the verify-internal-temp
+note and must never be zeroed to quiet the UI.
+
 ### It learns your stove
 
 When a cook finishes, PanPilot asks **how it turned out** — *Undercooked /

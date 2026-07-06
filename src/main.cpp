@@ -41,6 +41,8 @@
 #include "hal/ota.h"
 #include "hal/session_store.h"
 #include "hal/mqtt_plug_actuator.h"
+#include "hal/food_json.h"
+#include "core/foodstore.h"
 #include "ui/screen_lastcook.h"
 #include "sensor/mlx90640_source.h"
 #include "sensor/frame_analysis.h"
@@ -108,6 +110,9 @@ volatile uint8_t g_batch = 0;
 // on_feedback touch it); SensorTask only reads g_foodFactor (the current food's
 // personalization multiplier) and raises g_awaitFeedback on REMOVE.
 panpilot::FeedbackStore g_feedback;
+#if defined(HAS_FILESYSTEM)
+FoodStore g_foodstore;             // custom foods from /foods.json (spec §2.7)
+#endif
 volatile float g_foodFactor = 1.0f;
 volatile bool g_awaitFeedback = false;
 const FoodEntry* volatile g_fbFood = nullptr;   // food being graded
@@ -661,6 +666,9 @@ void setup() {
   { PanProfile pf;
     if (hal::storage_load_profile(pf)) { g_applied_lag = pf.lagMinutes;
       Serial.printf("[profile] loaded lag=%.2f min\n", pf.lagMinutes); } }
+#if defined(HAS_FILESYSTEM)
+  if (hal::load_custom_foods(g_foodstore) > 0) foodlib_set_custom(&g_foodstore);
+#endif
   g_bright = panpilot::brightness_clamp(hal::storage_get_brightness());
   { uint8_t fbBlob[panpilot::FeedbackStore::MAX * 8];
     uint32_t n = hal::storage_get_foodfb(fbBlob, sizeof(fbBlob));

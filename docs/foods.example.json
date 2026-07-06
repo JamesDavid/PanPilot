@@ -1,0 +1,31 @@
+{
+  "_comment": "PanPilot custom foods (spec §2.7). Copy to the device filesystem as /foods.json (pio run -t uploadfs, or via the web UI later). Each entry either ADDS a new food or, when name+variant match a seed entry, OVERRIDES it. Temperatures are °F pan-surface; times are seconds authored at refF. safeInternalF is a USDA minimum and forces the verify-internal-temp note — never zero it to reduce UI noise.",
+  "foods": [
+    {
+      "name": "My smash burger",
+      "variant": "extra thin",
+      "panLoF": 460,
+      "panHiF": 520,
+      "sideSec": [90, 45],
+      "sides": 2,
+      "refF": 490,
+      "compPct": -10,
+      "restSec": 0,
+      "safeInternalF": 160,
+      "flip": "Scrape-flip hard once the crust is deep brown"
+    },
+    {
+      "name": "Pancakes",
+      "variant": "4-inch, standard batter",
+      "panLoF": 350,
+      "panHiF": 375,
+      "sideSec": [170, 100],
+      "sides": 2,
+      "refF": 365,
+      "compPct": -12,
+      "restSec": 0,
+      "safeInternalF": 0,
+      "flip": "My griddle runs cool - wait for the bubbles"
+    }
+  ]
+}
