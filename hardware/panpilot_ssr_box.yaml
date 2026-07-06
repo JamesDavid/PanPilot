@@ -1,0 +1,108 @@
+# PanPilot SSR Box — ESPHome firmware (roadmap spec §3.1.1, M14).
+#
+# A self-contained inline power controller: the electric griddle plugs into the
+# box, the box plugs into the wall. This YAML runs on the ESP32-C3 inside the
+# box and drives a zero-cross SSR, presenting a duty/switch entity on the same
+# MQTT broker PanPilot uses. PanPilot's MqttPlugActuator drives it unchanged.
+#
+# SAFETY (read §3.1.1): name-brand 40 A zero-cross SSR only (Crydom / Omron
+# G3NA / Panasonic — NO Fotek clones), mandatory finned heatsink + thermal
+# compound, a ~110 °C thermal fuse on the heatsink in series with the load, a
+# 15 A line fuse, and set the griddle's own thermostat to MAX (never bypassed)
+# as an independent appliance-certified over-temp backstop. SSRs fail SHORTED —
+# the defense stack is (1) native thermostat, (2) S5/S7 alarms telling you to
+# unplug, (3) thermal fuse, (4) line fuse.
+#
+# >>> HARDWARE-GATED: build the box and flash this before any M14+ bench test.
+
+substitutions:
+  name: panpilot-ssr
+  ssr_pin: GPIO4          # 3.3 V logic drives a standard AC SSR input directly
+  led_pin: GPIO8          # status LED: off / blink=regulating / on=fault
+  watchdog_ms: "15000"    # SSR self-offs if no duty command within this window
+
+esphome:
+  name: ${name}
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+logger:
+api:                       # keep for local debugging
+ota:
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # On any Wi-Fi loss the SSR must go OFF (implements interlock S8).
+  on_disconnect:
+    then:
+      - switch.turn_off: ssr
+
+mqtt:
+  broker: !secret mqtt_broker
+  # Last-will marks the box offline; PanPilot's S7/S8 refuse to stay armed.
+  birth_message:
+    topic: panpilot/ssr/status
+    payload: online
+  will_message:
+    topic: panpilot/ssr/status
+    payload: offline
+  on_disconnect:
+    then:
+      - switch.turn_off: ssr        # broker loss -> SSR off (S8)
+  on_message:
+    # Duty command 0..100 (percent). Any command also feeds the watchdog.
+    - topic: panpilot/ssr/duty/set
+      then:
+        - globals.set:
+            id: last_cmd_ms
+            value: !lambda 'return millis();'
+        - output.set_level:
+            id: ssr_pwm
+            level: !lambda 'return atof(x.c_str()) / 100.0;'
+
+globals:
+  - id: last_cmd_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
+# Slow time-proportioning PWM (default 3 s window on the SSR box, §3.2).
+output:
+  - platform: slow_pwm
+    id: ssr_pwm
+    pin: ${ssr_pin}
+    period: 3s
+
+switch:
+  - platform: template          # a plain on/off face for HA + emergency off
+    name: ${name} enable
+    id: ssr
+    turn_on:
+      - output.set_level: { id: ssr_pwm, level: 0% }
+    turn_off:
+      - output.set_level: { id: ssr_pwm, level: 0% }
+
+status_led:
+  pin: ${led_pin}
+
+# Hardware-local watchdog (implements interlock S8): force the SSR OFF if no
+# duty command has arrived within watchdog_ms. This runs regardless of what
+# PanPilot does — the box protects itself. PanPilot refuses to arm the box until
+# this watchdog handshake acks (it publishes panpilot/ssr/status=online above).
+interval:
+  - interval: 1s
+    then:
+      - if:
+          condition:
+            lambda: 'return (millis() - id(last_cmd_ms)) > ${watchdog_ms};'
+          then:
+            - output.set_level: { id: ssr_pwm, level: 0% }
+
+# Optional telemetry (recommended, §3.1.1): heatsink NTC + current sense so
+# interlock S7 has real load telemetry instead of inferred liveness.
+# sensor:
+#   - platform: ntc         # heatsink temperature
+#   - platform: ct_clamp    # confirm the element actually draws power

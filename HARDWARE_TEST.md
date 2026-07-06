@@ -301,3 +301,52 @@ the safety note stripped, and a butter-then-500 °F-sear; the page loads offline
 | 20.4 | Set a HOLD to 700 | “Invalid: hold above the 650F ceiling” | ☐ |
 | 20.5 | PREP butter then HOLD 500 | Rejected (smoke point) | ☐ |
 | 20.6 | Save a valid program | “Saved ✓”; persists in `/programs/*.json` (LittleFS) | ☐ |
+
+---
+# TRACK A — Closed-loop control (SSR box)
+
+> ⚠️ **Mains + heat.** The SSR box switches line voltage into a resistive
+> griddle. Build it per `hardware/panpilot_ssr_box.yaml` and §3.1.1 exactly:
+> name-brand 40 A zero-cross SSR, mandatory heatsink + thermal compound, ~110 °C
+> thermal fuse on the heatsink, 15 A line fuse, no user-accessible live parts,
+> and set the griddle's own thermostat to MAX as an independent backstop.
+> **Interlock truth-table tests (test_interlocks) must be green before any
+> control runs on hardware** — they are.
+
+## M14 — SSR box + actuator HAL + watchdog handshake
+
+Build + flash the box (`hardware/panpilot_ssr_box.yaml`).
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| 14.1 | Load test at full griddle draw for 1 h | Heatsink ≤ 70 °C; no discoloration | ☐ |
+| 14.2 | Duty-cycle at the 3 s window | Griddle regulates smoothly; status LED blinks with duty | ☐ |
+| 14.3 | **Kill Wi-Fi** | SSR forced OFF within 15 s (hardware watchdog), no PanPilot command | ☐ |
+| 14.4 | **Kill the broker** | SSR forced OFF (S8) | ☐ |
+| 14.5 | Watchdog handshake | PanPilot refuses to arm until the box publishes `status=online` | ☐ |
+
+## M15 — Interlocks
+
+`test_interlocks` (S1–S11 truth table) is green in `pio test`. On hardware,
+demonstrate each S1–S11 row physically trips duty→0 (see §3.3 checklist):
+confidence loss, pan removed, obstruction, runaway (boil-dry), max temp, sensor
+fault, actuator heartbeat, comms loss, STOP bar, unattended 45 min, die > 85 °C.
+
+## M16 — Closed-loop hold
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| 16.1 | “Hold 350 °F”, walk away | Griddle held **350 ± 15 °F for 30 min** (time-proportional, pre-PID) | ☐ |
+
+## M17 — PID + autotune wizard
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| 17.1 | Enable PID | Hold tightens to **± 8 °F** | ☐ |
+| 17.2 | Run “Tune this appliance” | Autotune completes on a griddle **and** a hot plate | ☐ |
+
+## M18 — Controlled batch cooking
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| 18.1 | 4 pancake batches under control | Recovery-to-ready **faster + more consistent** than the M6 advisory baseline (compare logs) | ☐ |

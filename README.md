@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M20 — Recipe Creator (Track B complete).** This README grows one
+> **Status: M17 — closed-loop control cores (Track A).** This README grows one
 > section at a time as each milestone lands. Sections below marked _(coming in
 > M#)_ aren't built yet.
 
@@ -303,7 +303,43 @@ PanPilot appears in Home Assistant automatically via MQTT discovery — no YAML:
 Example automation: *flash the kitchen lights when guidance = “Too hot.”* Leave
 the broker field blank to keep MQTT off. _(Compile-verified; broker behavior is
 bench-tested — see HARDWARE_TEST M9.)_
-## 11. Autopilot & the SSR box _(coming in M14+)_
+## 11. Autopilot & the SSR box _(M14–M18)_
+
+Point PanPilot at a $40 electric griddle with the **PanPilot SSR box** inline and
+the same firmware stops *advising* and starts *doing* — it holds the temperature
+itself. Nothing about the perception, guidance, preset, food or recipe layers
+changes; the actuator is the only variable.
+
+> ⚠️ **Supervised use only. Mains + heat.** Autopilot is for an attended cook on
+> an electric griddle/hot-plate through the SSR box. Never leave it unattended;
+> never used for gas. The box switches line voltage — build it exactly per
+> `hardware/panpilot_ssr_box.yaml` and §3.1.1 (name-brand 40 A zero-cross SSR,
+> heatsink, thermal fuse, line fuse, griddle thermostat at MAX as a backstop).
+
+**How it stays safe — the interlocks.** Control authority is a privilege the
+perception system must continuously earn. Before every control tick, eleven
+interlocks (S1–S11) run and can only *lower* power — the PID can never override
+them. All fail safe to **power off**:
+
+| | Trips when | |
+|---|---|---|
+| S1 | confidence < 60 for 5 s | S7 | actuator heartbeat lost |
+| S2 | pan removed | S8 | Wi-Fi/broker drop (box self-offs too) |
+| S3 | obstruction > 10 s | S9 | you tap the big STOP bar |
+| S4 | runaway (duty high, not heating) | S10 | unattended 45 min |
+| S5 | over warn+25 °F or 650 °F | S11 | device die > 85 °C |
+| S6 | sensor fault / frame gap | | |
+
+**Arming ceremony:** ASSIST is available *only* when a watchdog-capable actuator
+is discovered and armed through an explicit confirm screen naming it — with no
+actuator present, every control element is hidden and there is no code path to
+energize anything. The box's own **hardware watchdog** turns the SSR off within
+15 s if PanPilot ever goes quiet.
+
+_The control logic — interlocks (S1–S11), bang-bang & PID against a simulated
+plant — is unit-tested (`test_interlocks`, `test_controller`); the SSR box
+firmware is `hardware/panpilot_ssr_box.yaml`. Live control is bench-gated on
+building the box — see HARDWARE_TEST M14–M18._
 ## 12. Troubleshooting & FAQ _(grows per milestone)_
 
 ---

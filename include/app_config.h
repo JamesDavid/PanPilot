@@ -98,6 +98,22 @@
 // ---- Learn Pan Mode (base spec §7 Phase 1.5) -------------------------------
 #define LEARN_DURATION_MS          30000   // record heating for 30 s
 
+// ---- Closed-loop control + interlocks (roadmap spec §3.2, §3.3) ------------
+#define IL_CONF_MIN                60      // S1: ROI confidence floor
+#define IL_CONF_MS                 5000    // S1: for this long
+#define IL_OBSTRUCT_MS             10000   // S3: obstruction this long
+#define IL_RUNAWAY_DUTY            0.50f   // S4: duty above this...
+#define IL_RUNAWAY_MS              60000   // S4: ...for this long with rate<=0
+#define IL_HARD_MAX_OVER_F         25.0f   // S5: warn + this...
+#define IL_HARD_MAX_ABS_F          650.0f  // S5: ...or absolute
+#define IL_FRAME_GAP_MS            3000    // S6: no frame this long
+#define IL_ACT_UNACK_MS            10000   // S7: actuator command unacked
+#define IL_UNATTENDED_MS           2700000 // S10: 45 min no interaction
+#define IL_DIE_MAX_C               85.0f   // S11: device die temp
+#define CTRL_WINDOW_SSR_MS         3000    // SSR time-proportioning window
+#define CTRL_WINDOW_PLUG_MS        30000   // mechanical relay window (relay life)
+#define CTRL_ACT_WATCHDOG_MS       15000   // actuator self-off if no command
+
 // ---- Attention & cue escalation (roadmap spec §3.5) ------------------------
 #define ATTN_L2_REPEAT_MS          5000    // L2 re-beep cadence
 #define ATTN_L3_REPEAT_MS          2000    // L3 alarm cadence
