@@ -15,6 +15,7 @@ void food_cb(lv_event_t* e) {
   ui::select_food(id);
 }
 void done_cb(lv_event_t*) { ui::show_home(); }
+void recipe_cb(lv_event_t*) { ui::start_recipe(); }
 }  // namespace
 
 lv_obj_t* foods_create() {
@@ -38,8 +39,18 @@ lv_obj_t* foods_create() {
   lv_label_set_text(dl, "Done");
   lv_obj_center(dl);
 
+  // Recipe entry (M19) — a guided multi-step program.
+  lv_obj_t* rec = lv_btn_create(scr);
+  lv_obj_set_size(rec, 220, 30);
+  lv_obj_align(rec, LV_ALIGN_TOP_LEFT, 140, 6);
+  lv_obj_set_style_bg_color(rec, lv_color_hex(0x2E5AAC), 0);
+  lv_obj_add_event_cb(rec, recipe_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* rl = lv_label_create(rec);
+  lv_label_set_text(rl, LV_SYMBOL_PLAY " Smash Burgers x4");
+  lv_obj_center(rl);
+
   lv_obj_t* list = lv_list_create(scr);
-  lv_obj_set_size(list, 464, 272);
+  lv_obj_set_size(list, 464, 238);
   lv_obj_align(list, LV_ALIGN_BOTTOM_MID, 0, -6);
   lv_obj_set_style_bg_color(list, lv_color_hex(0x101418), 0);
 

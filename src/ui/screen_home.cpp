@@ -37,6 +37,7 @@ void temp_tap_cb(lv_event_t*) { ui::show_thermal(); }
 void unit_cb(lv_event_t*) { ui::toggle_unit(); }
 void preset_tap_cb(lv_event_t*) { ui::show_presets(); }
 void z2_tap_cb(lv_event_t*) { ui::show_presets_zone2(); }
+void bar_tap_cb(lv_event_t*) { ui::recipe_cmd(2); }   // ack a recipe cue
 
 inline float cToF(float c) { return c * 9.0f / 5.0f + 32.0f; }
 
@@ -175,6 +176,8 @@ lv_obj_t* home_create() {
   lv_obj_remove_style_all(s_bar);
   lv_obj_set_size(s_bar, 480, 46);
   lv_obj_align(s_bar, LV_ALIGN_BOTTOM_MID, 0, 0);
+  lv_obj_add_flag(s_bar, LV_OBJ_FLAG_CLICKABLE);      // tap to ack recipe cues
+  lv_obj_add_event_cb(s_bar, bar_tap_cb, LV_EVENT_CLICKED, nullptr);
   s_bar_lbl = lv_label_create(s_bar);
   lv_obj_set_style_text_font(s_bar_lbl, &lv_font_montserrat_20, 0);
   lv_obj_set_style_text_color(s_bar_lbl, lv_color_hex(0xFFFFFF), 0);
@@ -305,11 +308,16 @@ void home_update(const UiState& s, bool useF) {
     lv_obj_add_flag(s_z2, LV_OBJ_FLAG_HIDDEN);
   }
 
-  // action bar
+  // action bar — a running recipe's cue takes it over (tap to advance).
   const BarStyle bs = bar_for(s.guidance);
-  lv_obj_set_style_bg_color(s_bar, lv_color_hex(bs.color), 0);
+  if (s.recipeActive && s.recipeCue[0]) {
+    lv_obj_set_style_bg_color(s_bar, lv_color_hex(0x2E5AAC), 0);
+    lv_label_set_text(s_bar_lbl, s.recipeCue);
+  } else {
+    lv_obj_set_style_bg_color(s_bar, lv_color_hex(bs.color), 0);
+    lv_label_set_text(s_bar_lbl, bs.text);
+  }
   lv_obj_set_style_bg_opa(s_bar, LV_OPA_COVER, 0);
-  lv_label_set_text(s_bar_lbl, bs.text);
 
   // full-screen overlay for the loud states (§9.3). "Add next batch" (recovery
   // complete, §7.4) takes priority. While actively cooking a food, the timer is

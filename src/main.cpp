@@ -26,6 +26,7 @@
 #include "core/attention.h"
 #include "core/compliance.h"
 #include "core/multipan.h"
+#include "core/recipe.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
 #include "hal/storage.h"
@@ -98,6 +99,17 @@ volatile bool g_z2ReadyChirp = false;
 
 void on_preset2(uint8_t id) {
   g_target2 = (preset(id).loF + preset(id).hiF) / 2;   // zone-2 target band center
+}
+
+// Recipe sequencer (M19). cmd: 0=start built-in, 1=stop, 2=acknowledge cue.
+volatile bool g_recipe_start_req = false;
+volatile bool g_recipe_active = false;
+volatile bool g_recipe_touch = false;
+volatile int  g_recipe_setpoint = 0;   // recipe HOLD setpoint (drives guidance)
+void on_recipe(uint8_t cmd) {
+  if (cmd == 0) g_recipe_start_req = true;
+  else if (cmd == 1) g_recipe_active = false;
+  else if (cmd == 2) g_recipe_touch = true;
 }
 
 void on_food(int id) {
@@ -173,6 +185,7 @@ void SensorTask(void*) {
   GuidanceEngine guidance2;
   Target target2;
   GuidanceState prevZ2 = GuidanceState::IDLE;
+  RecipeEngine recipe;
   for (;;) {
     if (!g_sensor_ok) {
       g_sensor_ok = sensor::mlx_begin();
@@ -187,6 +200,8 @@ void SensorTask(void*) {
         target = g_target; presetId = g_presetId;
         xSemaphoreGive(g_target_mtx);
       }
+      // A running recipe's HOLD step drives the guidance target (M19).
+      if (g_recipe_active && g_recipe_setpoint > 0) target.setCenter(g_recipe_setpoint);
 
       GuidanceInput gi;
       gi.tempF = ThermalModel::cToF(model.displayTempC());
@@ -280,6 +295,25 @@ void SensorTask(void*) {
         model2.reset(); guidance2.reset(); prevZ2 = GuidanceState::IDLE;
       }
 
+      // Recipe sequencer (M19): drive setpoints + cues from a cook program.
+      if (g_recipe_start_req) {
+        recipe.start(recipe_builtin_smashburger(), nowm);
+        g_recipe_start_req = false; g_recipe_active = true;
+        Serial.println("[recipe] started: Smash Burgers x4");
+      }
+      RecipeOut rout;
+      if (g_recipe_active) {
+        RecipeInput ri;
+        ri.panTempF = gi.tempF;
+        ri.foodAdded = (ro.event == RecoveryEvent::FOOD_ADDED);
+        ri.touch = g_recipe_touch; g_recipe_touch = false;
+        ri.now = nowm;
+        rout = recipe.step(ri);
+        g_recipe_setpoint = rout.setpointF;
+        if (rout.finished) { g_recipe_active = false; g_recipe_setpoint = 0;
+          Serial.println("[recipe] finished"); }
+      }
+
       // Session lifecycle (§8): start on a hot pan, end when cool + stable.
       // Records a 1 Hz temperature trace to LittleFS (roadmap §2.3).
       if (!session.active() && r.presence == PanPresence::PRESENT && sceneHot) {
@@ -334,6 +368,9 @@ void SensorTask(void*) {
       u.zone2TempC = z2temp;
       u.zone2Guidance = z2g;
       u.zone2TargetF = g_target2;
+      u.recipeActive = g_recipe_active;
+      u.recipeCue = g_recipe_active ? rout.cue : "";
+      u.recipeStepIndex = rout.stepIndex;
       u.learnPhase = (LearnPhase)g_learn_phase;
       u.learnProgress = g_learn_progress;
       u.learnedLagMinutes = g_learned_lag;
@@ -422,7 +459,7 @@ void setup() {
     if (hal::storage_load_profile(pf)) { g_applied_lag = pf.lagMinutes;
       Serial.printf("[profile] loaded lag=%.2f min\n", pf.lagMinutes); } }
   ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
-                on_preset, on_learn, on_food, on_preset2);
+                on_preset, on_learn, on_food, on_preset2, on_recipe);
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot
 
@@ -515,6 +552,8 @@ void loop() {
         attn.raise(AttnLevel::L3, "PLUG ME IN", "battery critical", now);
       else if (u.guidance == GuidanceState::TOO_HOT)
         attn.raise(AttnLevel::L3, "TOO HOT", "", now);
+      else if (u.recipeActive && u.recipeCue[0])
+        attn.raise(AttnLevel::L2, u.recipeCue, "tap when done", now);
       else if (u.foodCue)
         attn.raise(AttnLevel::L2, u.foodCueVerb, u.foodCueSub, now);
       else if (u.addBatchPrompt)

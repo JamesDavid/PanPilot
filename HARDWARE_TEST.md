@@ -264,3 +264,25 @@ consecutive runs.**
 | 12.4 | Each reaches its band | **Independent READY** alerts (primary full-screen; zone 2 double-chirp + tile turns green) | ☐ |
 | 12.5 | Move a pan | Each stays pinned to its zone (persistent IDs) — no swap | ☐ |
 | 12.6 | Repeat 3× | Passes 3 consecutive runs | ☐ |
+
+---
+# TRACK B — Recipe programs
+
+## M19 — Recipe sequencer engine (Advisor mode)
+
+**Acceptance (roadmap M19): a smash-burger ×4 program runs end-to-end on the
+stovetop; cues fire through the attention system; knob-cue compliance works
+inside a program; a butter Prep step auto-advances on a thermally detected melt,
+and cueing butter onto a deliberately overheated pan triggers the too-hot hold.**
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| 19.1 | “Cook a food” → **▶ Smash Burgers ×4** | Recipe starts; preheat HOLD drives the target to 450 °F | ☐ |
+| 19.2 | Preheat reaches band | Advances to “Add 2 patties + smash” (L2 cue card) | ☐ |
+| 19.3 | Add patties | FOOD ADDED advances to the sear timer; “Flip + cheese” cue after | ☐ |
+| 19.4 | Tap the cue bar at each step | Cue acknowledged; sequence advances | ☐ |
+| 19.5 | 4 batches via the loop | Runs 4 batches then finishes (serial `[recipe] finished`) | ☐ |
+| 19.6 | (Prep step) butter on a hot pan | “too hot for butter” hold until the pan cools to the add window | ☐ |
+
+_Note: recipes are authored on-device from the built-in program now; the web
+Recipe Creator (M20) adds custom JSON programs + prep-fat advice._

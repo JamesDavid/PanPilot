@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M12 — multi-pan (Phase 2 complete).** This README grows one
+> **Status: M19 — recipe sequencer (Track B).** This README grows one
 > section at a time as each milestone lands. Sections below marked _(coming in
 > M#)_ aren't built yet.
 

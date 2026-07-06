@@ -26,12 +26,14 @@ PresetCb s_presetCb = nullptr;
 PresetCb s_preset2Cb = nullptr;
 LearnCb s_learnCb = nullptr;
 FoodCb s_foodCb = nullptr;
+RecipeCb s_recipeCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS } s_active = HOME;
 }  // namespace
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
-               PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2) {
+               PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2,
+               RecipeCb onRecipe) {
   s_useF = useF;
   s_unitCb = onUnit;
   s_targetCb = onTargetDelta;
@@ -39,6 +41,7 @@ void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
   s_preset2Cb = onPreset2;
   s_learnCb = onLearn;
   s_foodCb = onFood;
+  s_recipeCb = onRecipe;
   s_home = home_create();
   s_thermal = thermal_create();
   s_presets = presets_create();
@@ -88,6 +91,8 @@ void select_preset(uint8_t id) {
 }
 void learn_cmd(uint8_t cmd) { if (s_learnCb) s_learnCb(cmd); }
 void select_food(int id) { if (s_foodCb) s_foodCb(id); show_home(); }
+void recipe_cmd(uint8_t cmd) { if (s_recipeCb) s_recipeCb(cmd); }
+void start_recipe() { if (s_recipeCb) s_recipeCb(0); show_home(); }
 
 void root_update(const ThermalFrame& f, const PanReading& r, const UiState& s) {
   if (s_active == HOME) home_update(s, s_useF);

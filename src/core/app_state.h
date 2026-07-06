@@ -60,4 +60,9 @@ struct UiState {
   float zone2TempC = 0;
   GuidanceState zone2Guidance = GuidanceState::IDLE;
   int zone2TargetF = 300;
+
+  // Recipe sequencer (M19)
+  bool recipeActive = false;
+  const char* recipeCue = "";
+  int recipeStepIndex = 0;
 };

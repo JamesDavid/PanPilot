@@ -13,9 +13,11 @@ using TargetDeltaCb = void (*)(int deltaF);    // user nudged the target +/-
 using PresetCb = void (*)(uint8_t presetId);   // user picked a preset
 using LearnCb = void (*)(uint8_t cmd);         // 0=start, 1=save, 2=cancel
 using FoodCb = void (*)(int foodId);           // user picked a food (-1 = clear)
+using RecipeCb = void (*)(uint8_t cmd);        // 0=start, 1=stop, 2=ack cue
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
-               PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2);
+               PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2,
+               RecipeCb onRecipe);
 void root_update(const ThermalFrame& f, const PanReading& r, const UiState& s);
 
 void show_home();
@@ -32,5 +34,7 @@ void target_adjust(int deltaF);     // fires TargetDeltaCb
 void select_preset(uint8_t id);     // fires PresetCb, returns home
 void learn_cmd(uint8_t cmd);        // fires LearnCb
 void select_food(int id);           // fires FoodCb, returns home
+void recipe_cmd(uint8_t cmd);       // fires RecipeCb (0=start,1=stop,2=ack)
+void start_recipe();                // start the built-in recipe, return home
 
 }  // namespace ui
