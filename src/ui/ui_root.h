@@ -14,6 +14,8 @@ using PresetCb = void (*)(uint8_t presetId);   // user picked a preset
 using LearnCb = void (*)(uint8_t cmd);         // 0=start, 1=save, 2=cancel
 using FoodCb = void (*)(int foodId);           // user picked a food (-1 = clear)
 using RecipeCb = void (*)(uint8_t cmd);        // 0=start, 1=stop, 2=ack cue
+using MuteCb = void (*)(bool muted);           // Settings: sound on/off
+using BrightnessCb = void (*)(uint8_t level);  // Settings: backlight 0/1/2
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
                PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2,
@@ -28,6 +30,11 @@ void show_learn();    // Learn Pan Mode wizard (base spec §7 Phase 1.5)
 void show_lastcook(); // Last Cook summary (roadmap §2.3)
 void show_foods();    // food picker (roadmap §2.7)
 void show_presets_zone2();  // preset picker that sets zone-2's target (M12)
+void show_settings(); // device Settings (Phase 2)
+void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness);
+void settings_toggle_unit();       // fires UnitChangeCb + refreshes Settings
+void settings_toggle_mute();       // fires MuteCb + refreshes Settings
+void settings_cycle_brightness();  // fires BrightnessCb + refreshes Settings
 void toggle_unit();
 bool unit_useF();
 void target_adjust(int deltaF);     // fires TargetDeltaCb

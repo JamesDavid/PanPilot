@@ -265,6 +265,24 @@ tuned to *your* pan — not a generic guess.
 
 Tap **Start** with an empty pan on medium heat, leave it, and **Save** the result.
 From then on, guidance uses that pan's lag. _(Synthesized simulator image.)_
+
+### Settings
+
+Open **Settings** from the preset picker's bottom row to change the things that
+aren't part of a cook. Tap any row to change it:
+
+- **Temperature** — switch between °F and °C.
+- **Sound** — mute or unmute all chimes and alarms.
+- **Brightness** — cycle the backlight between **Low / Medium / High**. On
+  battery the level is capped so a bright setting still saves power.
+
+Every choice is saved to flash and restored on the next boot.
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" width="380"
+       alt="Settings: Temperature °F, Sound On, Brightness High">
+</p>
+
 ## 9. Web interface _(M8)_
 
 PanPilot hosts a local web dashboard — no cloud, no account. Join it to your

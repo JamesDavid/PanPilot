@@ -19,6 +19,8 @@ bool storage_get_unit_useF(bool def) { ensure(); return s_prefs.getBool("useF", 
 void storage_set_unit_useF(bool useF) { ensure(); s_prefs.putBool("useF", useF); }
 bool storage_get_muted(bool def) { ensure(); return s_prefs.getBool("mute", def); }
 void storage_set_muted(bool m) { ensure(); s_prefs.putBool("mute", m); }
+uint8_t storage_get_brightness(uint8_t def) { ensure(); return (uint8_t)s_prefs.getUChar("bright", def); }
+void storage_set_brightness(uint8_t level) { ensure(); s_prefs.putUChar("bright", level); }
 void storage_get_target(int& loF, int& hiF, int& warnF, int& presetId) {
   ensure();
   loF = s_prefs.getInt("tlo", 340);

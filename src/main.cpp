@@ -30,6 +30,7 @@
 #include "core/control/interlocks.h"
 #include "core/control/controller.h"
 #include "core/control/actuator.h"
+#include "core/settings.h"
 #include "hal/display.h"
 #include "hal/buzzer.h"
 #include "hal/storage.h"
@@ -61,6 +62,10 @@ volatile bool g_idle = false;   // set by UI loop, read by SensorTask (cadence)
 // Battery (M7) — polled in the UI loop; snapshotted into UiState by SensorTask.
 BatteryState g_batt;
 volatile bool g_pluginWarn = false;
+
+// Backlight brightness level (Settings, Phase 2). 0/1/2; read by SensorTask
+// into UiState and by the UI loop to pick the ACTIVE-state PWM.
+volatile uint8_t g_bright = 2;
 
 // Session trace (M11): 1 Hz temperature samples during a cook, written to
 // LittleFS at session end. Owned by SensorTask.
@@ -391,6 +396,7 @@ void SensorTask(void*) {
       u.moved = r.moved;
       u.stainlessHint = r.stainlessHint;
       u.muted = hal::buzzer_is_muted();
+      u.brightnessLevel = g_bright;
       u.guidance = ro.recovering ? GuidanceState::RECOVERING : go.state;
       u.targetCenterF = target.centerF;
       u.presetId = presetId;
@@ -469,6 +475,23 @@ void on_mute(bool m) {
   hal::storage_set_muted(m);
 }
 
+// Backlight brightness (Settings, Phase 2). g_bright is declared above; the
+// loop reads it to pick the ACTIVE-state PWM, so a dim setting sticks to IDLE.
+void on_brightness(uint8_t level) {
+  g_bright = panpilot::brightness_clamp(level);
+  hal::storage_set_brightness(g_bright);
+  hal::display_set_brightness(panpilot::brightness_pwm(g_bright));
+}
+
+// ACTIVE-state backlight: the user's level, dimmed no brighter than the
+// battery cap when unplugged (roadmap §2.1).
+uint8_t active_brightness() {
+  uint8_t b = panpilot::brightness_pwm(g_bright);
+  if (g_batt.valid && !g_batt.usbPresent && b > BACKLIGHT_BATTERY_BRIGHT)
+    b = BACKLIGHT_BATTERY_BRIGHT;
+  return b;
+}
+
 const char* presence_str(PanPresence p) {
   switch (p) {
     case PanPresence::PRESENT: return "PRESENT";
@@ -503,8 +526,10 @@ void setup() {
   { PanProfile pf;
     if (hal::storage_load_profile(pf)) { g_applied_lag = pf.lagMinutes;
       Serial.printf("[profile] loaded lag=%.2f min\n", pf.lagMinutes); } }
+  g_bright = panpilot::brightness_clamp(hal::storage_get_brightness());
   ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
                 on_preset, on_learn, on_food, on_preset2, on_recipe);
+  ui::set_settings_cbs(on_mute, on_brightness);
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot
 
@@ -570,10 +595,8 @@ void loop() {
         hal::display_set_brightness(BACKLIGHT_IDLE_BRIGHT);
         ui::show_idle();
       } else {
-        // Dimmer on battery to save power (roadmap §2.1).
-        hal::display_set_brightness(g_batt.valid && !g_batt.usbPresent
-                                        ? BACKLIGHT_BATTERY_BRIGHT
-                                        : BACKLIGHT_ACTIVE_BRIGHT);
+        // User's brightness level, capped on battery to save power (§2.1).
+        hal::display_set_brightness(active_brightness());
         ui::show_home();
       }
       prevPower = ps;
@@ -643,9 +666,7 @@ void loop() {
         }
       } else if (strobing) {
         strobing = false;
-        hal::display_set_brightness(g_batt.valid && !g_batt.usbPresent
-                                        ? BACKLIGHT_BATTERY_BRIGHT
-                                        : BACKLIGHT_ACTIVE_BRIGHT);
+        hal::display_set_brightness(active_brightness());
       }
     }
 

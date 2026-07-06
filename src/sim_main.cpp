@@ -21,6 +21,7 @@
 #include "ui/screen_learn.h"
 #include "ui/screen_lastcook.h"
 #include "ui/screen_foods.h"
+#include "ui/screen_settings.h"
 #include "core/foodlib.h"
 #include "core/app_state.h"
 #include "core/thermal_model.h"
@@ -116,6 +117,9 @@ int main(int argc, char** argv) {
     lv_scr_load(ui::presets_create());
   } else if (scene == "foods") {
     lv_scr_load(ui::foods_create());
+  } else if (scene == "settings") {
+    lv_scr_load(ui::settings_create());
+    ui::settings_update(/*useF=*/true, /*muted=*/false, /*brightness=*/2);
   } else if (scene == "cooking") {
     UiState u;
     u.mode = Mode::TARGET;

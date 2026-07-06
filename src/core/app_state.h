@@ -25,6 +25,7 @@ struct UiState {
   bool  stainlessHint = false;
   bool  useF = true;        // display unit (persisted, base spec §4)
   bool  muted = false;
+  uint8_t brightnessLevel = 2;  // 0=Low,1=Medium,2=High (Settings, persisted)
 
   // Target Assist (M3) + presets (M4)
   GuidanceState guidance = GuidanceState::IDLE;
