@@ -14,6 +14,8 @@
 #include "ui/screen_assist.h"
 #include "ui/screen_onboarding.h"
 #include "ui/screen_autotune.h"
+#include "ui/screen_profiles.h"
+#include "core/profilestore.h"
 #include "core/settings.h"
 #include "core/presets.h"
 
@@ -53,9 +55,12 @@ AssistCb s_assistCb = nullptr;
 OnboardingDoneCb s_onboardCb = nullptr;
 AutotuneCb s_autotuneCb = nullptr;
 RoiCb s_roiCb = nullptr;
+const ProfileStore* s_profiles = nullptr;
+ProfileCb s_profileCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS,
-              SETTINGS, PRESET_EDIT, ASSIST, ONBOARDING, AUTOTUNE } s_active = HOME;
+              SETTINGS, PRESET_EDIT, ASSIST, ONBOARDING, AUTOTUNE,
+              PROFILES } s_active = HOME;
 
 void settings_refresh() { settings_update(s_useF, s_muted, s_bright); }
 }  // namespace
@@ -100,6 +105,21 @@ void autotune_cmd(uint8_t cmd) {
 void set_roi_cb(RoiCb onRoi) { s_roiCb = onRoi; }
 void roi_lock(float px, float py) { if (s_roiCb) s_roiCb(px, py, true); }
 void roi_clear() { if (s_roiCb) s_roiCb(0, 0, false); }
+
+void set_profiles(const ProfileStore* store, ProfileCb onProfile) {
+  s_profiles = store;
+  s_profileCb = onProfile;
+}
+void show_profiles() {
+  profiles_create();
+  if (s_profiles) profiles_update(*s_profiles);
+  lv_scr_load(profiles_create());
+  s_active = PROFILES;
+}
+void profile_cmd(uint8_t cmd, int idx) {
+  if (s_profileCb) s_profileCb(cmd, idx);
+  if (s_profiles) profiles_update(*s_profiles);   // reflect the mutation
+}
 
 void set_onboarding_cb(OnboardingDoneCb onDone) { s_onboardCb = onDone; }
 void show_onboarding() {

@@ -29,6 +29,11 @@ bool storage_session_get(int newestIndex, SessionSummary& out);
 // Active pan profile (Learn Pan Mode, base spec §10).
 void storage_save_profile(const PanProfile& p);
 bool storage_load_profile(PanProfile& out);
+// Up to 8 named profiles + active index (Phase 3). Opaque ProfileStore blob.
+uint32_t storage_get_profiles(void* out, uint32_t maxBytes);   // bytes read
+void storage_set_profiles(const void* data, uint32_t bytes);
+int  storage_get_active_profile(int def = -1);
+void storage_set_active_profile(int idx);
 // MQTT broker (M9) — empty string disables MQTT/HA.
 String storage_get_mqtt_broker();
 void storage_set_mqtt_broker(const String& b);

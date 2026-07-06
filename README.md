@@ -313,6 +313,16 @@ tuned to *your* pan — not a generic guess.
 Tap **Start** with an empty pan on medium heat, leave it, and **Save** the result.
 From then on, guidance uses that pan's lag. _(Synthesized simulator image.)_
 
+**Keep up to 8 pans.** Each Save adds a profile (cast iron, nonstick, carbon
+steel…); open **My Pans** to switch the active one or delete it. The active
+profile's learned lag drives overshoot prediction, so a heavy cast-iron and a
+thin nonstick each get guidance tuned to how *they* hold and shed heat.
+
+<p align="center">
+  <img src="docs/screenshots/profiles.png" width="380"
+       alt="My Pans: cast iron active, nonstick, carbon steel with learned lags">
+</p>
+
 ### Settings
 
 Open **Settings** from the preset picker's bottom row to change the things that

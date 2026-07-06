@@ -26,6 +26,8 @@
 #include "ui/screen_assist.h"
 #include "ui/screen_onboarding.h"
 #include "ui/screen_autotune.h"
+#include "ui/screen_profiles.h"
+#include "core/profilestore.h"
 #include "core/foodlib.h"
 #include "core/app_state.h"
 #include "core/thermal_model.h"
@@ -127,6 +129,14 @@ int main(int argc, char** argv) {
   } else if (scene == "presetedit") {
     lv_scr_load(ui::preset_edit_create());
     ui::preset_edit_load("Smash burger", 450, 500, false, /*canDelete=*/false);
+  } else if (scene == "profiles") {
+    static ProfileStore ps;
+    ps.add(make_profile("Cast iron 10\"", 42));
+    ps.add(make_profile("Nonstick", 16));
+    ps.add(make_profile("Carbon steel", 55));
+    ps.setActive(0);
+    lv_scr_load(ui::profiles_create());
+    ui::profiles_update(ps);
   } else if (scene == "onboarding") {
     lv_scr_load(ui::onboarding_create());
     ui::onboarding_reset(/*useF=*/true);

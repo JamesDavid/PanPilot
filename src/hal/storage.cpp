@@ -90,6 +90,18 @@ bool storage_load_profile(PanProfile& out) {
          out.valid;
 }
 
+uint32_t storage_get_profiles(void* out, uint32_t maxBytes) {
+  ensure();
+  return (uint32_t)s_prefs.getBytes("profs", out, maxBytes);
+}
+void storage_set_profiles(const void* data, uint32_t bytes) {
+  ensure();
+  if (bytes == 0) s_prefs.remove("profs");
+  else s_prefs.putBytes("profs", data, bytes);
+}
+int storage_get_active_profile(int def) { ensure(); return s_prefs.getInt("profact", def); }
+void storage_set_active_profile(int idx) { ensure(); s_prefs.putInt("profact", idx); }
+
 String storage_get_mqtt_broker() { ensure(); return s_prefs.getString("mqtt", ""); }
 void storage_set_mqtt_broker(const String& b) { ensure(); s_prefs.putString("mqtt", b); }
 

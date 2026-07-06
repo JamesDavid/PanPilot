@@ -8,6 +8,7 @@
 #include <Arduino.h>
 #include <lvgl.h>
 #include <algorithm>
+#include <cstdio>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
@@ -22,6 +23,7 @@
 #include "core/power.h"
 #include "core/session.h"
 #include "core/profiles.h"
+#include "core/profilestore.h"
 #include "core/battery.h"
 #include "core/attention.h"
 #include "core/compliance.h"
@@ -218,6 +220,23 @@ volatile float g_learn_peak = 0;
 volatile float g_learned_lag = LAG_MINUTES_DEFAULT;
 volatile uint8_t g_learn_progress = 0;
 volatile float g_applied_lag = LAG_MINUTES_DEFAULT;  // fed to guidance
+ProfileStore g_profiles;                             // up to 8 named pans (Phase 3)
+
+void persist_profiles() {
+  hal::storage_set_profiles(g_profiles.blob(), g_profiles.blobBytes());
+  hal::storage_set_active_profile(g_profiles.active());
+}
+void apply_active_lag() {
+  const PanProfile* ap = g_profiles.activeProfile();
+  g_applied_lag = ap ? ap->lagMinutes : LAG_MINUTES_DEFAULT;
+}
+// Pans picker (Phase 3). cmd 0 = activate idx, 1 = delete idx.
+void on_profile(uint8_t cmd, int idx) {
+  if (cmd == 0) g_profiles.setActive(idx);
+  else if (cmd == 1) g_profiles.remove(idx);
+  persist_profiles();
+  apply_active_lag();
+}
 
 void on_learn(uint8_t cmd) {
   if (cmd == 1) {                       // primary: Start (off) or Save (done)
@@ -225,9 +244,11 @@ void on_learn(uint8_t cmd) {
       g_learn_peak = 0; g_learn_progress = 0;
       g_learn_start = millis(); g_learn_phase = 1;
     } else if (g_learn_phase == 2) {
-      PanProfile p = make_profile("Pan", g_learn_peak);
-      hal::storage_save_profile(p);
-      g_applied_lag = p.lagMinutes;
+      char nm[16];
+      std::snprintf(nm, sizeof(nm), "Pan %d", g_profiles.count() + 1);
+      g_profiles.add(make_profile(nm, g_learn_peak));   // appends + activates
+      persist_profiles();
+      apply_active_lag();
       g_learn_phase = 0;
     }
   } else if (cmd == 2) {                 // secondary: Cancel / Redo
@@ -688,9 +709,17 @@ void setup() {
     hal::storage_get_target(lo, hi, warn, pid);
     g_target.loF = lo; g_target.hiF = hi; g_target.warnF = warn;
     g_target.centerF = (lo + hi) / 2; g_presetId = (uint8_t)pid; }
-  { PanProfile pf;
-    if (hal::storage_load_profile(pf)) { g_applied_lag = pf.lagMinutes;
-      Serial.printf("[profile] loaded lag=%.2f min\n", pf.lagMinutes); } }
+  { static uint8_t pbuf[ProfileStore::MAX * sizeof(PanProfile)];
+    uint32_t n = hal::storage_get_profiles(pbuf, sizeof(pbuf));
+    if (n > 0) {
+      g_profiles.loadBlob(pbuf, n, hal::storage_get_active_profile(0));
+    } else {
+      PanProfile pf;                              // migrate a single old profile
+      if (hal::storage_load_profile(pf)) g_profiles.add(pf);
+    }
+    apply_active_lag();
+    Serial.printf("[profile] %d pan(s), active lag=%.2f min\n",
+                  g_profiles.count(), g_applied_lag); }
 #if defined(HAS_FILESYSTEM)
   if (hal::load_custom_foods(g_foodstore) > 0) foodlib_set_custom(&g_foodstore);
 #endif
@@ -716,6 +745,7 @@ void setup() {
       Serial.printf("[pid] loaded gains kp=%.3f ki=%.4f kd=%.3f\n", kp, ki, kd); } }
   ui::set_onboarding_cb(on_onboarding_done);
   ui::set_roi_cb(on_roi);
+  ui::set_profiles(&g_profiles, on_profile);
   if (!hal::storage_get_onboarded()) ui::show_onboarding();   // first boot only
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot

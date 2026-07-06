@@ -23,6 +23,7 @@ void primary_cb(lv_event_t*) {
 }
 void secondary_cb(lv_event_t*) { ui::learn_cmd(2); }  // cancel / redo
 void done_cb(lv_event_t*) { ui::show_home(); }
+void pans_cb(lv_event_t*) { ui::show_profiles(); }
 
 }  // namespace
 
@@ -73,6 +74,15 @@ lv_obj_t* learn_create() {
   lv_obj_t* dl = lv_label_create(done);
   lv_label_set_text(dl, "Done");
   lv_obj_center(dl);
+
+  lv_obj_t* pans = lv_btn_create(scr);
+  lv_obj_set_size(pans, 120, 30);
+  lv_obj_align(pans, LV_ALIGN_TOP_LEFT, 8, 6);
+  lv_obj_set_style_bg_color(pans, lv_color_hex(0x2A323C), 0);
+  lv_obj_add_event_cb(pans, pans_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* pl = lv_label_create(pans);
+  lv_label_set_text(pl, LV_SYMBOL_LIST " My Pans");
+  lv_obj_center(pl);
   return s_screen;
 }
 
