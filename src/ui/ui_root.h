@@ -39,10 +39,13 @@ void show_presets();
 void show_idle();     // dim "monitoring" screen (base spec §8)
 void show_learn();    // Learn Pan Mode wizard (base spec §7 Phase 1.5)
 void show_lastcook(); // Last Cook summary (roadmap §2.3)
-void show_foods();    // food picker (roadmap §2.7)
+void show_foods();    // food picker for the primary pan (roadmap §2.7)
+void show_foods_zone2();    // food picker for the second pan (Phase 3)
+void cook_a_food();   // food picker for whichever pan's preset picker is open
 void show_presets_zone2();  // preset picker that sets zone-2's target (M12)
 void show_settings(); // device Settings (Phase 2)
 void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness);
+void set_food2_cb(FoodCb onFood2);   // second-pan food selection (Phase 3)
 void set_feedback_cb(FeedbackCb onFeedback);
 void food_feedback(uint8_t verdict);   // fires FeedbackCb (0=under,1=perfect,2=over)
 void set_preset_edit_cbs(PresetSaveCb onSave, PresetDeleteCb onDelete);

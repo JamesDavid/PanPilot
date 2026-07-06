@@ -24,7 +24,7 @@ void new_cb(lv_event_t*) { ui::show_preset_edit(-1); }
 void done_cb(lv_event_t*) { ui::show_home(); }
 void learn_cb(lv_event_t*) { ui::show_learn(); }
 void lastcook_cb(lv_event_t*) { ui::show_lastcook(); }
-void foods_cb(lv_event_t*) { ui::show_foods(); }
+void foods_cb(lv_event_t*) { ui::cook_a_food(); }   // routes to the open pan's zone
 void settings_cb(lv_event_t*) { ui::show_settings(); }
 
 // (Re)build the card grid: built-in + custom presets, then an "add" card.

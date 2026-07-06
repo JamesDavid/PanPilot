@@ -203,6 +203,26 @@ int main(int argc, char** argv) {
     u.feedbackName = foodlib_entry(0).name;
     lv_scr_load(ui::home_create());
     ui::home_update(u, true);
+  } else if (scene == "zonecook") {
+    UiState u;
+    u.mode = Mode::TARGET;
+    u.presence = PanPresence::PRESENT;
+    u.modelValid = true;
+    u.confidence = 90;
+    u.displayTempC = fToC(475);          // Pan 1: searing a steak
+    u.guidance = GuidanceState::READY;
+    u.targetCenterF = 500;
+    u.presetId = PRESET_SEAR;
+    u.zone2Present = true;               // Pan 2: cooking eggs on a timer
+    u.zone2TempC = fToC(285);
+    u.zone2Guidance = GuidanceState::READY;
+    u.zone2TargetF = 285;
+    u.zone2Food = &foodlib_entry(4);     // Eggs, over easy
+    u.zone2FoodTimer.phase = FoodTimerOut::COOKING;
+    u.zone2FoodTimer.side = 1;
+    u.zone2FoodTimer.remainingSec = 48;
+    lv_scr_load(ui::home_create());
+    ui::home_update(u, true);
   } else if (scene == "multipan") {
     UiState u;
     u.mode = Mode::TARGET;

@@ -222,9 +222,17 @@ home screen **splits down the middle** into two columns — each with its own
 temperature, target, and color-coded action bar (tap a column to set that pan's
 target). Each pan stays pinned to its burner frame-to-frame.
 
+**Each pan can run its own cook.** Tap a column → **Cook a food** and that pan
+gets its *own* food timer — so one side counts down "FLIP in 0:48" for the eggs
+while the other holds a sear. Both timers auto-start on their pan's food-added
+drop and cue independently.
+
 <p align="center">
-  <img src="docs/screenshots/multipan.png" width="360"
+  <img src="docs/screenshots/multipan.png" width="330"
        alt="Split-screen two-pan home: Pan 1 holding, Pan 2 ready">
+  &nbsp;
+  <img src="docs/screenshots/zonecook.png" width="330"
+       alt="Per-zone timers: Pan 1 searing, Pan 2 running the eggs cook">
 </p>
 
 ## 6. Food timer & cook database _(M12.5)_

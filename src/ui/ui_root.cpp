@@ -45,6 +45,8 @@ PresetCb s_presetCb = nullptr;
 PresetCb s_preset2Cb = nullptr;
 LearnCb s_learnCb = nullptr;
 FoodCb s_foodCb = nullptr;
+FoodCb s_food2Cb = nullptr;
+uint8_t s_foodZone = 0;      // which pan the food picker arms (0/1)
 RecipeCb s_recipeCb = nullptr;
 MuteCb s_muteCb = nullptr;
 BrightnessCb s_brightCb = nullptr;
@@ -142,6 +144,7 @@ void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness) {
 }
 
 void set_feedback_cb(FeedbackCb onFeedback) { s_feedbackCb = onFeedback; }
+void set_food2_cb(FoodCb onFood2) { s_food2Cb = onFood2; }
 void food_feedback(uint8_t verdict) { if (s_feedbackCb) s_feedbackCb(verdict); }
 
 void show_home() { if (s_home) { lv_scr_load(s_home); s_active = HOME; } }
@@ -168,7 +171,9 @@ void show_idle() {
 
 void show_learn() { if (s_learn) { lv_scr_load(s_learn); s_active = LEARN; } }
 void show_lastcook() { if (s_lastcook) { lv_scr_load(s_lastcook); s_active = LASTCOOK; } }
-void show_foods() { if (s_foods) { lv_scr_load(s_foods); s_active = FOODS; } }
+void show_foods() { if (s_foods) { s_foodZone = 0; lv_scr_load(s_foods); s_active = FOODS; } }
+void show_foods_zone2() { if (s_foods) { s_foodZone = 1; lv_scr_load(s_foods); s_active = FOODS; } }
+void cook_a_food() { (s_presetZone == 1) ? show_foods_zone2() : show_foods(); }
 void show_presets() { if (s_presets) { s_presetZone = 0; presets_refresh(); lv_scr_load(s_presets); s_active = PRESETS; } }
 void show_presets_zone2() { if (s_presets) { s_presetZone = 1; presets_refresh(); lv_scr_load(s_presets); s_active = PRESETS; } }
 void show_settings() {
@@ -234,7 +239,12 @@ void select_preset(uint8_t id) {
   show_home();
 }
 void learn_cmd(uint8_t cmd) { if (s_learnCb) s_learnCb(cmd); }
-void select_food(int id) { if (s_foodCb) s_foodCb(id); show_home(); }
+void select_food(int id) {
+  if (s_foodZone == 1 && s_food2Cb) s_food2Cb(id);
+  else if (s_foodCb) s_foodCb(id);
+  s_foodZone = 0;
+  show_home();
+}
 void recipe_cmd(uint8_t cmd) { if (s_recipeCb) s_recipeCb(cmd); }
 void start_recipe() { if (s_recipeCb) s_recipeCb(0); show_home(); }
 

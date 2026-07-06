@@ -28,6 +28,7 @@ SCENES = [
     ("foods", "docs/screenshots/foods.png"),       # food picker
     ("cooking", "docs/screenshots/cooking.png"),   # food timer countdown
     ("multipan", "docs/screenshots/multipan.png"), # two-pan home
+    ("zonecook", "docs/screenshots/zonecook.png"), # per-zone food timer
     ("settings", "docs/screenshots/settings.png"), # device settings
     ("feedback", "docs/screenshots/feedback.png"), # post-cook Under/Perfect/Over
     ("presetedit", "docs/screenshots/presetedit.png"), # custom preset editor

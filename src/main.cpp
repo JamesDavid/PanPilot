@@ -127,8 +127,23 @@ const FoodEntry* volatile g_fbFood = nullptr;   // food being graded
 volatile int g_target2 = 300;
 volatile bool g_z2ReadyChirp = false;
 
+// Zone-2 food timer (Phase 3): the second pan runs its own cook.
+const FoodEntry* volatile g_food2 = nullptr;
+volatile uint8_t g_batch2 = 0;
+volatile float g_foodFactor2 = 1.0f;
+
 void on_preset2(uint8_t id) {
   g_target2 = (preset(id).loF + preset(id).hiF) / 2;   // zone-2 target band center
+}
+void on_food2(int id) {
+  if (id < 0) { g_food2 = nullptr; g_foodFactor2 = 1.0f; }
+  else {
+    const FoodEntry* e = &foodlib_entry(id);
+    g_food2 = e;
+    g_foodFactor2 = g_feedback.factorFor(e->name, e->variant);
+    g_target2 = (e->panTargetF_lo + e->panTargetF_hi) / 2;
+    g_batch2 = 0;
+  }
 }
 
 // Recipe sequencer (M19). cmd: 0=start built-in, 1=stop, 2=acknowledge cue.
@@ -284,6 +299,10 @@ void SensorTask(void*) {
   GuidanceEngine guidance2;
   Target target2;
   GuidanceState prevZ2 = GuidanceState::IDLE;
+  RecoveryMonitor recovery2;              // zone-2 food-added detection (Phase 3)
+  FoodTimer foodtimer2;
+  const FoodEntry* prevFood2 = nullptr;
+  uint32_t foodCueUntil2 = 0;
   RecipeEngine recipe;
   InterlockMonitor interlocks;
   Controller controller;
@@ -389,6 +408,8 @@ void SensorTask(void*) {
       const bool z2 = npan >= 2 && zt[1].presence != PanPresence::ABSENT;
       GuidanceState z2g = GuidanceState::IDLE;
       float z2temp = 0;
+      const FoodEntry* food2 = g_food2;
+      FoodTimerOut fo2;
       if (z2) {
         model2.update(zt[1]);
         target2.setCenter(g_target2);
@@ -403,8 +424,25 @@ void SensorTask(void*) {
         if (z2g == GuidanceState::READY && prevZ2 != GuidanceState::READY)
           g_z2ReadyChirp = true;          // independent zone-2 READY alert
         prevZ2 = z2g;
+
+        // Zone-2 food timer (Phase 3): own recovery detection + FLIP/REMOVE cues.
+        RecoveryOut ro2 = recovery2.update(gi2.tempF, gi2.rateFPerMin,
+                                           zt[1].presence == PanPresence::PRESENT,
+                                           target2.loF, true, nowm);
+        if (food2 != prevFood2) { foodtimer2.stop(); prevFood2 = food2; }
+        if (food2) {
+          if (ro2.event == RecoveryEvent::FOOD_ADDED && !foodtimer2.active())
+            foodtimer2.start(food2, nowm, g_foodFactor2);
+          fo2 = foodtimer2.update(gi2.tempF, nowm);
+          if (fo2.event == FoodTimerOut::FLIP) {
+            g_z2ReadyChirp = true; Serial.println("[food2] flip");
+          } else if (fo2.event == FoodTimerOut::REMOVE) {
+            g_batch2++; g_z2ReadyChirp = true; Serial.println("[food2] remove");
+          }
+        }
       } else {
         model2.reset(); guidance2.reset(); prevZ2 = GuidanceState::IDLE;
+        foodtimer2.stop(); prevFood2 = nullptr;
       }
 
       // Recipe sequencer (M19): drive setpoints + cues from a cook program.
@@ -553,6 +591,9 @@ void SensorTask(void*) {
       u.zone2TempC = z2temp;
       u.zone2Guidance = z2g;
       u.zone2TargetF = g_target2;
+      u.zone2Food = food2;
+      u.zone2FoodTimer = fo2;
+      u.zone2Batch = g_batch2;
       u.recipeActive = g_recipe_active;
       u.recipeCue = g_recipe_active ? rout.cue : "";
       u.recipeStepIndex = rout.stepIndex;
@@ -735,6 +776,7 @@ void setup() {
   ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
                 on_preset, on_learn, on_food, on_preset2, on_recipe);
   ui::set_settings_cbs(on_mute, on_brightness);
+  ui::set_food2_cb(on_food2);
   ui::set_feedback_cb(on_feedback);
   ui::set_preset_edit_cbs(on_preset_save, on_preset_delete);
   ui::set_assist_cb(on_assist);

@@ -66,6 +66,11 @@ struct UiState {
   GuidanceState zone2Guidance = GuidanceState::IDLE;
   int zone2TargetF = 300;
 
+  // Per-zone food timer (Phase 3): zone 2 runs its own cook independently.
+  const FoodEntry* zone2Food = nullptr;
+  FoodTimerOut zone2FoodTimer;
+  uint8_t zone2Batch = 0;
+
   // Recipe sequencer (M19)
   bool recipeActive = false;
   const char* recipeCue = "";

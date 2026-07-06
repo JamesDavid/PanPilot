@@ -306,11 +306,13 @@ lv_obj_t* home_create() {
 }
 
 namespace {
-// Fill one split-screen column with a pan's current state.
+// Fill one split-screen column with a pan's current state. When that pan has a
+// food timer running (Phase 3 per-zone timers), the column shows the food name,
+// countdown, and a FLIP/REMOVE cue in the bar instead of the target/guidance.
 void fill_split_col(int i, const char* name, float tempC, int targetF,
-                    GuidanceState g, bool useF, bool valid) {
+                    GuidanceState g, bool useF, bool valid,
+                    const FoodEntry* food, const FoodTimerOut& ft, uint8_t batch) {
   char b[48];
-  lv_label_set_text(s_sp_name[i], name);
   if (valid) {
     const float t = useF ? cToF(tempC) : tempC;
     std::snprintf(b, sizeof(b), "%d\xC2\xB0%s", int(t + 0.5f), useF ? "F" : "C");
@@ -318,13 +320,31 @@ void fill_split_col(int i, const char* name, float tempC, int targetF,
     std::snprintf(b, sizeof(b), "--");
   }
   lv_label_set_text(s_sp_temp[i], b);
-  const int tg = useF ? targetF : int((targetF - 32) * 5 / 9);
-  std::snprintf(b, sizeof(b), "target %d\xC2\xB0%s", tg, useF ? "F" : "C");
-  lv_label_set_text(s_sp_sub[i], b);
-  const BarStyle bs = bar_for(g);
-  lv_obj_set_style_bg_color(s_sp_bar[i], lv_color_hex(bs.color), 0);
-  lv_obj_set_style_bg_opa(s_sp_bar[i], LV_OPA_COVER, 0);
-  lv_label_set_text(s_sp_barlbl[i], bs.text);
+
+  const bool cooking = food && ft.phase == FoodTimerOut::COOKING;
+  if (cooking) {
+    lv_label_set_text(s_sp_name[i], food->name);
+    const int rem = ft.remainingSec;
+    const char* act = (ft.side < food->sides) ? "FLIP" : "REMOVE";
+    if (batch > 0)
+      std::snprintf(b, sizeof(b), "B%u - Side %u/%u", batch + 1, ft.side, food->sides);
+    else
+      std::snprintf(b, sizeof(b), "Side %u/%u", ft.side, food->sides);
+    lv_label_set_text(s_sp_sub[i], b);
+    std::snprintf(b, sizeof(b), "%s in %d:%02d", act, rem / 60, rem % 60);
+    lv_obj_set_style_bg_color(s_sp_bar[i], lv_color_hex(0xE07000), 0);
+    lv_obj_set_style_bg_opa(s_sp_bar[i], LV_OPA_COVER, 0);
+    lv_label_set_text(s_sp_barlbl[i], b);
+  } else {
+    lv_label_set_text(s_sp_name[i], name);
+    const int tg = useF ? targetF : int((targetF - 32) * 5 / 9);
+    std::snprintf(b, sizeof(b), "target %d\xC2\xB0%s", tg, useF ? "F" : "C");
+    lv_label_set_text(s_sp_sub[i], b);
+    const BarStyle bs = bar_for(g);
+    lv_obj_set_style_bg_color(s_sp_bar[i], lv_color_hex(bs.color), 0);
+    lv_obj_set_style_bg_opa(s_sp_bar[i], LV_OPA_COVER, 0);
+    lv_label_set_text(s_sp_barlbl[i], bs.text);
+  }
 }
 }  // namespace
 
@@ -362,8 +382,10 @@ void home_update(const UiState& s, bool useF) {
 
   if (split) {
     const bool p1 = s.modelValid && s.presence != PanPresence::ABSENT;
-    fill_split_col(0, "Pan 1", s.displayTempC, s.targetCenterF, s.guidance, useF, p1);
-    fill_split_col(1, "Pan 2", s.zone2TempC, s.zone2TargetF, s.zone2Guidance, useF, true);
+    fill_split_col(0, "Pan 1", s.displayTempC, s.targetCenterF, s.guidance, useF, p1,
+                   s.food, s.foodTimer, s.batchCount);
+    fill_split_col(1, "Pan 2", s.zone2TempC, s.zone2TargetF, s.zone2Guidance, useF, true,
+                   s.zone2Food, s.zone2FoodTimer, s.zone2Batch);
     // Only a genuine safety alert (TOO HOT on either pan) still takes over.
     const bool loud2 = s.guidance == GuidanceState::TOO_HOT ||
                        s.zone2Guidance == GuidanceState::TOO_HOT;
