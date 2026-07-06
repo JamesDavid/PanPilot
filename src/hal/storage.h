@@ -31,6 +31,9 @@ void storage_set_mqtt_broker(const String& b);
 // Post-cook feedback table (spec §2.7) — opaque FeedbackStore blob.
 uint32_t storage_get_foodfb(void* out, uint32_t maxBytes);   // returns bytes read
 void storage_set_foodfb(const void* data, uint32_t bytes);
+// Custom presets (Phase 2 editor) — opaque presets_custom blob.
+uint32_t storage_get_custom_presets(void* out, uint32_t maxBytes);
+void storage_set_custom_presets(const void* data, uint32_t bytes);
 }  // namespace hal
 
 #endif

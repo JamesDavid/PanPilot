@@ -5,4 +5,5 @@
 
 namespace ui {
 lv_obj_t* presets_create();
+void presets_refresh();   // rebuild the card grid (custom presets changed)
 }

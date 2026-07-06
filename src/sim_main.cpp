@@ -22,6 +22,7 @@
 #include "ui/screen_lastcook.h"
 #include "ui/screen_foods.h"
 #include "ui/screen_settings.h"
+#include "ui/screen_preset_edit.h"
 #include "core/foodlib.h"
 #include "core/app_state.h"
 #include "core/thermal_model.h"
@@ -120,6 +121,9 @@ int main(int argc, char** argv) {
   } else if (scene == "settings") {
     lv_scr_load(ui::settings_create());
     ui::settings_update(/*useF=*/true, /*muted=*/false, /*brightness=*/2);
+  } else if (scene == "presetedit") {
+    lv_scr_load(ui::preset_edit_create());
+    ui::preset_edit_load("Smash burger", 450, 500, false, /*canDelete=*/false);
   } else if (scene == "cooking") {
     UiState u;
     u.mode = Mode::TARGET;

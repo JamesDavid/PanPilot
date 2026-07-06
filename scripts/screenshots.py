@@ -30,6 +30,7 @@ SCENES = [
     ("multipan", "docs/screenshots/multipan.png"), # two-pan home
     ("settings", "docs/screenshots/settings.png"), # device settings
     ("feedback", "docs/screenshots/feedback.png"), # post-cook Under/Perfect/Over
+    ("presetedit", "docs/screenshots/presetedit.png"), # custom preset editor
 ]
 
 ROOT = Path(__file__).resolve().parents[1]

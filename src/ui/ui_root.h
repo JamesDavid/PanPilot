@@ -17,6 +17,9 @@ using RecipeCb = void (*)(uint8_t cmd);        // 0=start, 1=stop, 2=ack cue
 using MuteCb = void (*)(bool muted);           // Settings: sound on/off
 using BrightnessCb = void (*)(uint8_t level);  // Settings: backlight 0/1/2
 using FeedbackCb = void (*)(uint8_t verdict);  // post-cook: 0=under,1=perfect,2=over
+// Preset editor (Phase 2). editId < 0 => add a new custom preset.
+using PresetSaveCb = void (*)(int editId, const char* name, int loF, int hiF, bool stainless);
+using PresetDeleteCb = void (*)(int id);
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
                PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2,
@@ -35,6 +38,10 @@ void show_settings(); // device Settings (Phase 2)
 void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness);
 void set_feedback_cb(FeedbackCb onFeedback);
 void food_feedback(uint8_t verdict);   // fires FeedbackCb (0=under,1=perfect,2=over)
+void set_preset_edit_cbs(PresetSaveCb onSave, PresetDeleteCb onDelete);
+void show_preset_edit(int id);         // id < 0 => new custom preset
+void preset_edit_save(const char* name, int loF, int hiF, bool stainless);
+void preset_edit_delete();
 void settings_toggle_unit();       // fires UnitChangeCb + refreshes Settings
 void settings_toggle_mute();       // fires MuteCb + refreshes Settings
 void settings_cycle_brightness();  // fires BrightnessCb + refreshes Settings

@@ -167,6 +167,18 @@ food; nudging `–`/`+` afterward makes it a custom target.
 
 > _Synthesized simulator image; device photo to follow._
 
+**Make your own.** The preset grid scrolls, and the last tile is **`+ New`** —
+tap it to define a custom preset: name it on the on-screen keyboard, set the
+low/high °F band with the steppers, and flag it as a stainless pan if needed.
+Custom presets get their own ✎ edit button (with a Delete), sit alongside the
+built-ins, and are saved to flash. Up to eight; the warn threshold is derived
+automatically (band top + 100 °F, capped at the 650 °F ceiling).
+
+<p align="center">
+  <img src="docs/screenshots/presetedit.png" width="380"
+       alt="Preset editor: name, low/high °F steppers, stainless toggle">
+</p>
+
 ### Recovery Monitor _(M6)_
 
 For batch cooking (pancakes, smash burgers), recovery-monitored presets watch for

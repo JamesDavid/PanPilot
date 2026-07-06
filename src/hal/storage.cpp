@@ -88,5 +88,15 @@ void storage_set_foodfb(const void* data, uint32_t bytes) {
   s_prefs.putBytes("foodfb", data, bytes);
 }
 
+uint32_t storage_get_custom_presets(void* out, uint32_t maxBytes) {
+  ensure();
+  return (uint32_t)s_prefs.getBytes("cpresets", out, maxBytes);
+}
+void storage_set_custom_presets(const void* data, uint32_t bytes) {
+  ensure();
+  if (bytes == 0) s_prefs.remove("cpresets");
+  else s_prefs.putBytes("cpresets", data, bytes);
+}
+
 }  // namespace hal
 #endif

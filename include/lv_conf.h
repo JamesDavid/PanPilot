@@ -62,6 +62,10 @@
 #define LV_USE_CANVAS  1     // thermal view (M1)
 #define LV_USE_CHART   1     // last-cook sparkline (M11)
 #define LV_USE_LIST    1     // food picker (M12.5)
+#define LV_USE_SWITCH   1    // stainless toggle in the preset editor (Phase 2)
+#define LV_USE_TEXTAREA 1    // preset-name entry (Phase 2)
+#define LV_USE_BTNMATRIX 1   // backs the on-screen keyboard
+#define LV_USE_KEYBOARD 1    // preset-name entry (Phase 2)
 
 // ---- Theme ----
 #define LV_USE_THEME_DEFAULT 1

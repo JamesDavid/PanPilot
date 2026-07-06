@@ -10,52 +10,54 @@ namespace ui {
 namespace {
 
 lv_obj_t* s_screen = nullptr;
+lv_obj_t* s_grid = nullptr;
 
 void card_cb(lv_event_t* e) {
   const uint8_t id = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
   ui::select_preset(id);
 }
+void edit_cb(lv_event_t* e) {
+  const int id = (int)(intptr_t)lv_event_get_user_data(e);
+  ui::show_preset_edit(id);
+}
+void new_cb(lv_event_t*) { ui::show_preset_edit(-1); }
 void done_cb(lv_event_t*) { ui::show_home(); }
 void learn_cb(lv_event_t*) { ui::show_learn(); }
 void lastcook_cb(lv_event_t*) { ui::show_lastcook(); }
 void foods_cb(lv_event_t*) { ui::show_foods(); }
 void settings_cb(lv_event_t*) { ui::show_settings(); }
 
-}  // namespace
-
-lv_obj_t* presets_create() {
-  if (s_screen) return s_screen;
-  lv_obj_t* scr = lv_obj_create(nullptr);
-  s_screen = scr;
-  lv_obj_set_style_bg_color(scr, lv_color_hex(0x101418), LV_PART_MAIN);
-  lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
-
-  lv_obj_t* title = lv_label_create(scr);
-  lv_label_set_text(title, "Presets");
-  lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
-  lv_obj_set_style_text_color(title, lv_color_hex(0x8A93A0), 0);
-  lv_obj_align(title, LV_ALIGN_TOP_LEFT, 12, 8);
-
-  // Scrollable grid of cards. Three across; rows past the first two scroll
-  // into view by swipe, so custom presets can grow the list without a redesign.
-  lv_obj_t* grid = lv_obj_create(scr);
-  lv_obj_remove_style_all(grid);
-  lv_obj_set_size(grid, 480, 250);
-  lv_obj_align(grid, LV_ALIGN_TOP_MID, 0, 34);
-  lv_obj_set_scroll_dir(grid, LV_DIR_VER);
-  lv_obj_set_scrollbar_mode(grid, LV_SCROLLBAR_MODE_AUTO);
-
+// (Re)build the card grid: built-in + custom presets, then an "add" card.
+void build_cards() {
+  if (!s_grid) return;
+  lv_obj_clean(s_grid);
   const int cols = 3, cw = 148, ch = 116, gx = 8, gy = 6;
   const int x0 = (480 - (cols * cw + (cols - 1) * gx)) / 2;
   const int y0 = 4;
-  for (uint8_t id = 0; id < PRESET_COUNT; ++id) {
-    const Preset& p = preset(id);
-    const int r = id / cols, c = id % cols;
-    lv_obj_t* card = lv_btn_create(grid);
+  const int total = presets_total();
+  for (int slot = 0; slot <= total; ++slot) {   // last slot = "+ New preset"
+    const int r = slot / cols, c = slot % cols;
+    lv_obj_t* card = lv_btn_create(s_grid);
     lv_obj_set_size(card, cw, ch);
     lv_obj_set_pos(card, x0 + c * (cw + gx), y0 + r * (ch + gy));
-    lv_obj_set_style_bg_color(card, lv_color_hex(0x1E2530), 0);
     lv_obj_set_style_radius(card, 12, 0);
+
+    if (slot == total) {                          // add-new card
+      lv_obj_set_style_bg_color(card, lv_color_hex(0x243042), 0);
+      lv_obj_set_style_border_width(card, 2, 0);
+      lv_obj_set_style_border_color(card, lv_color_hex(0x3A4658), 0);
+      lv_obj_add_event_cb(card, new_cb, LV_EVENT_CLICKED, nullptr);
+      lv_obj_t* plus = lv_label_create(card);
+      lv_label_set_text(plus, LV_SYMBOL_PLUS "  New");
+      lv_obj_set_style_text_font(plus, &lv_font_montserrat_20, 0);
+      lv_obj_set_style_text_color(plus, lv_color_hex(0x9AA3AF), 0);
+      lv_obj_center(plus);
+      continue;
+    }
+
+    const uint8_t id = (uint8_t)slot;
+    const Preset& p = preset(id);
+    lv_obj_set_style_bg_color(card, lv_color_hex(0x1E2530), 0);
     lv_obj_add_event_cb(card, card_cb, LV_EVENT_CLICKED, (void*)(uintptr_t)id);
 
     lv_obj_t* name = lv_label_create(card);
@@ -78,7 +80,46 @@ lv_obj_t* presets_create() {
       lv_obj_set_style_text_color(s, lv_color_hex(0xC08A00), 0);
       lv_obj_align(s, LV_ALIGN_BOTTOM_MID, 0, -6);
     }
+
+    if (presets_is_custom(id)) {                  // custom -> editable
+      lv_obj_t* pen = lv_btn_create(card);
+      lv_obj_set_size(pen, 34, 30);
+      lv_obj_align(pen, LV_ALIGN_TOP_RIGHT, 2, -4);
+      lv_obj_set_style_bg_color(pen, lv_color_hex(0x2A323C), 0);
+      lv_obj_add_event_cb(pen, edit_cb, LV_EVENT_CLICKED, (void*)(intptr_t)id);
+      lv_obj_t* pl = lv_label_create(pen);
+      lv_label_set_text(pl, LV_SYMBOL_EDIT);
+      lv_obj_center(pl);
+    }
   }
+}
+
+}  // namespace
+
+void presets_refresh() { build_cards(); }
+
+lv_obj_t* presets_create() {
+  if (s_screen) return s_screen;
+  lv_obj_t* scr = lv_obj_create(nullptr);
+  s_screen = scr;
+  lv_obj_set_style_bg_color(scr, lv_color_hex(0x101418), LV_PART_MAIN);
+  lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t* title = lv_label_create(scr);
+  lv_label_set_text(title, "Presets");
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(title, lv_color_hex(0x8A93A0), 0);
+  lv_obj_align(title, LV_ALIGN_TOP_LEFT, 12, 8);
+
+  // Scrollable grid of cards. Three across; rows past the first two scroll
+  // into view by swipe, so custom presets can grow the list without a redesign.
+  s_grid = lv_obj_create(scr);
+  lv_obj_remove_style_all(s_grid);
+  lv_obj_set_size(s_grid, 480, 250);
+  lv_obj_align(s_grid, LV_ALIGN_TOP_MID, 0, 34);
+  lv_obj_set_scroll_dir(s_grid, LV_DIR_VER);
+  lv_obj_set_scrollbar_mode(s_grid, LV_SCROLLBAR_MODE_AUTO);
+  build_cards();
 
   lv_obj_t* done = lv_btn_create(scr);
   lv_obj_set_size(done, 84, 30);

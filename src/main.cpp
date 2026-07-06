@@ -474,6 +474,21 @@ void on_preset(uint8_t id) {
   xSemaphoreGive(g_target_mtx);
 }
 
+// Preset editor (Phase 2). Custom presets live on the UI/loop core; the sensor
+// task only reads preset(id) by value, so mutation here is single-core safe.
+void persist_custom_presets() {
+  hal::storage_set_custom_presets(presets_custom_blob(), presets_custom_blob_bytes());
+}
+void on_preset_save(int editId, const char* name, int loF, int hiF, bool stainless) {
+  if (editId < 0) presets_add(name, loF, hiF, stainless);
+  else presets_update((uint8_t)editId, name, loF, hiF, stainless);
+  persist_custom_presets();
+}
+void on_preset_delete(int id) {
+  presets_remove((uint8_t)id);
+  persist_custom_presets();
+}
+
 // Absolute target set (used by the HA "target" number entity, M9).
 void on_target_abs(int centerF) {
   if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) != pdTRUE) return;
@@ -559,10 +574,15 @@ void setup() {
     uint32_t n = hal::storage_get_foodfb(fbBlob, sizeof(fbBlob));
     if (n > 0) { g_feedback.loadBlob(fbBlob, n);
       Serial.printf("[feedback] loaded %d food(s)\n", g_feedback.count()); } }
+  { uint8_t cp[PRESET_CUSTOM_MAX * 32];
+    uint32_t n = hal::storage_get_custom_presets(cp, sizeof(cp));
+    if (n > 0) { presets_load_custom(cp, n);
+      Serial.printf("[presets] loaded %d custom\n", presets_custom_count()); } }
   ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
                 on_preset, on_learn, on_food, on_preset2, on_recipe);
   ui::set_settings_cbs(on_mute, on_brightness);
   ui::set_feedback_cb(on_feedback);
+  ui::set_preset_edit_cbs(on_preset_save, on_preset_delete);
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot
 

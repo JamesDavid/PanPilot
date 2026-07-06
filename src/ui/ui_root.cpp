@@ -10,7 +10,9 @@
 #include "ui/screen_lastcook.h"
 #include "ui/screen_foods.h"
 #include "ui/screen_settings.h"
+#include "ui/screen_preset_edit.h"
 #include "core/settings.h"
+#include "core/presets.h"
 
 namespace ui {
 namespace {
@@ -22,6 +24,8 @@ lv_obj_t* s_learn = nullptr;
 lv_obj_t* s_lastcook = nullptr;
 lv_obj_t* s_foods = nullptr;
 lv_obj_t* s_settings = nullptr;
+lv_obj_t* s_preset_edit = nullptr;
+int s_editId = -1;                 // preset id being edited (-1 = new)
 bool s_useF = true;
 bool s_muted = false;        // cached from the per-tick snapshot for Settings
 uint8_t s_bright = 2;
@@ -35,8 +39,11 @@ RecipeCb s_recipeCb = nullptr;
 MuteCb s_muteCb = nullptr;
 BrightnessCb s_brightCb = nullptr;
 FeedbackCb s_feedbackCb = nullptr;
+PresetSaveCb s_presetSaveCb = nullptr;
+PresetDeleteCb s_presetDelCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
-enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS, SETTINGS } s_active = HOME;
+enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS,
+              SETTINGS, PRESET_EDIT } s_active = HOME;
 
 void settings_refresh() { settings_update(s_useF, s_muted, s_bright); }
 }  // namespace
@@ -59,8 +66,14 @@ void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
   s_lastcook = lastcook_create();
   s_foods = foods_create();
   s_settings = settings_create();
+  s_preset_edit = preset_edit_create();
   lv_scr_load(s_home);
   s_active = HOME;
+}
+
+void set_preset_edit_cbs(PresetSaveCb onSave, PresetDeleteCb onDelete) {
+  s_presetSaveCb = onSave;
+  s_presetDelCb = onDelete;
 }
 
 void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness) {
@@ -96,13 +109,35 @@ void show_idle() {
 void show_learn() { if (s_learn) { lv_scr_load(s_learn); s_active = LEARN; } }
 void show_lastcook() { if (s_lastcook) { lv_scr_load(s_lastcook); s_active = LASTCOOK; } }
 void show_foods() { if (s_foods) { lv_scr_load(s_foods); s_active = FOODS; } }
-void show_presets() { if (s_presets) { s_presetZone = 0; lv_scr_load(s_presets); s_active = PRESETS; } }
-void show_presets_zone2() { if (s_presets) { s_presetZone = 1; lv_scr_load(s_presets); s_active = PRESETS; } }
+void show_presets() { if (s_presets) { s_presetZone = 0; presets_refresh(); lv_scr_load(s_presets); s_active = PRESETS; } }
+void show_presets_zone2() { if (s_presets) { s_presetZone = 1; presets_refresh(); lv_scr_load(s_presets); s_active = PRESETS; } }
 void show_settings() {
   if (!s_settings) s_settings = settings_create();
   settings_refresh();
   lv_scr_load(s_settings);
   s_active = SETTINGS;
+}
+
+void show_preset_edit(int id) {
+  if (!s_preset_edit) s_preset_edit = preset_edit_create();
+  s_editId = id;
+  if (id >= 0 && presets_is_custom((uint8_t)id)) {
+    const Preset& p = preset((uint8_t)id);
+    preset_edit_load(p.name, p.loF, p.hiF, p.stainlessHints, /*canDelete=*/true);
+  } else {
+    s_editId = -1;
+    preset_edit_load("", 300, 350, false, /*canDelete=*/false);
+  }
+  lv_scr_load(s_preset_edit);
+  s_active = PRESET_EDIT;
+}
+void preset_edit_save(const char* name, int loF, int hiF, bool stainless) {
+  if (s_presetSaveCb) s_presetSaveCb(s_editId, name, loF, hiF, stainless);
+  show_presets();
+}
+void preset_edit_delete() {
+  if (s_editId >= 0 && s_presetDelCb) s_presetDelCb(s_editId);
+  show_presets();
 }
 
 void toggle_unit() { s_useF = !s_useF; if (s_unitCb) s_unitCb(s_useF); }
