@@ -193,12 +193,14 @@ any cook as **CSV** for a spreadsheet.
 
 The array sees two adjacent burners, so PanPilot tracks **both pans** with their
 own independent targets and guidance — e.g. eggs at 300 °F on one and a sear at
-500 °F on the other, each with its own READY alert. The second pan shows as a
-tile (tap it to set its target); each stays pinned to its burner frame-to-frame.
+500 °F on the other, each with its own READY alert. When a second pan appears the
+home screen **splits down the middle** into two columns — each with its own
+temperature, target, and color-coded action bar (tap a column to set that pan's
+target). Each pan stays pinned to its burner frame-to-frame.
 
 <p align="center">
   <img src="docs/screenshots/multipan.png" width="360"
-       alt="Two-pan home: Sear primary heating, Pan 2 at 300°F ready">
+       alt="Split-screen two-pan home: Pan 1 holding, Pan 2 ready">
 </p>
 
 ## 6. Food timer & cook database _(M12.5)_
