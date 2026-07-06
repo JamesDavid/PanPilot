@@ -5,6 +5,7 @@
 
 #include <lvgl.h>
 #include <cstdio>
+#include <cmath>
 
 #include "core/thermal_palette.h"
 #include "ui/ui_root.h"
@@ -117,9 +118,13 @@ void thermal_update(const ThermalFrame& f, const PanReading& r, bool useF) {
 
   const bool present = r.presence == PanPresence::PRESENT ||
                        r.presence == PanPresence::UNCERTAIN;
-  // ROI overlay follows the blob centroid (scaled to screen coords).
+  // ROI overlay follows the blob centroid, sized to the blob's own area
+  // (circle of equal area: r = sqrt(count/pi)), scaled to screen coords.
   if (present && r.roiPixelCount > 0) {
-    const int dia = 64;  // fixed visual ROI marker (M1); blob-fit later
+    const float radPx = std::sqrt((float)r.roiPixelCount / 3.14159265f);
+    int dia = (int)(2.0f * radPx * SCALE);
+    if (dia < 44) dia = 44;
+    if (dia > 280) dia = 280;
     lv_obj_set_size(s_roi, dia, dia);
     lv_obj_set_pos(s_roi, OX + int(r.roiCx * SCALE) - dia / 2,
                    OY + int(r.roiCy * SCALE) - dia / 2);
@@ -150,6 +155,9 @@ void thermal_update(const ThermalFrame& f, const PanReading& r, bool useF) {
   if (r.presence == PanPresence::ABSENT) {
     lv_label_set_text(s_hint_lbl, "No pan in view");
     lv_obj_set_style_text_color(s_hint_lbl, lv_color_hex(0x8A93A0), 0);
+  } else if (r.presence == PanPresence::OBSTRUCTED) {
+    lv_label_set_text(s_hint_lbl, "Pan blocked - move it clear");
+    lv_obj_set_style_text_color(s_hint_lbl, lv_color_hex(0xFFC000), 0);
   } else if (centered) {
     lv_label_set_text(s_hint_lbl, "Good aim");
     lv_obj_set_style_text_color(s_hint_lbl, lv_color_hex(0x33FF88), 0);
