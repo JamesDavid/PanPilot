@@ -23,6 +23,8 @@ lv_obj_t* s_temp = nullptr;
 lv_obj_t* s_rate = nullptr;
 lv_obj_t* s_eta = nullptr;
 lv_obj_t* s_note = nullptr;
+lv_obj_t* s_arc = nullptr;
+lv_obj_t* s_cook = nullptr;
 lv_obj_t* s_bar = nullptr;
 lv_obj_t* s_bar_lbl = nullptr;
 lv_obj_t* s_overlay = nullptr;
@@ -130,6 +132,24 @@ lv_obj_t* home_create() {
   lv_obj_set_style_text_color(s_eta, lv_color_hex(0x8A93A0), 0);
   lv_obj_align(s_eta, LV_ALIGN_CENTER, 0, 70);
 
+  // Food-timer countdown arc around the temperature (roadmap §2.7)
+  s_arc = lv_arc_create(scr);
+  lv_obj_set_size(s_arc, 214, 214);
+  lv_obj_align(s_arc, LV_ALIGN_CENTER, 0, -6);
+  lv_arc_set_rotation(s_arc, 270);
+  lv_arc_set_bg_angles(s_arc, 0, 360);
+  lv_arc_set_range(s_arc, 0, 100);
+  lv_obj_remove_style(s_arc, nullptr, LV_PART_KNOB);
+  lv_obj_clear_flag(s_arc, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_set_style_arc_color(s_arc, lv_color_hex(0x2A323C), LV_PART_MAIN);
+  lv_obj_set_style_arc_color(s_arc, lv_color_hex(0xE07000), LV_PART_INDICATOR);
+  lv_obj_add_flag(s_arc, LV_OBJ_FLAG_HIDDEN);
+
+  s_cook = lv_label_create(scr);
+  lv_obj_set_style_text_font(s_cook, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(s_cook, lv_color_hex(0xE07000), 0);
+  lv_obj_align(s_cook, LV_ALIGN_CENTER, 0, 96);
+
   // stainless banner (base spec §7.5) — just above the action bar
   s_note = lv_label_create(scr);
   lv_obj_set_style_text_font(s_note, &lv_font_montserrat_14, 0);
@@ -230,6 +250,36 @@ void home_update(const UiState& s, bool useF) {
                                   ? "Bare stainless reads low - trust the trend"
                                   : "");
 
+  // Food timer: countdown arc + side/batch + safety note (roadmap §2.7)
+  if (s.food && s.foodTimer.phase == FoodTimerOut::COOKING) {
+    const int total = s.food->sideSec[s.foodTimer.side - 1];
+    const int rem = s.foodTimer.remainingSec;
+    const int pct = total > 0 ? (100 * (total - rem)) / total : 0;
+    lv_arc_set_value(s_arc, pct < 0 ? 0 : (pct > 100 ? 100 : pct));
+    lv_obj_clear_flag(s_arc, LV_OBJ_FLAG_HIDDEN);
+    const char* act = (s.foodTimer.side < s.food->sides) ? "FLIP" : "REMOVE";
+    if (s.batchCount > 0)
+      std::snprintf(buf, sizeof(buf), "Batch %u  -  Side %u/%u  -  %s in %d:%02d",
+                    s.batchCount + 1, s.foodTimer.side, s.food->sides, act, rem / 60, rem % 60);
+    else
+      std::snprintf(buf, sizeof(buf), "Side %u/%u  -  %s in %d:%02d",
+                    s.foodTimer.side, s.food->sides, act, rem / 60, rem % 60);
+    lv_label_set_text(s_cook, buf);
+    lv_obj_clear_flag(s_cook, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_add_flag(s_arc, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_cook, LV_OBJ_FLAG_HIDDEN);
+  }
+  // Food safety + cold-pan notes take the note line when a food is active.
+  if (s.food && s.food->safeInternalF > 0) {
+    std::snprintf(buf, sizeof(buf), "Surface timing only - verify %u\xC2\xB0" "F internal",
+                  s.food->safeInternalF);
+    lv_label_set_text(s_note, buf);
+  } else if (s.food && s.foodTimer.k < 0.9f &&
+             s.foodTimer.phase == FoodTimerOut::COOKING) {
+    lv_label_set_text(s_note, "Cooler pan - timer extended to match");
+  }
+
   // action bar
   const BarStyle bs = bar_for(s.guidance);
   lv_obj_set_style_bg_color(s_bar, lv_color_hex(bs.color), 0);
@@ -237,10 +287,12 @@ void home_update(const UiState& s, bool useF) {
   lv_label_set_text(s_bar_lbl, bs.text);
 
   // full-screen overlay for the loud states (§9.3). "Add next batch" (recovery
-  // complete, §7.4) takes priority.
-  const bool loud = s.guidance == GuidanceState::READY ||
-                    s.guidance == GuidanceState::TURN_DOWN_NOW ||
-                    s.guidance == GuidanceState::TOO_HOT;
+  // complete, §7.4) takes priority. While actively cooking a food, the timer is
+  // the focus — only TOO_HOT (safety) still takes over the screen.
+  const bool cooking = s.food && s.foodTimer.phase == FoodTimerOut::COOKING;
+  const bool loud = s.guidance == GuidanceState::TOO_HOT ||
+                    (!cooking && (s.guidance == GuidanceState::READY ||
+                                  s.guidance == GuidanceState::TURN_DOWN_NOW));
   if (s.pluginWarning) {
     lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0xC62828), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);

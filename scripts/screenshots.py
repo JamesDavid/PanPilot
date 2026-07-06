@@ -25,6 +25,8 @@ SCENES = [
     ("presets", "docs/screenshots/presets.png"),  # preset picker
     ("learn", "docs/screenshots/learn.png"),       # Learn Pan Mode
     ("lastcook", "docs/screenshots/lastcook.png"), # Last Cook trace
+    ("foods", "docs/screenshots/foods.png"),       # food picker
+    ("cooking", "docs/screenshots/cooking.png"),   # food timer countdown
 ]
 
 ROOT = Path(__file__).resolve().parents[1]

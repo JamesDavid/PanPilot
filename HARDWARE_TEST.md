@@ -234,3 +234,18 @@ verification works on a live burner.**
 | 13.5 | **Compliance** — on “TURN DOWN”, actually turn the knob down | Confirmation chirp; serial `knob turn confirmed by rate change` | ☐ |
 | 13.6 | On “TURN DOWN”, ignore it | No confirm; if temp keeps rising it escalates to L3 (TOO HOT) | ☐ |
 | 13.7 | Strobe safety | Backlight strobe is ≤ 3 Hz and brightness restores after the cue | ☐ |
+
+## M12.5 — Food timer + cook-time database
+
+**Acceptance (roadmap M12.5): pancake cook auto-starts on pour, FLIP fires at the
+compensated time, batch counter tracks 3 batches; chicken shows the internal-temp
+note on REMOVE; a cold pan visibly extends the countdown with the banner.**
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| 12.5.1 | Preset picker → **Cook a food** → Pancakes | Target set to 350–375 °F; scrollable list works | ☐ |
+| 12.5.2 | Pour batter | Timer auto-starts (FOOD ADDED); arc + “Side 1/2 — FLIP in m:ss” | ☐ |
+| 12.5.3 | FLIP cue | At the compensated side-1 time: L2 card “FLIP” + flip hint + double-beep | ☐ |
+| 12.5.4 | 3 batches | Batch counter advances 1→2→3; each auto-starts on pour | ☐ |
+| 12.5.5 | **Cold pan** (−40 °F) | Countdown visibly longer; “Cooler pan — timer extended” banner | ☐ |
+| 12.5.6 | Chicken breast → REMOVE | Shows **“verify 165 °F internal”**; note cannot be dismissed | ☐ |

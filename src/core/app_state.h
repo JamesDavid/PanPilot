@@ -8,6 +8,7 @@
 #include "core/presets.h"
 #include "core/recovery.h"
 #include "core/battery.h"
+#include "core/foodtimer.h"
 
 enum class Mode : uint8_t { THERMOMETER, TARGET, PRESET };
 enum class LearnPhase : uint8_t { OFF, RECORDING, DONE };  // Learn Pan Mode (M6)
@@ -41,6 +42,14 @@ struct UiState {
   LearnPhase learnPhase = LearnPhase::OFF;
   uint8_t learnProgress = 0;     // 0..100 while RECORDING
   float learnedLagMinutes = 0;
+
+  // Food timer (M12.5)
+  const FoodEntry* food = nullptr;   // selected food (nullptr = plain target)
+  FoodTimerOut foodTimer;            // phase/side/remaining/k
+  uint8_t batchCount = 0;            // completed batches this session
+  bool foodCue = false;             // FLIP/REMOVE cue pending
+  const char* foodCueVerb = "";
+  const char* foodCueSub = "";
 
   // Battery / power (M7)
   BatteryState battery;

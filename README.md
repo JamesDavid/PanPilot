@@ -6,7 +6,7 @@ the real surface temperature, predicts overshoot before it happens, and tells yo
 exactly when to turn the heat down, flip, or add the next batch — no probes, no
 instrumented cookware, no phone.
 
-> **Status: M13 — attention & cue escalation (Phase 2).** This README grows one
+> **Status: M12.5 — food timer + cook database (Phase 2).** This README grows one
 > section at a time as each milestone lands. Sections below marked _(coming in
 > M#)_ aren't built yet.
 
@@ -189,7 +189,34 @@ Cook** screen (from the preset picker) draws the trace as a sparkline:
 The [web interface](#9-web-interface-m8) browses the full history and downloads
 any cook as **CSV** for a spreadsheet.
 
-## 6. Food timer & cook database _(coming in M12.5)_
+## 6. Food timer & cook database _(M12.5)_
+
+Presets say *how hot*; the built-in cook database says *how long*. Pick a food
+(“Cook a food” on the preset picker) and PanPilot runs a per-side timer that
+starts itself, cues flips, and — the differentiator — **compensates for the
+actual pan temperature**.
+
+<p align="center">
+  <img src="docs/screenshots/foods.png" width="330" alt="Food picker list">
+  &nbsp;
+  <img src="docs/screenshots/cooking.png" width="330" alt="Food timer countdown around the temperature">
+</p>
+
+- **Auto-start on pour:** when PanPilot sees food hit the pan (the temperature
+  drop), the side-1 timer starts. A countdown arc wraps the temperature; a line
+  shows **Side 1/2**, the **batch** number, and **FLIP / REMOVE in m:ss**.
+- **Temperature-compensated (not a wall clock):** the countdown is a *doneness
+  accumulator* — a cold pan **visibly stretches** the remaining time (with a
+  banner), a hot pan shortens it. A phone timer can't do this.
+- **Flip hints:** each food carries a real cue, e.g. *“flip when bubbles pop and
+  edges set.”*
+- **Food-safety (non-negotiable):** poultry, ground meat, pork and fish show
+  **“Surface timing only — verify NNN °F internal”** — thermal surface data can
+  never claim internal doneness, and the note can't be dismissed.
+
+The 28-entry seed database (`src/core/foodlib/foodlib_seed.h`) covers breakfast,
+burgers, steak, poultry, pork, seafood, melts and vegetarian — authored from
+standard references, pending human review before release.
 ## 7. Attention levels — beep & flash patterns _(M13)_
 
 Every cue — from a gentle trend tick to a loud alarm — routes through one

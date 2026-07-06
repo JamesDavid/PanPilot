@@ -20,6 +20,8 @@
 #include "ui/screen_presets.h"
 #include "ui/screen_learn.h"
 #include "ui/screen_lastcook.h"
+#include "ui/screen_foods.h"
+#include "core/foodlib.h"
 #include "core/app_state.h"
 #include "core/thermal_model.h"
 #include "sensor/frame_analysis.h"
@@ -112,6 +114,27 @@ int main(int argc, char** argv) {
     ui::thermal_update(f, r, /*useF=*/true);
   } else if (scene == "presets") {
     lv_scr_load(ui::presets_create());
+  } else if (scene == "foods") {
+    lv_scr_load(ui::foods_create());
+  } else if (scene == "cooking") {
+    UiState u;
+    u.mode = Mode::TARGET;
+    u.presence = PanPresence::PRESENT;
+    u.modelValid = true;
+    u.confidence = 92;
+    u.displayTempC = fToC(365);
+    u.rateCPerMin = 1.0f;
+    u.trend = Trend::STABLE;
+    u.guidance = GuidanceState::READY;
+    u.targetCenterF = 362;
+    u.food = &foodlib_entry(0);        // Pancakes
+    u.foodTimer.phase = FoodTimerOut::COOKING;
+    u.foodTimer.side = 1;
+    u.foodTimer.remainingSec = 62;
+    u.foodTimer.k = 1.0f;
+    u.batchCount = 1;
+    lv_scr_load(ui::home_create());
+    ui::home_update(u, true);
   } else if (scene == "learn") {
     UiState u;
     u.learnPhase = LearnPhase::DONE;

@@ -18,6 +18,7 @@ void card_cb(lv_event_t* e) {
 void done_cb(lv_event_t*) { ui::show_home(); }
 void learn_cb(lv_event_t*) { ui::show_learn(); }
 void lastcook_cb(lv_event_t*) { ui::show_lastcook(); }
+void foods_cb(lv_event_t*) { ui::show_foods(); }
 
 }  // namespace
 
@@ -77,6 +78,15 @@ lv_obj_t* presets_create() {
   lv_obj_t* dl = lv_label_create(done);
   lv_label_set_text(dl, "Done");
   lv_obj_center(dl);
+
+  lv_obj_t* foods = lv_btn_create(scr);
+  lv_obj_set_size(foods, 150, 30);
+  lv_obj_align(foods, LV_ALIGN_TOP_RIGHT, -100, 6);
+  lv_obj_set_style_bg_color(foods, lv_color_hex(0x2E7D32), 0);
+  lv_obj_add_event_cb(foods, foods_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* fl = lv_label_create(foods);
+  lv_label_set_text(fl, "Cook a food " LV_SYMBOL_RIGHT);
+  lv_obj_center(fl);
 
   lv_obj_t* learn = lv_btn_create(scr);
   lv_obj_set_size(learn, 180, 28);

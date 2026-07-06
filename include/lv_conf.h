@@ -61,6 +61,7 @@
 #define LV_USE_IMG     1
 #define LV_USE_CANVAS  1     // thermal view (M1)
 #define LV_USE_CHART   1     // last-cook sparkline (M11)
+#define LV_USE_LIST    1     // food picker (M12.5)
 
 // ---- Theme ----
 #define LV_USE_THEME_DEFAULT 1

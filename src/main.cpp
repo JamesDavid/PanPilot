@@ -84,6 +84,29 @@ Target g_target;
 volatile uint8_t g_presetId = PRESET_GENERIC;
 SemaphoreHandle_t g_target_mtx = nullptr;
 
+void save_target();   // defined below
+
+// Food selection (M12.5): pointer into the static seed table; guarded by the
+// target mutex alongside g_target (a food sets a custom target band).
+const FoodEntry* volatile g_food = nullptr;
+volatile uint8_t g_batch = 0;
+
+void on_food(int id) {
+  if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) != pdTRUE) return;
+  if (id < 0) { g_food = nullptr; }
+  else {
+    const FoodEntry* e = &foodlib_entry(id);
+    g_food = e;
+    g_target.loF = e->panTargetF_lo; g_target.hiF = e->panTargetF_hi;
+    g_target.warnF = std::min((float)e->panTargetF_hi + 100, ABS_MAX_TEMP_F);
+    g_target.centerF = (e->panTargetF_lo + e->panTargetF_hi) / 2;
+    g_presetId = PRESET_GENERIC;
+    g_batch = 0;
+    save_target();
+  }
+  xSemaphoreGive(g_target_mtx);
+}
+
 void save_target() {
   hal::storage_set_target((int)g_target.loF, (int)g_target.hiF,
                           (int)g_target.warnF, g_presetId);
@@ -131,6 +154,11 @@ void SensorTask(void*) {
   uint32_t coolStart = 0;
   uint32_t addBatchUntil = 0;
   uint32_t lastTraceMs = 0;
+  FoodTimer foodtimer;
+  const FoodEntry* prevFood = nullptr;
+  uint32_t foodCueUntil = 0;
+  const char* foodVerb = "";
+  const char* foodSub = "";
   for (;;) {
     if (!g_sensor_ok) {
       g_sensor_ok = sensor::mlx_begin();
@@ -194,6 +222,26 @@ void SensorTask(void*) {
       }
       const bool addBatch = nowm < addBatchUntil;
 
+      // Food timer (M12.5): auto-start on FOOD ADDED; cue FLIP / REMOVE.
+      const FoodEntry* food = g_food;
+      if (food != prevFood) { foodtimer.stop(); prevFood = food; }
+      FoodTimerOut fo;
+      if (food) {
+        if (ro.event == RecoveryEvent::FOOD_ADDED && !foodtimer.active())
+          foodtimer.start(food, nowm);
+        fo = foodtimer.update(gi.tempF, nowm);
+        if (fo.event == FoodTimerOut::FLIP) {
+          foodCueUntil = nowm + 6000; foodVerb = "FLIP"; foodSub = food->flipHint;
+          Serial.println("[food] flip");
+        } else if (fo.event == FoodTimerOut::REMOVE) {
+          foodCueUntil = nowm + 6000; foodVerb = "REMOVE";
+          foodSub = food->safeInternalF ? "verify internal temp" : "";
+          g_batch++;
+          Serial.println("[food] remove");
+        }
+      }
+      const bool foodCue = nowm < foodCueUntil;
+
       // Session lifecycle (§8): start on a hot pan, end when cool + stable.
       // Records a 1 Hz temperature trace to LittleFS (roadmap §2.3).
       if (!session.active() && r.presence == PanPresence::PRESENT && sceneHot) {
@@ -238,6 +286,12 @@ void SensorTask(void*) {
       u.recovering = ro.recovering;
       u.recoveryHint = ro.hint;
       u.addBatchPrompt = addBatch;
+      u.food = food;
+      u.foodTimer = fo;
+      u.batchCount = g_batch;
+      u.foodCue = foodCue;
+      u.foodCueVerb = foodVerb;
+      u.foodCueSub = foodSub;
       u.learnPhase = (LearnPhase)g_learn_phase;
       u.learnProgress = g_learn_progress;
       u.learnedLagMinutes = g_learned_lag;
@@ -326,7 +380,7 @@ void setup() {
     if (hal::storage_load_profile(pf)) { g_applied_lag = pf.lagMinutes;
       Serial.printf("[profile] loaded lag=%.2f min\n", pf.lagMinutes); } }
   ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
-                on_preset, on_learn);
+                on_preset, on_learn, on_food);
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot
 
@@ -418,6 +472,8 @@ void loop() {
         attn.raise(AttnLevel::L3, "PLUG ME IN", "battery critical", now);
       else if (u.guidance == GuidanceState::TOO_HOT)
         attn.raise(AttnLevel::L3, "TOO HOT", "", now);
+      else if (u.foodCue)
+        attn.raise(AttnLevel::L2, u.foodCueVerb, u.foodCueSub, now);
       else if (u.addBatchPrompt)
         attn.raise(AttnLevel::L2, "ADD BATCH", "", now);
       else if (u.guidance == GuidanceState::TURN_DOWN_NOW)

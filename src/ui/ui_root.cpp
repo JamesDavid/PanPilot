@@ -8,6 +8,7 @@
 #include "ui/screen_presets.h"
 #include "ui/screen_learn.h"
 #include "ui/screen_lastcook.h"
+#include "ui/screen_foods.h"
 
 namespace ui {
 namespace {
@@ -17,26 +18,30 @@ lv_obj_t* s_presets = nullptr;
 lv_obj_t* s_idle = nullptr;
 lv_obj_t* s_learn = nullptr;
 lv_obj_t* s_lastcook = nullptr;
+lv_obj_t* s_foods = nullptr;
 bool s_useF = true;
 UnitChangeCb s_unitCb = nullptr;
 TargetDeltaCb s_targetCb = nullptr;
 PresetCb s_presetCb = nullptr;
 LearnCb s_learnCb = nullptr;
-enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK } s_active = HOME;
+FoodCb s_foodCb = nullptr;
+enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS } s_active = HOME;
 }  // namespace
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
-               PresetCb onPreset, LearnCb onLearn) {
+               PresetCb onPreset, LearnCb onLearn, FoodCb onFood) {
   s_useF = useF;
   s_unitCb = onUnit;
   s_targetCb = onTargetDelta;
   s_presetCb = onPreset;
   s_learnCb = onLearn;
+  s_foodCb = onFood;
   s_home = home_create();
   s_thermal = thermal_create();
   s_presets = presets_create();
   s_learn = learn_create();
   s_lastcook = lastcook_create();
+  s_foods = foods_create();
   lv_scr_load(s_home);
   s_active = HOME;
 }
@@ -66,12 +71,14 @@ void show_idle() {
 
 void show_learn() { if (s_learn) { lv_scr_load(s_learn); s_active = LEARN; } }
 void show_lastcook() { if (s_lastcook) { lv_scr_load(s_lastcook); s_active = LASTCOOK; } }
+void show_foods() { if (s_foods) { lv_scr_load(s_foods); s_active = FOODS; } }
 
 void toggle_unit() { s_useF = !s_useF; if (s_unitCb) s_unitCb(s_useF); }
 bool unit_useF() { return s_useF; }
 void target_adjust(int deltaF) { if (s_targetCb) s_targetCb(deltaF); }
 void select_preset(uint8_t id) { if (s_presetCb) s_presetCb(id); show_home(); }
 void learn_cmd(uint8_t cmd) { if (s_learnCb) s_learnCb(cmd); }
+void select_food(int id) { if (s_foodCb) s_foodCb(id); show_home(); }
 
 void root_update(const ThermalFrame& f, const PanReading& r, const UiState& s) {
   if (s_active == HOME) home_update(s, s_useF);
