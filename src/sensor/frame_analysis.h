@@ -41,6 +41,7 @@ class FrameAnalyzer {
   float    prev_cx_ = 0, prev_cy_ = 0;
   uint32_t last_present_ms_ = 0;
   bool     ever_present_ = false;
+  bool     prev_hot_ = false;    // last tracked pan was hot (obstruction gate)
   bool     locked_ = false;
   float    lock_cx_ = 0, lock_cy_ = 0;
 };

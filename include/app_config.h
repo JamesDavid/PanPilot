@@ -65,6 +65,12 @@
                                           // reflective misread — suppress it (§7.5)
 #define MOVED_JUMP_PX              4       // centroid jump -> PAN MOVED (§6.4)
 #define FOOD_DROP_C                15.0f  // panTemp drop -> FOOD ADDED (§6.4)
+// Obstruction (§6.4): a hand / cool utensil over a previously-hot pan removes
+// the hot pixels but leaves a warm (non-ambient, non-hot) mass at the last ROI.
+#define OBSTRUCT_WARM_DELTA_C      5.0f   // above ambient to count as "covered"
+#define OBSTRUCT_COVER_MAX_C       45.0f  // above this it's a warm pan, not a cover
+#define OBSTRUCT_WAS_HOT_C         50.0f  // the tracked pan must have been this hot
+#define OBSTRUCT_COVER_FRAC        0.6f   // this fraction of the ROI window covered
 
 // ---- Thermal model: smoothing / rate / trend (base spec §7.1, §6.2) --------
 #define SMOOTH_ALPHA               0.12f  // exp-smoothing, ~2 s tau at 4 Hz

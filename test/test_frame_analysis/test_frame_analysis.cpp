@@ -89,6 +89,38 @@ static void test_edge_clipped_disc_detected(void) {
   TEST_ASSERT_FLOAT_WITHIN(8.0f, 190.0f, r.panTempC);
 }
 
+static void test_obstruction_over_hot_pan(void) {
+  FrameAnalyzer fa;
+  // Establish a hot pan, then cover it with a warm (~34 °C) mass.
+  TEST_ASSERT_EQUAL(int(PanPresence::PRESENT),
+                    int(fa.process(make_disc(16, 12, 6, 200.0f, 100)).presence));
+  PanReading r = fa.process(make_uniform(34.0f, 300));   // hand over the pan
+  TEST_ASSERT_EQUAL(int(PanPresence::OBSTRUCTED), int(r.presence));
+}
+
+static void test_removed_pan_is_absent_not_obstructed(void) {
+  FrameAnalyzer fa;
+  fa.process(make_disc(16, 12, 6, 200.0f, 100));         // hot pan
+  // Pan lifted away: scene returns to ambient, well past the absent window.
+  PanReading r = fa.process(make_uniform(AMB, 100 + PRESENCE_ABSENT_MS + 500));
+  TEST_ASSERT_EQUAL(int(PanPresence::ABSENT), int(r.presence));
+}
+
+static void test_cooling_pan_not_obstructed(void) {
+  FrameAnalyzer fa;
+  fa.process(make_disc(16, 12, 6, 200.0f, 100));         // hot pan
+  // Still a warm pan disc (60 °C) — primary-detected, not a cover.
+  PanReading r = fa.process(make_disc(16, 12, 6, 60.0f, 300));
+  TEST_ASSERT_EQUAL(int(PanPresence::PRESENT), int(r.presence));
+}
+
+static void test_warm_mass_without_prior_pan(void) {
+  FrameAnalyzer fa;
+  // A warm mass with no pan ever tracked is not "obstruction".
+  PanReading r = fa.process(make_uniform(34.0f, 100));
+  TEST_ASSERT_NOT_EQUAL(int(PanPresence::OBSTRUCTED), int(r.presence));
+}
+
 static void test_stainless_signature(void) {
   // Low-ish reading with a big interior spread -> stainless hint + capped conf.
   FrameAnalyzer fa;
@@ -110,6 +142,10 @@ int main(int, char**) {
   RUN_TEST(test_two_blobs_picks_larger);
   RUN_TEST(test_interior_percentile_not_max);
   RUN_TEST(test_edge_clipped_disc_detected);
+  RUN_TEST(test_obstruction_over_hot_pan);
+  RUN_TEST(test_removed_pan_is_absent_not_obstructed);
+  RUN_TEST(test_cooling_pan_not_obstructed);
+  RUN_TEST(test_warm_mass_without_prior_pan);
   RUN_TEST(test_stainless_signature);
   return UNITY_END();
 }

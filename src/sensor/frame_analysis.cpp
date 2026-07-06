@@ -47,7 +47,7 @@ float percentile(float* vals, int n, int pct) {
 
 void FrameAnalyzer::reset() {
   have_prev_ = false; ever_present_ = false; last_present_ms_ = 0;
-  locked_ = false;
+  prev_hot_ = false; locked_ = false;
 }
 void FrameAnalyzer::lockRoi(float cx, float cy) {
   locked_ = true; lock_cx_ = cx; lock_cy_ = cy;
@@ -85,6 +85,30 @@ PanReading FrameAnalyzer::process(const ThermalFrame& f) {
 
   static int label[N];
   int blobId = pick_largest(label);
+
+  // Obstruction (§6.4): a hand or cool utensil over a previously-hot pan strips
+  // the hot pixels but leaves a warm, non-ambient, non-hot mass at the last ROI.
+  // Checked before the cooling fallback (which would otherwise grab the warm
+  // cover and mislabel it a pan). Distinct from a removed pan (scene -> ambient)
+  // and a cooling pan (still primary-detected while > ~45 °C).
+  if (blobId < 0 && ever_present_ && have_prev_ && prev_hot_) {
+    const int cr = (int)(prev_cy_ + 0.5f), cc0 = (int)(prev_cx_ + 0.5f);
+    int warm = 0, total = 0;
+    for (int dr = -2; dr <= 2; ++dr)
+      for (int dc = -2; dc <= 2; ++dc) {
+        const int rr = cr + dr, cc = cc0 + dc;
+        if (rr < 0 || rr >= R || cc < 0 || cc >= C) continue;
+        ++total;
+        const float v = f.px[rr][cc];
+        if (v > f.ambientC + OBSTRUCT_WARM_DELTA_C && v < OBSTRUCT_COVER_MAX_C) ++warm;
+      }
+    if (total > 0 && warm >= (int)(total * OBSTRUCT_COVER_FRAC)) {
+      r.presence = PanPresence::OBSTRUCTED;
+      r.roiCx = prev_cx_; r.roiCy = prev_cy_;   // hold the last known location
+      r.confidence = 0;
+      return r;                                  // keep have_prev_/prev_hot_
+    }
+  }
 
   // Cooling-pan fallback (§6.1): a cooling pan can drop below the delta; if we
   // were tracking one, re-threshold at ambient+cooling near the last position.
@@ -166,6 +190,7 @@ PanReading FrameAnalyzer::process(const ThermalFrame& f) {
 
   ever_present_ = true;
   last_present_ms_ = f.t_ms;
+  prev_hot_ = r.panTempC > OBSTRUCT_WAS_HOT_C;   // gate for obstruction detection
   r.presence = (r.confidence < cfg_.uncertainConf) ? PanPresence::UNCERTAIN
                                                    : PanPresence::PRESENT;
   return r;
