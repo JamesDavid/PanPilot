@@ -85,10 +85,17 @@ volatile uint8_t g_roi_req = 0;   // 0 none, 1 lock, 2 clear
 volatile float g_roi_px = 0, g_roi_py = 0;
 
 // Session trace (M11): 1 Hz temperature samples during a cook, written to
-// LittleFS at session end. Owned by SensorTask.
+// LittleFS at session end. Owned by SensorTask. The finished summary is STAGED
+// here and stored by the loop core — NVS/LittleFS writes must not run on the
+// sensor core (flash-cache suspension stalls both cores mid-control-tick).
 int16_t g_trace[1800];           // tempC*10, up to 30 min
 volatile int g_traceN = 0;
-volatile bool g_new_session = false;
+SessionSummary g_pendingSession;
+volatile bool g_session_pending = false;
+
+// Last user interaction (touch) for interlock S10 — written by the loop core
+// from LVGL's inactivity clock, read by SensorTask.
+volatile uint32_t g_lastTouchMs = 0;
 
 // Load the newest session from LittleFS and populate the Last Cook screen.
 // Must run on the UI core (touches LVGL).
@@ -170,8 +177,10 @@ volatile float g_assist_duty = 0;
 #if defined(ENABLE_WIFI)
 // The one actuator PanPilot can arm: the SSR box / watchdog plug over MQTT.
 // Duty is time-proportioned; the box's own watchdog fails safe on comms loss.
+// Topic matches hardware/panpilot_ssr_box.yaml (the box subscribes
+// panpilot/ssr/duty/set and publishes its birth/LWT on panpilot/ssr/status).
 hal::MqttPlugActuator g_plug("SSR box", CTRL_WINDOW_SSR_MS, ha::actuator_publish,
-                             "panpilot/plug/set");
+                             "panpilot/ssr/duty/set");
 #endif
 void on_stop() {                                  // big STOP bar (interlock S9)
   g_assist_stop = true; g_assist_armed = false;
@@ -194,6 +203,11 @@ void on_autotune(uint8_t cmd) { g_autotune_req = (cmd == 0) ? 1 : (cmd == 1 ? 2 
 void on_assist(uint8_t cmd) {
   if (cmd == 0) {
 #if defined(ENABLE_WIFI)
+    // M14.5 arming gate: refuse until the box's retained status says online.
+    if (!g_plug.isAlive()) {
+      Serial.println("[assist] REFUSED - SSR box not online (status topic)");
+      return;
+    }
     g_assist_stop = false;
     g_actuator = &g_plug;      // interlocks still gate every tick before the PID
     g_assist_armed = true;
@@ -315,13 +329,26 @@ void SensorTask(void*) {
   RelayAutotuner autotune;
   bool atActive = false;
   uint32_t lastCtrlMs = 0;
+  uint32_t lastGoodFrameMs = 0;   // S6 frame-gap input + the read-fail failsafe
+  uint32_t lastFoodMs = 0;        // last FOOD ADDED (counts as interaction, S10)
   for (;;) {
     if (!g_sensor_ok) {
       g_sensor_ok = sensor::mlx_begin();
       if (!g_sensor_ok) { vTaskDelay(pdMS_TO_TICKS(2000)); continue; }
       Serial.println("[PanPilot] MLX90640 online");
     }
-    if (sensor::mlx_read(frame)) {
+    if (!sensor::mlx_read(frame)) {
+      // SENSOR FAILSAFE: if frames stop while ASSIST is armed, the control
+      // block below never runs — force duty to 0 (staged; the loop core
+      // publishes). Without this the last nonzero duty stood until the box's
+      // own watchdog. The box watchdog remains the independent backstop.
+      if (g_assist_armed && g_actuator && lastGoodFrameMs != 0 &&
+          millis() - lastGoodFrameMs > IL_FRAME_GAP_MS) {
+        g_actuator->setDuty(0);
+        g_assist_duty = 0;
+      }
+    } else {
+      lastGoodFrameMs = millis();
       if (g_roi_req == 1) { analyzer.lockRoi(g_roi_px, g_roi_py); g_roi_req = 0; }
       else if (g_roi_req == 2) { analyzer.clearLock(); g_roi_req = 0; }
       PanReading r = analyzer.process(frame);
@@ -380,6 +407,7 @@ void SensorTask(void*) {
                                        nowm);
       if (ro.event == RecoveryEvent::FOOD_ADDED) {
         session.foodAdded();
+        lastFoodMs = nowm;             // food events count as interaction (S10)
         Serial.println("[recovery] food added");
       } else if (ro.event == RecoveryEvent::RECOVERED) {
         addBatchUntil = nowm + 4000;   // attention raises the ADD BATCH cue
@@ -512,11 +540,18 @@ void SensorTask(void*) {
         ii.confidence = r.confidence; ii.presence = r.presence;
         ii.duty = g_assist_duty; ii.rateFPerMin = gi.rateFPerMin;
         ii.tempF = gi.tempF; ii.warnF = target.warnF;
-        ii.sensorFault = sensor::mlx_faulted(); ii.lastFrameMs = nowm;
+        ii.sensorFault = sensor::mlx_faulted(); ii.lastFrameMs = lastGoodFrameMs;
         ii.actuatorAlive = g_actuator->isAlive(); ii.lastAckMs = nowm;
-        ii.commsOk = true;              // the box's own watchdog covers comms (S8)
+#if defined(ENABLE_WIFI)
+        ii.commsOk = ha::connected();   // broker link health (S8); box watchdog
+                                        // remains the independent backstop
+#else
+        ii.commsOk = false;             // no comms path on this build (unarmable)
+#endif
         ii.stopPressed = g_assist_stop;
-        ii.lastInteractionMs = nowm;    // (wire to last touch/food for S10 on hw)
+        // S10 unattended: latest of last touch (loop core, LVGL inactivity
+        // clock) and last FOOD ADDED event.
+        ii.lastInteractionMs = std::max((uint32_t)g_lastTouchMs, lastFoodMs);
         ii.dieTempC = sensor::mlx_die_tempC(); ii.now = nowm;
         Interlock il = interlocks.evaluate(ii); ilv = (int)il;
         if (il == Interlock::NONE) {
@@ -532,7 +567,11 @@ void SensorTask(void*) {
           } else {
             assistDuty = controller.update(gi.tempF, target.centerF, dt);
           }
-        } else { atActive = false;      // interlock -> abort any autotune
+        } else {
+          if (atActive) {               // interlock -> abort any running autotune
+            atActive = false; g_autotune_state = 0;   // (don't clobber a DONE result)
+            Serial.println("[autotune] aborted by interlock");
+          }
           if (InterlockMonitor::isEmergency(il)) { g_actuator->emergencyOff(); assistDuty = 0; }
           else assistDuty = 0;
         }
@@ -541,8 +580,11 @@ void SensorTask(void*) {
       }
 
       // Session lifecycle (§8): start on a hot pan, end when cool + stable.
-      // Records a 1 Hz temperature trace to LittleFS (roadmap §2.3).
-      if (!session.active() && r.presence == PanPresence::PRESENT && sceneHot) {
+      // Records a 1 Hz temperature trace; the LOOP CORE stores it (NVS/LittleFS
+      // writes stall flash cache and must not run on the sensor core). A new
+      // session waits until the previous one has been flushed (~1 loop tick).
+      if (!session.active() && !g_session_pending &&
+          r.presence == PanPresence::PRESENT && sceneHot) {
         session.begin(presetId, nowm);
         g_traceN = 0; lastTraceMs = nowm;
       }
@@ -555,10 +597,10 @@ void SensorTask(void*) {
         if (r.panTempC < frame.ambientC + SESSION_END_AMBIENT_C) {
           if (coolStart == 0) coolStart = nowm;
           else if (nowm - coolStart > SESSION_END_STABLE_MS) {
-            hal::session_store(session.finish(nowm), g_trace, (uint16_t)g_traceN);
-            g_new_session = true;
+            g_pendingSession = session.finish(nowm);
+            g_session_pending = true;      // loop core stores + refreshes UI
             coolStart = 0;
-            Serial.println("[session] saved to LittleFS");
+            Serial.println("[session] finished - queued for store");
           }
         } else {
           coolStart = 0;
@@ -613,7 +655,9 @@ void SensorTask(void*) {
       u.autotuneProgress = g_autotune_prog;
       u.autotuneKp = g_at_kp; u.autotuneKi = g_at_ki; u.autotuneKd = g_at_kd;
 #if defined(ENABLE_WIFI)
-      u.actuatorAvailable = true;          // SSR box actuator compiled in
+      // Arming is offered only while the box's retained status says online
+      // (M14.5) — not merely because the actuator code is compiled in.
+      u.actuatorAvailable = g_plug.isAlive();
       u.actuatorName = g_plug.name();
 #else
       u.actuatorAvailable = false;
@@ -843,7 +887,8 @@ void loop() {
 #if defined(ENABLE_WIFI)
   net::loop();
   ha::loop();
-  g_plug.setAlive(ha::connected());   // actuator liveness feeds interlocks S7/S8
+  g_plug.setAlive(ha::plug_online()); // box birth/LWT status feeds S7 + arming
+  g_plug.pump();                      // publish any staged duty (loop core owns MQTT)
   { struct tm ti;                     // NTP clock (getLocalTime returns fast)
     if (getLocalTime(&ti, 0)) {
       g_clockH = (uint8_t)ti.tm_hour; g_clockM = (uint8_t)ti.tm_min;
@@ -856,7 +901,14 @@ void loop() {
   static bool otaMarked = false;   // healthy runtime -> mark OTA image valid
   if (!otaMarked && now > 8000) { otaMarked = true; hal::ota_mark_stable(); }
 
-  if (g_new_session) { g_new_session = false; refresh_lastcook(ui::unit_useF()); }
+  // Store a finished session here on the loop core (NVS + LittleFS writes),
+  // then refresh the Last Cook screen. SensorTask only stages it.
+  if (g_session_pending) {
+    hal::session_store(g_pendingSession, g_trace, (uint16_t)g_traceN);
+    g_session_pending = false;
+    Serial.println("[session] saved to LittleFS");
+    refresh_lastcook(ui::unit_useF());
+  }
   if (g_persist_gains) { g_persist_gains = false;
     hal::storage_set_gains(g_kp, g_ki, g_kd); }
 
@@ -882,6 +934,7 @@ void loop() {
 
     // Power/idle state machine (base spec §8).
     const uint32_t inactive = lv_disp_get_inactive_time(nullptr);
+    g_lastTouchMs = (now >= inactive) ? now - inactive : 0;   // for interlock S10
     PowerState ps = power.step({inactive, s.sceneHot, s.heatingDetected});
     g_idle = (ps == PowerState::IDLE);
     if (ps != prevPower) {

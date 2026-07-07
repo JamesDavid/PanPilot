@@ -322,8 +322,9 @@ Build + flash the box (`hardware/panpilot_ssr_box.yaml`).
 | 14.1 | Load test at full griddle draw for 1 h | Heatsink ≤ 70 °C; no discoloration | ☐ |
 | 14.2 | Duty-cycle at the 3 s window | Griddle regulates smoothly; status LED blinks with duty | ☐ |
 | 14.3 | **Kill Wi-Fi** | SSR forced OFF within 15 s (hardware watchdog), no PanPilot command | ☐ |
-| 14.4 | **Kill the broker** | SSR forced OFF (S8) | ☐ |
-| 14.5 | Watchdog handshake | PanPilot refuses to arm until the box publishes `status=online` | ☐ |
+| 14.4 | **Kill the broker** | Firmware side: S7 trips (box liveness lost; S8 backs it up) → duty 0 + alert; box side: watchdog self-off | ☐ |
+| 14.5 | Watchdog handshake | PanPilot refuses to arm until the box's retained `panpilot/ssr/status=online` is seen (enforced in `on_assist`; ceremony shows "no actuator" until then). Bench-verify the retained birth/LWT actually flips it | ☐ |
+| 14.6 | **Unplug the MLX90640 while armed** | Duty forced to 0 within ~3 s (firmware frame-loss failsafe) + box watchdog backstop | ☐ |
 
 ## M15 — Interlocks
 

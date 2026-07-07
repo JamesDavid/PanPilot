@@ -16,7 +16,8 @@ void begin(const char* broker, uint16_t port, MuteCb, TargetCb, PresetCb);
 void loop();                        // reconnect + pump MQTT
 void publish(const UiState& s, bool useF);
 bool enabled();
-bool connected();                   // MQTT link up (actuator liveness for S7/S8)
+bool connected();                   // MQTT link up (comms health for S8)
+bool plug_online();                 // SSR box birth/LWT says online (S7 + arming)
 void actuator_publish(const char* topic, const char* payload);  // ASSIST duty out
 void publishAttention(int level, const char* verb, const char* sub);  // §3.5 mirror
 }  // namespace ha

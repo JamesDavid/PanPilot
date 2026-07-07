@@ -96,6 +96,11 @@ void publishDiscovery() {
             "\"Tortillas\",\"Generic\"]," + DEV + "}");
 }
 
+// SSR-box liveness (roadmap §3.2 / M14.5): the box publishes a retained
+// birth/LWT on this topic; arming is gated on having seen "online".
+const char* PLUG_STATUS = "panpilot/ssr/status";
+volatile bool s_plugOnline = false;
+
 void onMsg(char* topic, byte* payload, unsigned int len) {
   String t(topic), p;
   for (unsigned i = 0; i < len; ++i) p += (char)payload[i];
@@ -104,6 +109,8 @@ void onMsg(char* topic, byte* payload, unsigned int len) {
   else if (t == PRESET_SET && s_presetCb) {
     for (uint8_t i = 0; i < PRESET_COUNT; ++i)
       if (p == preset(i).name) { s_presetCb(i); break; }
+  } else if (t == PLUG_STATUS) {
+    s_plugOnline = (p == "online");
   }
 }
 
@@ -111,11 +118,13 @@ void reconnect() {
   if (s_broker.isEmpty() || s_mqtt.connected()) return;
   if (millis() - s_lastTry < 5000) return;
   s_lastTry = millis();
+  s_plugOnline = false;   // stale until the retained box status arrives
   if (s_mqtt.connect("panpilot", nullptr, nullptr, AVTY, 0, true, "offline")) {
     s_mqtt.publish(AVTY, "online", true);
     s_mqtt.subscribe(MUTE_SET);
     s_mqtt.subscribe(TGT_SET);
     s_mqtt.subscribe(PRESET_SET);
+    s_mqtt.subscribe(PLUG_STATUS);
     publishDiscovery();
     Serial.println("[ha] MQTT connected, discovery published");
   }
@@ -136,9 +145,13 @@ bool enabled() { return !s_broker.isEmpty(); }
 
 void loop() {
   if (s_broker.isEmpty()) return;
-  if (!s_mqtt.connected()) reconnect();
+  if (!s_mqtt.connected()) { s_plugOnline = false; reconnect(); }
   s_mqtt.loop();
 }
+
+// Box liveness for the arming gate + interlock S7: broker link up AND the box's
+// retained status says online (its LWT flips this to offline if it dies).
+bool plug_online() { return s_mqtt.connected() && s_plugOnline; }
 
 void publish(const UiState& s, bool useF) {
   if (!s_mqtt.connected()) return;
