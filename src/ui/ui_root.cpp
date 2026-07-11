@@ -35,6 +35,7 @@ lv_obj_t* s_assist = nullptr;
 lv_obj_t* s_onboarding = nullptr;
 lv_obj_t* s_autotune = nullptr;
 int s_editId = -1;                 // preset id being edited (-1 = new)
+uint8_t s_editReturnZone = 0;      // which pan's picker the editor came from
 bool s_assistAvail = false;        // actuator configured (from the snapshot)
 const char* s_actuatorName = "";
 bool s_useF = true;
@@ -189,6 +190,7 @@ void show_settings() {
 void show_preset_edit(int id) {
   if (!s_preset_edit) s_preset_edit = preset_edit_create();
   s_editId = id;
+  s_editReturnZone = s_presetZone;   // remember which pan's picker we came from
   if (id >= 0 && presets_is_custom((uint8_t)id)) {
     const Preset& p = preset((uint8_t)id);
     preset_edit_load(p.name, p.loF, p.hiF, p.stainlessHints, /*canDelete=*/true);
@@ -199,14 +201,23 @@ void show_preset_edit(int id) {
   lv_scr_load(s_preset_edit);
   s_active = PRESET_EDIT;
 }
+namespace {
+// Return to the picker the editor was opened from. Round-tripping through
+// show_presets() used to reset the zone, so editing a preset mid-Pan-2 flow
+// silently retargeted the next card tap at Pan 1.
+void preset_edit_close() {
+  (s_editReturnZone == 1) ? show_presets_zone2() : show_presets();
+}
+}  // namespace
 void preset_edit_save(const char* name, int loF, int hiF, bool stainless) {
   if (s_presetSaveCb) s_presetSaveCb(s_editId, name, loF, hiF, stainless);
-  show_presets();
+  preset_edit_close();
 }
 void preset_edit_delete() {
   if (s_editId >= 0 && s_presetDelCb) s_presetDelCb(s_editId);
-  show_presets();
+  preset_edit_close();
 }
+void preset_edit_cancel() { preset_edit_close(); }
 
 void show_assist_arm() {
   if (!s_assist) s_assist = assist_create();

@@ -61,13 +61,11 @@ lv_obj_t* autotune_create() {
   lv_obj_align(s_gains, LV_ALIGN_CENTER, 0, 0);
   lv_obj_add_flag(s_gains, LV_OBJ_FLAG_HIDDEN);
 
-  s_secondary_lbl = lv_label_create(scr);   // hosted in a button below
   lv_obj_t* sec = lv_btn_create(scr);
   lv_obj_set_size(sec, 150, 44);
   lv_obj_align(sec, LV_ALIGN_BOTTOM_LEFT, 12, -10);
   lv_obj_set_style_bg_color(sec, lv_color_hex(0x2A323C), 0);
   lv_obj_add_event_cb(sec, secondary_cb, LV_EVENT_CLICKED, nullptr);
-  lv_obj_del(s_secondary_lbl);
   s_secondary_lbl = lv_label_create(sec);
   lv_obj_set_style_text_font(s_secondary_lbl, &lv_font_montserrat_20, 0);
   lv_obj_center(s_secondary_lbl);

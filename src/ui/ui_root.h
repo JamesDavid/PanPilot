@@ -53,6 +53,7 @@ void set_preset_edit_cbs(PresetSaveCb onSave, PresetDeleteCb onDelete);
 void show_preset_edit(int id);         // id < 0 => new custom preset
 void preset_edit_save(const char* name, int loF, int hiF, bool stainless);
 void preset_edit_delete();
+void preset_edit_cancel();             // back to the picker it was opened from
 void set_assist_cb(AssistCb onAssist);
 void show_assist_arm();                 // open the ASSIST arming ceremony
 void assist_arm();                      // fires AssistCb(0), returns home

@@ -37,7 +37,7 @@ void hi_plus(lv_event_t*)  { if (s_hi + STEP <= HI_MAX) s_hi += STEP; refresh_te
 void name_focus(lv_event_t*) { lv_obj_clear_flag(s_kb, LV_OBJ_FLAG_HIDDEN); }
 void kb_done(lv_event_t*) { lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN); }
 
-void cancel_cb(lv_event_t*) { ui::show_presets(); }
+void cancel_cb(lv_event_t*) { ui::preset_edit_cancel(); }   // zone-preserving
 void delete_cb(lv_event_t*) { ui::preset_edit_delete(); }
 void save_cb(lv_event_t*) {
   const char* nm = lv_textarea_get_text(s_name);

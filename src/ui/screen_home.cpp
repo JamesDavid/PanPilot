@@ -310,10 +310,36 @@ lv_obj_t* home_create() {
     lv_obj_add_flag(s_sp_bar[i], LV_OBJ_FLAG_HIDDEN);
   }
   lv_obj_add_flag(s_sp_div, LV_OBJ_FLAG_HIDDEN);
+
+  // Z-ORDER: the split widgets above were created AFTER the alert overlay, so
+  // in split mode a TOO-HOT takeover painted UNDERNEATH the split columns.
+  // Raise the takeover layers above everything: overlay < feedback < STOP bar
+  // (the kill switch is always tappable, even over an alert).
+  lv_obj_move_foreground(s_overlay);
+  lv_obj_move_foreground(s_fb);
+  lv_obj_move_foreground(s_stop);
   return s_screen;
 }
 
 namespace {
+// The ASSIST STOP bar (roadmap §3.3) must be visible in EVERY layout while
+// armed — a second pan appearing is sensor-driven, and hiding the kill switch
+// because of it violated the "persistent" requirement. Shared by both the
+// single and split paths.
+void refresh_stop_bar(const UiState& s) {
+  if (!s.assistArmed) { lv_obj_add_flag(s_stop, LV_OBJ_FLAG_HIDDEN); return; }
+  char b[64];
+  if (s.assistInterlock != 0)
+    std::snprintf(b, sizeof(b), LV_SYMBOL_STOP "  STOP   -   HELD: %s",
+                  interlock_name(s.assistInterlock));
+  else
+    std::snprintf(b, sizeof(b), LV_SYMBOL_STOP "  STOP   -   ASSIST %s %d%%",
+                  s.actuatorName && s.actuatorName[0] ? s.actuatorName : "",
+                  (int)(s.assistDuty * 100.0f + 0.5f));
+  lv_label_set_text(s_stop_lbl, b);
+  lv_obj_clear_flag(s_stop, LV_OBJ_FLAG_HIDDEN);
+}
+
 // Fill one split-screen column with a pan's current state. When that pan has a
 // food timer running (Phase 3 per-zone timers), the column shows the food name,
 // countdown, and a FLIP/REMOVE cue in the bar instead of the target/guidance.
@@ -402,10 +428,17 @@ void home_update(const UiState& s, bool useF) {
                    s.food, s.foodTimer, s.batchCount);
     fill_split_col(1, "Pan 2", s.zone2TempC, s.zone2TargetF, s.zone2Guidance, useF, true,
                    s.zone2Food, s.zone2FoodTimer, s.zone2Batch);
-    // Only a genuine safety alert (TOO HOT on either pan) still takes over.
-    const bool loud2 = s.guidance == GuidanceState::TOO_HOT ||
-                       s.zone2Guidance == GuidanceState::TOO_HOT;
-    if (loud2) {
+    // Safety alerts still take over in split mode: battery-critical (L3) has
+    // priority, then TOO HOT on either pan. (Previously pluginWarning was
+    // silently dropped whenever two pans were present.)
+    if (s.pluginWarning) {
+      lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0xC62828), 0);
+      lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
+      lv_label_set_text(s_overlay_lbl, "PLUG ME IN");
+      lv_label_set_text(s_overlay_sub, "battery critical");
+      lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
+    } else if (s.guidance == GuidanceState::TOO_HOT ||
+               s.zone2Guidance == GuidanceState::TOO_HOT) {
       lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0xC62828), 0);
       lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
       lv_label_set_text(s_overlay_lbl, "TOO HOT");
@@ -416,7 +449,7 @@ void home_update(const UiState& s, bool useF) {
       lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
     }
     lv_obj_add_flag(s_fb, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(s_stop, LV_OBJ_FLAG_HIDDEN);
+    refresh_stop_bar(s);   // the kill switch stays visible while armed
     return;
   }
 
@@ -474,6 +507,11 @@ void home_update(const UiState& s, bool useF) {
   lv_obj_t* adj[] = {s_minus, s_plus, s_target_lbl};
   for (auto* o : adj)
     showAdj ? lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN) : lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+  // While cooking, the countdown line owns the bottom band — the note (which
+  // carries the non-dismissable food-safety text for meats) moves to the top
+  // band freed by the hidden target adjuster. They overlapped before.
+  lv_obj_align(s_note, cooking ? LV_ALIGN_TOP_MID : LV_ALIGN_BOTTOM_MID, 0,
+               cooking ? 44 : -52);
   if (cooking) {
     lv_obj_add_flag(s_eta, LV_OBJ_FLAG_HIDDEN);
     std::snprintf(buf, sizeof(buf), "%s", s.food->name);
@@ -561,19 +599,7 @@ void home_update(const UiState& s, bool useF) {
 
   // ASSIST STOP bar (roadmap §3.3): while armed it replaces the action bar and
   // shows the commanded duty, or the interlock reason if power is being held.
-  if (s.assistArmed) {
-    if (s.assistInterlock != 0)
-      std::snprintf(buf, sizeof(buf), LV_SYMBOL_STOP "  STOP   -   HELD: %s",
-                    interlock_name(s.assistInterlock));
-    else
-      std::snprintf(buf, sizeof(buf), LV_SYMBOL_STOP "  STOP   -   ASSIST %s %d%%",
-                    s.actuatorName && s.actuatorName[0] ? s.actuatorName : "",
-                    (int)(s.assistDuty * 100.0f + 0.5f));
-    lv_label_set_text(s_stop_lbl, buf);
-    lv_obj_clear_flag(s_stop, LV_OBJ_FLAG_HIDDEN);
-  } else {
-    lv_obj_add_flag(s_stop, LV_OBJ_FLAG_HIDDEN);
-  }
+  refresh_stop_bar(s);
 
   // Post-cook feedback prompt (spec §2.7). The cook is finished, so it takes
   // precedence over the guidance overlays (READY / TURN DOWN) — only a genuine
