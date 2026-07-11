@@ -7,11 +7,12 @@
 
 // ---- Color ----
 #define LV_COLOR_DEPTH        16
-#ifdef PANPILOT_SIM
-  #define LV_COLOR_16_SWAP    0     // native screenshot: straight RGB565
-#else
-  #define LV_COLOR_16_SWAP    1     // SPI ILI9488 wants byte-swapped RGB565
-#endif
+// NATIVE byte order everywhere. The flush callback hands LovyanGFX an
+// lgfx::rgb565_t* (native RGB565) and lgfx does the panel conversion —
+// exactly the factory lesson-03 pairing (their bundled lv_conf is SWAP=0).
+// SWAP=1 here fed byte-swapped data declared as native: bench symptom was a
+// pink background, yellow-instead-of-green buttons, fringed "fuzzy" text.
+#define LV_COLOR_16_SWAP      0
 
 // ---- Memory ----
 #define LV_MEM_CUSTOM         0

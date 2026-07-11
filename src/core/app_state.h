@@ -16,6 +16,10 @@ enum class LearnPhase : uint8_t { OFF, RECORDING, DONE };  // Learn Pan Mode (M6
 struct UiState {
   Mode mode = Mode::TARGET;
   PanPresence presence = PanPresence::ABSENT;
+  bool  sensorOk = true;    // MLX90640 detected + delivering frames. False =>
+                            // the UI stays fully usable (settings, presets,
+                            // Wi-Fi) with a "sensor not connected" note.
+                            // (Defaults true so sim scenes/tests read normal.)
   bool  modelValid = false;
   float displayTempC = 0;
   float rateCPerMin = 0;

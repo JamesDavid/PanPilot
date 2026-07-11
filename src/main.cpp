@@ -331,10 +331,43 @@ void SensorTask(void*) {
   uint32_t lastCtrlMs = 0;
   uint32_t lastGoodFrameMs = 0;   // S6 frame-gap input + the read-fail failsafe
   uint32_t lastFoodMs = 0;        // last FOOD ADDED (counts as interaction, S10)
+  // Heartbeat snapshot for sensor-less operation: without frames the UI would
+  // never receive a UiState and every label would sit at its LVGL default
+  // ("Text") forever — bench-found on the first board with no MLX wired. The
+  // device stays fully usable (settings, presets, Wi-Fi) with a note.
+  auto publishIdleSnapshot = [&]() {
+    UiState u;
+    u.sensorOk = false;
+    if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(10)) == pdTRUE) {
+      u.targetCenterF = g_target.centerF;
+      u.presetId = g_presetId;
+      xSemaphoreGive(g_target_mtx);
+    }
+    u.muted = hal::buzzer_is_muted();
+    u.brightnessLevel = g_bright;
+    u.tzIndex = g_tz;
+    u.timeValid = g_timeValid;
+    u.clockHour = g_clockH; u.clockMin = g_clockM;
+    u.battery = g_batt;
+    u.pluginWarning = g_pluginWarn;
+    if (xSemaphoreTake(g_snap_mtx, pdMS_TO_TICKS(20)) == pdTRUE) {
+      g_snap.frame = ThermalFrame{};   // invalid frame; thermal view shows dark
+      g_snap.reading = PanReading{};
+      g_snap.ui = u;
+      g_snap.sceneHot = false; g_snap.heatingDetected = false;
+      g_snap.has = true;
+      xSemaphoreGive(g_snap_mtx);
+    }
+  };
+
   for (;;) {
     if (!g_sensor_ok) {
       g_sensor_ok = sensor::mlx_begin();
-      if (!g_sensor_ok) { vTaskDelay(pdMS_TO_TICKS(2000)); continue; }
+      if (!g_sensor_ok) {
+        publishIdleSnapshot();           // UI lives on without the sensor
+        vTaskDelay(pdMS_TO_TICKS(2000)); // keep retrying the probe
+        continue;
+      }
       Serial.println("[PanPilot] MLX90640 online");
     }
     if (!sensor::mlx_read(frame)) {
@@ -347,6 +380,10 @@ void SensorTask(void*) {
         g_actuator->setDuty(0);
         g_assist_duty = 0;
       }
+      // Sensor died mid-run: after the frame gap, fall back to the heartbeat
+      // so the UI reports the loss instead of freezing on the last reading.
+      if (lastGoodFrameMs != 0 && millis() - lastGoodFrameMs > IL_FRAME_GAP_MS)
+        publishIdleSnapshot();
     } else {
       lastGoodFrameMs = millis();
       if (g_roi_req == 1) { analyzer.lockRoi(g_roi_px, g_roi_py); g_roi_req = 0; }
@@ -623,6 +660,7 @@ void SensorTask(void*) {
       }
 
       UiState u;
+      u.sensorOk = true;
       u.mode = Mode::TARGET;
       u.presence = r.presence;
       u.modelValid = model.valid();
@@ -1077,11 +1115,13 @@ void loop() {
 
     if (s.has && !g_idle) {
       ui::root_update(s.frame, s.reading, s.ui);
-      const PanReading& r = s.reading;
-      Serial.printf("[reading] %s pan=%.1fC disp=%.1fC rate=%.1fC/min conf=%u%s\n",
-                    presence_str(r.presence), r.panTempC, s.ui.displayTempC,
-                    s.ui.rateCPerMin, r.confidence,
-                    r.stainlessHint ? " STAINLESS?" : "");
+      if (s.ui.sensorOk) {   // don't spam the console on a sensor-less bench unit
+        const PanReading& r = s.reading;
+        Serial.printf("[reading] %s pan=%.1fC disp=%.1fC rate=%.1fC/min conf=%u%s\n",
+                      presence_str(r.presence), r.panTempC, s.ui.displayTempC,
+                      s.ui.rateCPerMin, r.confidence,
+                      r.stainlessHint ? " STAINLESS?" : "");
+      }
     }
   }
   delay(UI_TICK_MS);

@@ -54,10 +54,14 @@ lv_indev_drv_t s_indev_drv;
 void flush_cb(lv_disp_drv_t* drv, const lv_area_t* area, lv_color_t* px) {
   const uint32_t w = area->x2 - area->x1 + 1;
   const uint32_t h = area->y2 - area->y1 + 1;
-  lcd.startWrite();
-  lcd.setAddrWindow(area->x1 + kOffX, area->y1 + kOffY, w, h);
-  lcd.writePixels(reinterpret_cast<uint16_t*>(px), w * h, true);
-  lcd.endWrite();
+  // LVGL renders with LV_COLOR_16_SWAP=1, i.e. the buffer is ALREADY in panel
+  // byte order — the lgfx::rgb565_t cast tells LovyanGFX exactly that (this is
+  // the factory lesson-03 flush verbatim). The old writePixels(..., swap=true)
+  // swapped a second time: bench symptom was a pink background, lime buttons,
+  // and fuzzy text (every color's bytes reversed). DMA is safe here because
+  // LVGL double-buffers (s_buf1/s_buf2).
+  lcd.pushImageDMA(area->x1 + kOffX, area->y1 + kOffY, w, h,
+                   reinterpret_cast<lgfx::rgb565_t*>(px));
   lv_disp_flush_ready(drv);
 }
 

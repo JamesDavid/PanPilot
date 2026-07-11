@@ -489,9 +489,11 @@ void home_update(const UiState& s, bool useF) {
     }
   }
 
-  // note line: recovery hint (§7.4) takes priority over the stainless banner
+  // note line: sensor-missing wins, then recovery hint (§7.4), then stainless
   const bool stainless = preset(s.presetId).stainlessHints || s.stainlessHint;
-  if (s.recovering && s.recoveryHint == RecoveryHint::SLOW)
+  if (!s.sensorOk)
+    lv_label_set_text(s_note, "Thermal sensor not connected");
+  else if (s.recovering && s.recoveryHint == RecoveryHint::SLOW)
     lv_label_set_text(s_note, "Recovery slow - raise heat?");
   else if (s.recovering && s.recoveryHint == RecoveryHint::FAST)
     lv_label_set_text(s_note, "Recovering fast - watch heat");

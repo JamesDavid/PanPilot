@@ -13,11 +13,14 @@
 // PRIMARY BENCH TARGET — CrowPanel Advance 3.5" HMI (ESP32-S3-WROOM-1-N16R8):
 //   Wiki:    https://www.elecrow.com/wiki/CrowPanel_Advance_3.5-HMI_ESP32_AI_Display.html
 //   Factory: github.com/Elecrow-RD/CrowPanel-Advance-3.5-HMI-ESP32-S3-AI-Powered-IPS-Touch-Screen-480x320
-//            example/V1.0/Arduino/lesson-03/3_5LVGL/{LovyanGFX_Driver.h,touch.h,3_5LVGL.ino}
-//   Display pins (SCLK42/MOSI39/DC41/CS40/RST2), backlight GPIO38, and GT911
-//   touch (INT47/RST48/addr 0x14) are taken verbatim from the factory
-//   LovyanGFX driver — NOT from the base spec's placeholders (those were for the
-//   *basic* WROVER board and are wrong for this S3 panel).
+//            example/V1.2_and_V1.3_and_V1.4/Arduino_Code/lesson-03/3_5LVGL/
+//            {LovyanGFX_Driver.h,touch.h,3_5LVGL.ino} — the HW V1.2+ example set
+//   BENCH-VERIFIED 2026-07-11 on a physical HW V1.2 board (display colors,
+//   rotation, GT911 touch). Display pins (SCLK42/MOSI39/DC41/CS40/RST2),
+//   backlight GPIO38, GT911 (INT47/RST48/addr 0x14) are identical between the
+//   V1.0 and V1.2 factory examples; V1.2 additionally bakes landscape in as
+//   offset_rotation=3 (TFT_OFFSET_ROTATION below) and pairs LVGL
+//   LV_COLOR_16_SWAP=0 with an lgfx::rgb565_t flush.
 //
 // CrowPanel Advance 5" siblings (RGB-parallel ST7262, GT911, ESP32-S3):
 //   v1.1 — user repo ../cyd-radio/src/config.h  (TCA9534 expander, I2C 15/16)
@@ -57,7 +60,11 @@
                                         // PWM (LEDC) for dimming + §3.5 strobe.
   #define TFT_PANEL_WIDTH         320   // native portrait
   #define TFT_PANEL_HEIGHT        480
-  #define TFT_ROTATION            1     // landscape 480x320 (spec §9)
+  // HW V1.2+ factory config (example/V1.2_and_V1.3_and_V1.4/.../lesson-03):
+  // offset_rotation = 3 with no setRotation call — i.e. the panel's landscape
+  // base orientation is baked into the offset, not the runtime rotation.
+  #define TFT_OFFSET_ROTATION     3
+  #define TFT_ROTATION            0     // net = offset 3 = landscape 480x320
   #define TFT_INVERT              1     // factory cfg.invert = true
   #define TFT_BUS_SHARED          1     // shares SPI with SD card
 

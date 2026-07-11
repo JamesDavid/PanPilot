@@ -12,6 +12,10 @@
 #define LGFX_USE_V1
 #include <LovyanGFX.hpp>
 
+#ifndef TFT_OFFSET_ROTATION
+#define TFT_OFFSET_ROTATION 0
+#endif
+
 class LGFX_PanPilot : public lgfx::LGFX_Device {
   lgfx::Panel_ILI9488 _panel;
   lgfx::Bus_SPI       _bus;
@@ -51,7 +55,7 @@ class LGFX_PanPilot : public lgfx::LGFX_Device {
       cfg.panel_height     = TFT_PANEL_HEIGHT;
       cfg.offset_x         = 0;
       cfg.offset_y         = 0;
-      cfg.offset_rotation  = 0;
+      cfg.offset_rotation  = TFT_OFFSET_ROTATION;   // HW V1.2: 3 (factory)
       cfg.dummy_read_pixel = 8;
       cfg.dummy_read_bits  = 1;
       cfg.readable         = false;
