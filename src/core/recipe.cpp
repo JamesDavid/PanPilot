@@ -12,14 +12,20 @@ void RecipeEngine::enter(int i, uint32_t now) {
 }
 
 void RecipeEngine::start(const RecipeProgram* p, uint32_t now) {
-  prog_ = p; finished_ = false; loops_left_ = -1;
+  prog_ = p; finished_ = false; loops_left_ = -1; fat_clamp_ = 0;
   enter(0, now);
 }
 
 RecipeOut RecipeEngine::step(const RecipeInput& in) {
   RecipeOut o;
   if (!prog_) return o;
-  if (finished_) { o.finished = true; return o; }
+  if (finished_) { o.finished = true; o.fatClampWarnF = fat_clamp_; return o; }
+
+  // One physical tap / food-drop satisfies at most ONE gated step: consume the
+  // event when it advances a step so it can't blow through several consecutive
+  // touch/food-gated steps inside the resolution loop below.
+  bool touch = in.touch;
+  bool foodAdded = in.foodAdded;
 
   for (int guard = 0; guard < 64; ++guard) {   // resolve instantaneous steps
     const RecipeStep& s = prog_->steps[idx_];
@@ -33,9 +39,9 @@ RecipeOut RecipeEngine::step(const RecipeInput& in) {
         if (std::fabs(in.panTempF - s.a) <= 15.0f) advance = true;   // "ready"
         break;
       case StepType::CUE:
-        if (((s.expect & EXP_FOOD_ADDED) && in.foodAdded) ||
-            ((s.expect & EXP_TOUCH) && in.touch) ||
-            (s.b > 0 && in.now - step_start_ >= (uint32_t)s.b * 1000))
+        if ((s.expect & EXP_FOOD_ADDED) && foodAdded) { advance = true; foodAdded = false; }
+        else if ((s.expect & EXP_TOUCH) && touch)     { advance = true; touch = false; }
+        else if (s.b > 0 && in.now - step_start_ >= (uint32_t)s.b * 1000)
           advance = true;
         break;
       case StepType::TIMER:
@@ -52,10 +58,16 @@ RecipeOut RecipeEngine::step(const RecipeInput& in) {
 
         PrepStatus ps = prep_evaluate(s.a, in.panTempF, in.rateFPerMin, dwell,
                                       prog_->brownOnPurpose);
+        // Latch the smoke-point clamp for the rest of the program (min across
+        // fats). Latched at evaluation, not at confirm — conservative, and it
+        // survives the PREP advancing within this same step() call.
+        if (ps.fatClampWarnF > 0)
+          fat_clamp_ = fat_clamp_ ? (ps.fatClampWarnF < fat_clamp_
+                                         ? ps.fatClampWarnF : fat_clamp_)
+                                  : ps.fatClampWarnF;
         o.prepTooHot = ps.tooHot;
         o.prepBelowWindow = ps.belowWindow;
         o.prepReady = ps.ready;
-        o.fatClampWarnF = ps.fatClampWarnF;   // caller holds the pan below this
         o.prepAdvice = ps.advice;
         if (ps.tooHot) {
           o.setpointF = ps.coolToF;                  // cool to the add window
@@ -67,7 +79,7 @@ RecipeOut RecipeEngine::step(const RecipeInput& in) {
         } else {
           o.cue = "Almost ready for the fat";
         }
-        if (in.touch) advance = true;                // human confirms it's in
+        if (touch) { advance = true; touch = false; }  // human confirms it's in
         break;
       }
       case StepType::LOOP:
@@ -77,17 +89,24 @@ RecipeOut RecipeEngine::step(const RecipeInput& in) {
         break;
       case StepType::END:
         finished_ = true; o.finished = true; o.active = false;
+        o.fatClampWarnF = fat_clamp_;
         return o;
     }
 
     if (jumpTo >= 0) { enter(jumpTo, in.now); continue; }
     if (advance) {
-      if (idx_ + 1 >= prog_->nSteps) { finished_ = true; o.finished = true; o.active = false; return o; }
+      if (idx_ + 1 >= prog_->nSteps) {
+        finished_ = true; o.finished = true; o.active = false;
+        o.fatClampWarnF = fat_clamp_;
+        return o;
+      }
       enter(idx_ + 1, in.now);
       continue;
     }
-    return o;   // still waiting on this step
+    o.fatClampWarnF = fat_clamp_;   // carried every tick, not only on PREP ticks
+    return o;                       // still waiting on this step
   }
+  o.fatClampWarnF = fat_clamp_;
   return o;
 }
 

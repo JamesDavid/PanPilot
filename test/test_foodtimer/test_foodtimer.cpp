@@ -58,6 +58,46 @@ static void test_comp_factor(void) {
   TEST_ASSERT_TRUE(FoodTimer::compFactor(p, 0) >= 0.7f);                 // clamped
 }
 
+static void test_time_factor_scales_and_pct_tracks(void) {
+  // Personalization (spec §2.7): timeFactor 1.5 stretches side 1 from 150 s to
+  // ~225 s, and progressPct must track the SCALED target — the old UI computed
+  // percent from the seed time, which reads negative early in a stretched cook.
+  const FoodEntry* p = find("Pancakes");
+  FoodTimer ft; ft.start(p, 0, /*timeFactor=*/1.5f);
+  uint32_t t = 0;
+  uint8_t firstPct = 255, prevPct = 0;
+  int flipAt = -1;
+  for (int s = 0; s < 400; s += 5) {
+    t += 5000;
+    FoodTimerOut o = ft.update(p->refTempF, t);
+    if (firstPct == 255) firstPct = o.progressPct;
+    TEST_ASSERT_TRUE(o.progressPct >= prevPct || o.event == FoodTimerOut::FLIP);
+    prevPct = (o.event == FoodTimerOut::FLIP) ? 0 : o.progressPct;
+    if (o.event == FoodTimerOut::FLIP) { flipAt = s + 5; break; }
+  }
+  TEST_ASSERT_INT_WITHIN(8, 225, flipAt);       // 150 * 1.5
+  TEST_ASSERT_TRUE(firstPct <= 5);              // starts near 0, not clamped-wrong
+}
+
+static void test_flip_tick_reports_new_side(void) {
+  // On the FLIP tick, side/remaining/percent must describe the NEW side (the
+  // old code returned the old side's ~0 remaining with the new side number).
+  const FoodEntry* p = find("Pancakes");        // 150 s / 90 s
+  FoodTimer ft; ft.start(p, 0);
+  uint32_t t = 0;
+  for (int s = 0; s < 400; s += 5) {
+    t += 5000;
+    FoodTimerOut o = ft.update(p->refTempF, t);
+    if (o.event == FoodTimerOut::FLIP) {
+      TEST_ASSERT_EQUAL_UINT8(2, o.side);
+      TEST_ASSERT_INT_WITHIN(10, 90, o.remainingSec);   // side 2's full time
+      TEST_ASSERT_TRUE(o.progressPct <= 5);
+      return;
+    }
+  }
+  TEST_FAIL_MESSAGE("never flipped");
+}
+
 static void test_poultry_has_safety_temp(void) {
   const FoodEntry* c = find("Chicken breast");
   TEST_ASSERT_NOT_NULL(c);
@@ -71,6 +111,8 @@ int main(int, char**) {
   RUN_TEST(test_remove_after_second_side);
   RUN_TEST(test_cold_pan_stretches);
   RUN_TEST(test_comp_factor);
+  RUN_TEST(test_time_factor_scales_and_pct_tracks);
+  RUN_TEST(test_flip_tick_reports_new_side);
   RUN_TEST(test_poultry_has_safety_temp);
   return UNITY_END();
 }

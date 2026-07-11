@@ -51,6 +51,19 @@ static void test_rejects_bad_input(void) {
   TEST_ASSERT_EQUAL_INT(0, s.count());
 }
 
+static void test_safe_internal_floor(void) {
+  // SAFETY: an override matching a seed (name,variant) can never lower the
+  // seed's USDA minimum; a new food keeps whatever was requested.
+  TEST_ASSERT_EQUAL_UINT16(165, FoodStore::safeInternalFloor(
+      "Chicken breast", "butterflied / ~1/2-inch", 0));      // omitted -> seed
+  TEST_ASSERT_EQUAL_UINT16(165, FoodStore::safeInternalFloor(
+      "Chicken breast", "butterflied / ~1/2-inch", 150));    // lowered -> seed
+  TEST_ASSERT_EQUAL_UINT16(180, FoodStore::safeInternalFloor(
+      "Chicken breast", "butterflied / ~1/2-inch", 180));    // raised -> kept
+  TEST_ASSERT_EQUAL_UINT16(0, FoodStore::safeInternalFloor(
+      "Halloumi", "1/2-inch slabs", 0));                     // new food -> as-is
+}
+
 static void test_capacity_and_revert(void) {
   FoodStore s;
   for (int i = 0; i < FoodStore::MAX + 3; ++i) {
@@ -71,6 +84,7 @@ int main(int, char**) {
   RUN_TEST(test_append_new_food);
   RUN_TEST(test_override_shadows_seed);
   RUN_TEST(test_rejects_bad_input);
+  RUN_TEST(test_safe_internal_floor);
   RUN_TEST(test_capacity_and_revert);
   return UNITY_END();
 }

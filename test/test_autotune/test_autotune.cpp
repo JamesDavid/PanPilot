@@ -64,9 +64,45 @@ static void test_tuned_gains_keep_plant_bounded(void) {
   TEST_ASSERT_FLOAT_WITHIN(50.0f, 350.0f, q.t);   // stable, not diverging
 }
 
+static void test_lag_plant_amplitude_not_underread(void) {
+  // A plant with transport delay peaks AFTER the heat-off switch. Recording
+  // amplitude on both relay edges must capture that overshoot; the old
+  // heat-edge-only recording under-read it (amp ~= 2*hyst) and inflated Ku.
+  struct LagPlant {
+    float t = 70, kHeat = 1.5f, kLoss = 0.004f, amb = 70;
+    enum { D = 20 };                  // 20 s of transport delay
+    float q[D] = {0};
+    int qi = 0;
+    float step(float duty, float dt) {
+      const float applied = q[qi];
+      q[qi] = duty; qi = (qi + 1) % D;
+      t += (kHeat * applied - kLoss * (t - amb)) * dt;
+      return t;
+    }
+  };
+  RelayAutotuner at;
+  LagPlant p;
+  at.start(350, 0.0f, 1.0f, 1.0f, 0);
+  float duty = 1.0f;
+  uint32_t now = 0;
+  for (int i = 0; i < 60000 && !at.converged() && at.running(); ++i) {
+    float temp = p.step(duty, 1.0f);
+    now += 1000;
+    duty = at.update(temp, now);
+  }
+  TEST_ASSERT_TRUE(at.converged());
+  // With 20 s of lag on a 1.5 F/s heat rate the true peak-to-peak swing is
+  // far larger than the 2 F hysteresis band; the recorded amplitude (via Ku)
+  // must reflect that: Ku = 4d/(pi*a) with a >> 1 means Ku well below the
+  // hysteresis-only value of 4*0.5/(pi*1) ~= 0.64.
+  TEST_ASSERT_TRUE(at.ku() < 0.3f);
+  TEST_ASSERT_TRUE(at.kp() > 0.0f);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_converges_to_positive_gains);
   RUN_TEST(test_tuned_gains_keep_plant_bounded);
+  RUN_TEST(test_lag_plant_amplitude_not_underread);
   return UNITY_END();
 }

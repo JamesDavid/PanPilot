@@ -26,11 +26,11 @@ struct Target {
 };
 
 struct GuidanceInput {
-  float tempF;
-  float rateFPerMin;
-  uint8_t confidence;
-  PanPresence presence;
-  bool moved;
+  float tempF = 0;
+  float rateFPerMin = 0;
+  uint8_t confidence = 0;
+  PanPresence presence = PanPresence::UNCERTAIN;
+  bool moved = false;            // was uninitialized — zone-2 read it as UB
   bool stainlessHint = false;    // bare stainless read (reflective, unreliable)
   float lagMinutes = LAG_MINUTES_DEFAULT;
 };

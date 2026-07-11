@@ -47,6 +47,12 @@ class FeedbackStore {
     if (cnt < 0) cnt = 0;
     if (cnt > 0) memcpy(items_, p, (size_t)cnt * sizeof(Item));
     n_ = cnt;
+    // Sanity-clamp loaded factors: apply() can only ever produce [LO, HI], so
+    // anything outside (corrupt blob, NaN) resets to neutral rather than
+    // driving a near-instant or never-ending cook timer.
+    for (int i = 0; i < n_; ++i)
+      if (!(items_[i].factor >= LO && items_[i].factor <= HI))
+        items_[i].factor = 1.0f;
   }
 
  private:

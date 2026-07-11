@@ -28,11 +28,18 @@ int load_custom_foods(FoodStore& store) {
     for (JsonVariant v : o["sideSec"].as<JsonArray>())
       if (ns < FOODLIB_MAX_SIDES) sides[ns++] = (uint16_t)v.as<int>();
 
-    if (store.add(o["name"] | "Custom", o["variant"] | "",
+    const char* nm = o["name"] | "Custom";
+    const char* var = o["variant"] | "";
+    // SAFETY: an override of a seed food can never LOWER its USDA minimum —
+    // omitting safeInternalF in the JSON must not silently delete the
+    // verify-internal-temp cue (foodlib_seed.h marks the field safety-critical).
+    const int safeF = FoodStore::safeInternalFloor(
+        nm, var, (uint16_t)(o["safeInternalF"] | 0));
+    if (store.add(nm, var,
                   o["panLoF"] | 0, o["panHiF"] | 0,
                   sides, o["sides"] | ns,
                   o["refF"] | 0, o["compPct"] | 0,
-                  o["restSec"] | 0, o["safeInternalF"] | 0,
+                  o["restSec"] | 0, safeF,
                   o["flip"] | ""))
       ++n;
   }

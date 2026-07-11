@@ -57,11 +57,36 @@ static void test_rejects_bad_loop_and_hanging_cue(void) {
   TEST_ASSERT_FALSE(recipe_validate(cue, 1).ok);
 }
 
+static void test_rejects_nested_loops(void) {
+  // The engine has one loop counter; a LOOP inside another LOOP's body never
+  // terminates, so validation must reject it before it can be saved.
+  const RecipeStep nested[] = {
+    { StepType::HOLD, 400, 0, EXP_NONE, "" },      // 0
+    { StepType::TIMER, 10, 0, EXP_NONE, "" },      // 1
+    { StepType::LOOP, 1, 2, EXP_NONE, "" },        // 2: inner (body 1..1)
+    { StepType::LOOP, 0, 2, EXP_NONE, "" },        // 3: outer body contains 2
+    { StepType::END, 0, 0, EXP_NONE, "" },
+  };
+  RecipeVerdict v = recipe_validate(nested, 5);
+  TEST_ASSERT_FALSE(v.ok);
+  TEST_ASSERT_EQUAL_INT(3, v.badStep);
+  // Two sequential (non-overlapping) loops remain legal.
+  const RecipeStep seq[] = {
+    { StepType::TIMER, 10, 0, EXP_NONE, "" },      // 0
+    { StepType::LOOP, 0, 2, EXP_NONE, "" },        // 1: body 0..0
+    { StepType::TIMER, 10, 0, EXP_NONE, "" },      // 2
+    { StepType::LOOP, 2, 2, EXP_NONE, "" },        // 3: body 2..2
+    { StepType::END, 0, 0, EXP_NONE, "" },
+  };
+  TEST_ASSERT_TRUE(recipe_validate(seq, 5).ok);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_valid_program_passes);
   RUN_TEST(test_rejects_700_hold);
   RUN_TEST(test_rejects_butter_then_sear);
   RUN_TEST(test_rejects_bad_loop_and_hanging_cue);
+  RUN_TEST(test_rejects_nested_loops);
   return UNITY_END();
 }

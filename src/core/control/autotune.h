@@ -25,6 +25,10 @@ class RelayAutotuner {
   float tuSeconds() const { return tu_; }
 
   static constexpr int TARGET_CYCLES = 5;        // peaks to observe before solving
+  // Runaway guard: if the oscillation never settles (stable() keeps failing),
+  // stop pulsing the burner instead of relaying forever. running() goes false
+  // with converged() false — the caller must treat that as an abort.
+  static constexpr int MAX_CYCLES = 40;
 
  private:
   void solve();

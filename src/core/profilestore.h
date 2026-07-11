@@ -31,6 +31,7 @@ class ProfileStore {
     if (i < 0 || i >= n_) return;
     for (int k = i; k < n_ - 1; ++k) p_[k] = p_[k + 1];
     --n_;
+    if (i < active_) --active_;            // keep the SAME pan active post-shift
     if (active_ >= n_) active_ = n_ - 1;   // -1 when empty
   }
   void rename(int i, const char* name) {

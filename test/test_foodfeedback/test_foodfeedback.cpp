@@ -54,6 +54,20 @@ static void test_variants_isolated(void) {
   TEST_ASSERT_FLOAT_WITHIN(1e-6, 1.0f, s.factorFor("Bacon", "4-inch"));
 }
 
+static void test_loadblob_clamps_garbage(void) {
+  // A corrupt NVS blob must not drive the timer with absurd factors: anything
+  // outside [LO, HI] (including NaN, which fails both comparisons) resets to 1.
+  struct Item { uint32_t key; float factor; };
+  Item bad[3] = {{1u, 0.01f}, {2u, -4.0f}, {3u, 0.0f / 0.0f}};   // tiny, neg, NaN
+  FeedbackStore s;
+  s.loadBlob(bad, sizeof(bad));
+  TEST_ASSERT_EQUAL_INT(3, s.count());
+  // Keys are opaque hashes; verify via the blob that every factor is neutral.
+  const Item* out = (const Item*)s.blob();
+  for (int i = 0; i < 3; ++i)
+    TEST_ASSERT_FLOAT_WITHIN(1e-6, 1.0f, out[i].factor);
+}
+
 static void test_blob_roundtrip(void) {
   FeedbackStore s;
   s.apply("Pancakes", "4-inch", V::UNDER);
@@ -73,6 +87,7 @@ int main(int, char**) {
   RUN_TEST(test_perfect_is_noop);
   RUN_TEST(test_clamps);
   RUN_TEST(test_variants_isolated);
+  RUN_TEST(test_loadblob_clamps_garbage);
   RUN_TEST(test_blob_roundtrip);
   return UNITY_END();
 }

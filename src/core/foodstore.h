@@ -51,6 +51,21 @@ class FoodStore {
     return nullptr;
   }
 
+  // SAFETY (foodlib_seed.h header): safeInternalF is a USDA minimum and must
+  // never be lowered by a user override. When (name,variant) matches a seed
+  // entry, floor the requested value at the seed's. Callers building overrides
+  // (the /foods.json loader) must pass values through this.
+  static uint16_t safeInternalFloor(const char* name, const char* variant,
+                                    uint16_t requested) {
+    for (int i = 0; i < (int)FOODLIB_SEED_COUNT; ++i)
+      if (std::strcmp(FOODLIB_SEED[i].name, name) == 0 &&
+          std::strcmp(FOODLIB_SEED[i].variant, variant) == 0)
+        return requested > FOODLIB_SEED[i].safeInternalF
+                   ? requested
+                   : FOODLIB_SEED[i].safeInternalF;
+    return requested;
+  }
+
  private:
   struct Data { char name[NAME], variant[VARIANT], flip[FLIP]; };
   static void copy(char* dst, const char* src, int cap) {

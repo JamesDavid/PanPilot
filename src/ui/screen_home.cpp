@@ -480,10 +480,10 @@ void home_update(const UiState& s, bool useF) {
     lv_label_set_text(s_mode, buf);            // food name replaces the preset
   }
   if (cooking) {
-    const int total = s.food->sideSec[s.foodTimer.side - 1];
     const int rem = s.foodTimer.remainingSec;
-    const int pct = total > 0 ? (100 * (total - rem)) / total : 0;
-    lv_arc_set_value(s_arc, pct < 0 ? 0 : (pct > 100 ? 100 : pct));
+    // progressPct comes from the timer itself — the seed sideSec is wrong here
+    // whenever the ±8% personalization or the temp-compensation k is in play.
+    lv_arc_set_value(s_arc, s.foodTimer.progressPct);
     lv_obj_clear_flag(s_arc, LV_OBJ_FLAG_HIDDEN);
     const char* act = (s.foodTimer.side < s.food->sides) ? "FLIP" : "REMOVE";
     if (s.batchCount > 0)

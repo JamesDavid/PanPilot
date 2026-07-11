@@ -68,9 +68,57 @@ static void test_prep_too_hot_for_butter(void) {
   TEST_ASSERT_FALSE(o.prepTooHot);
 }
 
+static void test_one_touch_advances_one_gated_step(void) {
+  // Two consecutive touch-gated CUEs: a single tap must satisfy only the
+  // FIRST — the old engine re-read the same in.touch inside its resolution
+  // loop and blew through both.
+  static const RecipeStep steps[] = {
+    { StepType::CUE, 0, 0, EXP_TOUCH, "first" },
+    { StepType::CUE, 0, 0, EXP_TOUCH, "second" },
+    { StepType::END, 0, 0, EXP_NONE, "" },
+  };
+  RecipeProgram prog = { "two-cues", steps, 3 };
+  RecipeEngine e; e.start(&prog, 0);
+  RecipeOut o = e.step(mk(300, false, /*touch*/ true));   // one tap
+  TEST_ASSERT_EQUAL_INT(1, o.stepIndex);                  // sits on "second"
+  TEST_ASSERT_FALSE(o.finished);
+  o = e.step(mk(300, false, /*touch*/ true));             // second tap
+  TEST_ASSERT_TRUE(o.finished);
+}
+
+static void test_fat_clamp_survives_prep_advance(void) {
+  // SAFETY (§4.1.1): once the butter PREP is in play, the smoke clamp must be
+  // carried on every later tick — even when the confirming tap advances PREP
+  // within the same step() call (the old code returned the NEXT step's zeroed
+  // output, silently dropping the clamp).
+  int butter = 0;
+  for (int i = 0; i < preplib_count(); ++i)
+    if (strcmp(preplib_entry(i).name, "Butter") == 0) { butter = i; break; }
+  const PrepEntry& b = preplib_entry(butter);
+
+  RecipeStep steps[] = {
+    { StepType::PREP, butter, 0, EXP_NONE, "" },
+    { StepType::CUE, 0, 0, EXP_FOOD_ADDED, "add eggs" },   // NOT touch-gated
+    { StepType::END, 0, 0, EXP_NONE, "" },
+  };
+  RecipeProgram prog = { "butter", steps, 3 };
+  RecipeEngine e; e.start(&prog, 0);
+  // Confirm the butter with a tap while in the add window: PREP advances to
+  // the CUE inside this same call...
+  RecipeOut o = e.step(mk(b.addTempF_lo + 5, false, /*touch*/ true));
+  TEST_ASSERT_EQUAL_INT(1, o.stepIndex);
+  // ...and the clamp is still on the output.
+  TEST_ASSERT_EQUAL_INT((int)b.smokePointF - 25, o.fatClampWarnF);
+  // And on every subsequent (non-PREP) tick too.
+  o = e.step(mk(b.addTempF_lo + 5));
+  TEST_ASSERT_EQUAL_INT((int)b.smokePointF - 25, o.fatClampWarnF);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_smashburger_runs_four_batches);
   RUN_TEST(test_prep_too_hot_for_butter);
+  RUN_TEST(test_one_touch_advances_one_gated_step);
+  RUN_TEST(test_fat_clamp_survives_prep_advance);
   return UNITY_END();
 }

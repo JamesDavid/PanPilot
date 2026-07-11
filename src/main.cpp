@@ -495,9 +495,9 @@ void SensorTask(void*) {
         ri.now = nowm;
         rout = recipe.step(ri);
         g_recipe_setpoint = rout.setpointF;
-        // Latch the fat clamp once a PREP fat is in play; hold it for the cook.
-        if (rout.type == StepType::PREP && rout.fatClampWarnF > 0)
-          g_fatClampWarnF = rout.fatClampWarnF;
+        // The engine latches the fat clamp for the whole program (min smoke
+        // clamp across fats) and carries it on every tick's output.
+        g_fatClampWarnF = rout.fatClampWarnF;
         if (rout.finished) { g_recipe_active = false; g_recipe_setpoint = 0;
           g_fatClampWarnF = 0;
           Serial.println("[recipe] finished"); }
@@ -563,6 +563,9 @@ void SensorTask(void*) {
               g_autotune_state = 2; atActive = false;
               Serial.printf("[autotune] converged Ku=%.3f Tu=%.1fs\n",
                             autotune.ku(), autotune.tuSeconds());
+            } else if (!autotune.running()) {   // MAX_CYCLES runaway guard hit
+              atActive = false; g_autotune_state = 0;
+              Serial.println("[autotune] gave up - oscillation never settled");
             }
           } else {
             assistDuty = controller.update(gi.tempF, target.centerF, dt);
@@ -724,6 +727,15 @@ void on_preset_save(int editId, const char* name, int loF, int hiF, bool stainle
 void on_preset_delete(int id) {
   presets_remove((uint8_t)id);
   persist_custom_presets();
+  // Custom ids above the deleted one shift down by one — remap the active
+  // preset id (it is persisted, so a stale id survives reboots otherwise and
+  // the home label / recovery-monitor flag silently follow the wrong preset).
+  if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) == pdTRUE) {
+    if ((int)g_presetId == id) g_presetId = PRESET_GENERIC;  // band stays as-is
+    else if ((int)g_presetId > id && g_presetId >= PRESET_COUNT) --g_presetId;
+    save_target();
+    xSemaphoreGive(g_target_mtx);
+  }
 }
 
 // Absolute target set (used by the HA "target" number entity, M9).

@@ -51,7 +51,11 @@ struct RecipeOut {
   // PREP fat monitor (roadmap §4.1.1):
   bool prepReady = false;      // fat is in the add window and ready to add
   bool prepBelowWindow = false;// pan still too cool to add the fat
-  int fatClampWarnF = 0;       // hold the pan below this while fat is in it (0=none)
+  // Overheat clamp while fat is in the pan: LATCHED by the engine from the
+  // first PREP evaluation onward (min smoke clamp across all fats used), and
+  // carried on EVERY tick's output — a PREP that confirms-and-advances within
+  // one step() call used to drop it. 0 = no fat in play.
+  int fatClampWarnF = 0;
   const char* prepAdvice = ""; // the fat's ready hint
 };
 
@@ -70,6 +74,7 @@ class RecipeEngine {
   int loops_left_ = -1;     // for the current LOOP step
   bool in_window_ = false;  // PREP: pan currently in the fat's add window
   uint32_t window_enter_ = 0;
+  int fat_clamp_ = 0;       // latched fat smoke clamp (see RecipeOut)
 
   void enter(int i, uint32_t now);
 };

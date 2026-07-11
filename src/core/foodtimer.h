@@ -13,6 +13,9 @@ struct FoodTimerOut {
   enum Event : uint8_t { NONE, FLIP, REMOVE, REST_DONE } event = NONE;
   uint8_t side = 1;         // 1-based current side
   int remainingSec = 0;     // temp-compensated estimate for the current side
+  uint8_t progressPct = 0;  // doneness of the current side, 0..100 — the UI arc
+                            // must use this, NOT seed sideSec (which ignores the
+                            // timeFactor/k scaling and reads wrong)
   float k = 1.0f;           // current compensation factor (for the banner)
 };
 

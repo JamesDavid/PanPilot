@@ -40,21 +40,31 @@ FoodTimerOut FoodTimer::update(float panTempF, uint32_t now) {
   progress_ += dt * k;
   o.k = k;
   o.phase = FoodTimerOut::COOKING;
-  o.side = side_ + 1;
-  const float target = e_->sideSec[side_] * timeFactor_;   // personalized (§2.7)
-  o.remainingSec =
-      std::max(0, (int)((target - progress_) / std::max(k, 0.1f)));
+  float target = e_->sideSec[side_] * timeFactor_;   // personalized (§2.7)
 
   if (progress_ >= target) {
     if (side_ + 1 < e_->sides) {                 // more sides -> FLIP/turn
       o.event = FoodTimerOut::FLIP;
       ++side_; progress_ = 0;
-      o.side = side_ + 1;
+      target = e_->sideSec[side_] * timeFactor_; // report the NEW side below
     } else {                                     // last side done -> REMOVE
       o.event = FoodTimerOut::REMOVE;
       if (e_->restSec > 0) { resting_ = true; restProg_ = 0; }
       else done_ = true;
+      o.side = side_ + 1;
+      o.remainingSec = 0;
+      o.progressPct = 100;
+      return o;
     }
   }
+
+  // Side/remaining/percent all reflect the CURRENT side after any flip, and
+  // percent is progress vs the personalized target — not the seed time.
+  o.side = side_ + 1;
+  o.remainingSec =
+      std::max(0, (int)((target - progress_) / std::max(k, 0.1f)));
+  o.progressPct = (target > 0)
+      ? (uint8_t)std::min(100.0f, 100.0f * progress_ / target)
+      : 0;
   return o;
 }

@@ -43,6 +43,17 @@ static void test_remove_fixes_active(void) {
   TEST_ASSERT_NULL(s.activeProfile());
 }
 
+static void test_remove_below_active_keeps_same_pan(void) {
+  // Deleting an entry BELOW the active one shifts indices; the active index
+  // must follow so the SAME pan (not its neighbor) stays active.
+  ProfileStore s;
+  s.add(prof("a", 10)); s.add(prof("b", 20)); s.add(prof("c", 30));
+  s.setActive(1);                                 // "b" active
+  s.remove(0);                                    // delete "a"
+  TEST_ASSERT_EQUAL_STRING("b", s.activeProfile()->name);   // still b, not c
+  TEST_ASSERT_EQUAL_INT(0, s.active());
+}
+
 static void test_rename(void) {
   ProfileStore s;
   s.add(prof("Pan 1", 12));
@@ -68,6 +79,7 @@ int main(int, char**) {
   RUN_TEST(test_add_and_active);
   RUN_TEST(test_capacity);
   RUN_TEST(test_remove_fixes_active);
+  RUN_TEST(test_remove_below_active_keeps_same_pan);
   RUN_TEST(test_rename);
   RUN_TEST(test_blob_roundtrip);
   return UNITY_END();

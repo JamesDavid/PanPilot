@@ -186,6 +186,7 @@ int main(int argc, char** argv) {
     u.foodTimer.phase = FoodTimerOut::COOKING;
     u.foodTimer.side = 1;
     u.foodTimer.remainingSec = 62;
+    u.foodTimer.progressPct = 59;      // (150-62)/150 — the arc reads this now
     u.foodTimer.k = 1.0f;
     u.batchCount = 1;
     lv_scr_load(ui::home_create());

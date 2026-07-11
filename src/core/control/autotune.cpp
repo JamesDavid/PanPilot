@@ -43,20 +43,24 @@ float RelayAutotuner::update(float tempF, uint32_t now) {
   if (tempF < curMin_) curMin_ = tempF;
 
   const bool isHigh = output_ == dHigh_;
-  if (isHigh != wasHigh) {                     // relay switched
-    if (!isHigh) {                             // finished a heating half-cycle
-      const float amp = curMax_ - curMin_;     // peak-to-peak this cycle
-      amp_[ampN_ % N] = amp; ++ampN_;
-      if (havePeak_) {
-        per_[perN_ % N] = (now - lastPeakMs_) / 1000.0f; ++perN_;
-      }
-      lastPeakMs_ = now; havePeak_ = true;
-      ++cycles_;
-      if (cycles_ >= TARGET_CYCLES) solve();
+  if (isHigh != wasHigh && !isHigh) {          // heat-off edge: full cycle done
+    // The amplitude window spans one FULL cycle (heat-off to heat-off), so on
+    // a plant with lag it contains the overshoot peak that lands AFTER the
+    // switch. The old heating-window-only recording discarded that peak,
+    // under-reading the amplitude and inflating Ku. Extrema are reset ONLY
+    // here — never at the heat-on edge.
+    const float amp = curMax_ - curMin_;
+    amp_[ampN_ % N] = amp; ++ampN_;
+    if (havePeak_) {
+      per_[perN_ % N] = (now - lastPeakMs_) / 1000.0f; ++perN_;
     }
-    curMax_ = tempF; curMin_ = tempF;          // reset extrema for next half-cycle
+    lastPeakMs_ = now; havePeak_ = true;
+    ++cycles_;
+    if (cycles_ >= TARGET_CYCLES) solve();
+    if (running_ && cycles_ >= MAX_CYCLES) running_ = false;    // never settled
+    curMax_ = tempF; curMin_ = tempF;
   }
-  return output_;
+  return running_ ? output_ : 0.0f;            // aborted/idle tuner heats nothing
 }
 
 void RelayAutotuner::solve() {

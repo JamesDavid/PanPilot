@@ -34,6 +34,11 @@ RecipeVerdict recipe_validate(const RecipeStep* steps, int n, bool brownOnPurpos
       case StepType::LOOP:
         if (s.a < 0 || s.a >= i) { fail(i, "loop must point to an earlier step"); return v; }
         if (s.b < 1 || s.b > 20) { fail(i, "loop count must be 1..20"); return v; }
+        // The engine has ONE loop counter: a LOOP whose body contains another
+        // LOOP never terminates (the inner one steals + resets the counter).
+        for (int j = s.a; j < i; ++j)
+          if (steps[j].type == StepType::LOOP)
+            { fail(i, "nested loops are not supported"); return v; }
         break;
       default: break;
     }
