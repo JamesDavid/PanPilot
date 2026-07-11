@@ -42,6 +42,10 @@ class FrameAnalyzer {
   uint32_t last_present_ms_ = 0;
   bool     ever_present_ = false;
   bool     prev_hot_ = false;    // last tracked pan was hot (obstruction gate)
+  bool     tracked_ = false;     // last known pan position is valid — survives
+  float    track_cx_ = 0;        // missed frames (unlike have_prev_, which is
+  float    track_cy_ = 0;        // the centroid-smoothing state); cleared once
+                                 // ABSENT is finally declared
   bool     locked_ = false;
   float    lock_cx_ = 0, lock_cy_ = 0;
 };

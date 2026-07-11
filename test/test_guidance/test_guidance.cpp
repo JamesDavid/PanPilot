@@ -87,6 +87,28 @@ static void test_stainless_suppresses_toohot_below_300(void) {
                                         int(run(g, t, reallyHot, 3).state)); }
 }
 
+static void test_alternating_classification_cannot_starve(void) {
+  // Stainless spread hovering at the threshold makes classify() alternate
+  // TOO_HOT / LOW_CONFIDENCE every tick. Each flip used to reset the 2-tick
+  // confirm counter, freezing state_ at the stale pre-overheat value forever —
+  // no alarm while the pan sat above warn. The starvation guard must adopt
+  // one of the live classifications within 2x the hysteresis window.
+  GuidanceEngine g;
+  Target t; t.setCenter(180);          // warn 280, so 282 °F is over warn
+  run(g, t, mk(180, 0), 4);            // settle in READY (the stale state)
+  TEST_ASSERT_EQUAL(int(GuidanceState::READY), int(g.state()));
+  bool leftReady = false;
+  for (int i = 0; i < 8; ++i) {        // alternate the two overheat readings
+    GuidanceInput in = mk(282, 0);
+    in.stainlessHint = (i & 1);        // flickering stainless signature
+    g.step(in, t, g_now); g_now += 250;
+    if (g.state() != GuidanceState::READY) { leftReady = true; break; }
+  }
+  TEST_ASSERT_TRUE(leftReady);
+  TEST_ASSERT_TRUE(g.state() == GuidanceState::TOO_HOT ||
+                   g.state() == GuidanceState::LOW_CONFIDENCE);
+}
+
 static void test_no_pan(void) {
   GuidanceEngine g; Target t = tgt350();
   GuidanceOutput o = run(g, t, mk(0, 0, 0, PanPresence::ABSENT), 3);
@@ -116,6 +138,7 @@ int main(int, char**) {
   RUN_TEST(test_turn_down_soon);
   RUN_TEST(test_too_hot_alarm_cadence);
   RUN_TEST(test_stainless_suppresses_toohot_below_300);
+  RUN_TEST(test_alternating_classification_cannot_starve);
   RUN_TEST(test_no_pan);
   RUN_TEST(test_ready_rearms_after_leaving);
   UNITY_END();

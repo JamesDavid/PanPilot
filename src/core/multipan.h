@@ -18,4 +18,5 @@ class MultiPanTracker {
  private:
   bool have_[2] = {false, false};
   float cx_[2] = {0, 0}, cy_[2] = {0, 0};
+  uint8_t miss_[2] = {0, 0};   // consecutive frames a zone went unmatched
 };

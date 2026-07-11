@@ -11,7 +11,7 @@ void Target::setCenter(int c) {
 
 void GuidanceEngine::reset() {
   state_ = pending_ = GuidanceState::IDLE;
-  pending_ticks_ = 0; ready_armed_ = true; ever_ready_ = false;
+  pending_ticks_ = 0; away_ticks_ = 0; ready_armed_ = true; ever_ready_ = false;
   last_toohot_ms_ = 0;
 }
 
@@ -62,9 +62,19 @@ GuidanceOutput GuidanceEngine::step(const GuidanceInput& in, const Target& t,
   if (raw != state_) {
     if (raw == pending_) ++pending_ticks_;
     else { pending_ = raw; pending_ticks_ = 1; }
-    if (pending_ticks_ >= GUIDANCE_HYSTERESIS_TICKS) state_ = raw;
+    // Starvation guard: an input ALTERNATING between two non-current states
+    // (e.g. TOO_HOT / LOW_CONFIDENCE on flickering stainless) resets the
+    // pending count every tick and would freeze state_ forever — while the
+    // pan is genuinely over the warn threshold and no alarm fires. After
+    // 2x the window away from state_, adopt the latest classification.
+    ++away_ticks_;
+    if (pending_ticks_ >= GUIDANCE_HYSTERESIS_TICKS ||
+        away_ticks_ >= 2 * GUIDANCE_HYSTERESIS_TICKS) {
+      state_ = raw;
+      away_ticks_ = 0;
+    }
   } else {
-    pending_ = raw; pending_ticks_ = 0;
+    pending_ = raw; pending_ticks_ = 0; away_ticks_ = 0;
   }
 
   // Re-arm the READY chime once we leave the band by the hysteresis margin.

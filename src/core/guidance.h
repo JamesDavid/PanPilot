@@ -53,6 +53,7 @@ class GuidanceEngine {
   GuidanceState prev_state_ = GuidanceState::IDLE;   // for alert edge-detect
   GuidanceState pending_ = GuidanceState::IDLE;
   int pending_ticks_ = 0;
+  int away_ticks_ = 0;    // consecutive ticks raw != state_ (starvation guard)
   bool ready_armed_ = true;       // may chime on next READY entry
   bool ever_ready_ = false;
   uint32_t last_toohot_ms_ = 0;

@@ -121,6 +121,45 @@ static void test_warm_mass_without_prior_pan(void) {
   TEST_ASSERT_NOT_EQUAL(int(PanPresence::OBSTRUCTED), int(r.presence));
 }
 
+static void test_obstruction_survives_one_frame_flicker(void) {
+  FrameAnalyzer fa;
+  fa.process(make_disc(16, 12, 6, 200.0f, 100));            // hot pan tracked
+  TEST_ASSERT_EQUAL(int(PanPresence::OBSTRUCTED),
+                    int(fa.process(make_uniform(34.0f, 300)).presence));
+  // Cover flickers below the warm window for ONE frame (reads near-ambient)...
+  fa.process(make_uniform(27.0f, 550));
+  // ...then reads warm again: detection must still work (the old gate on the
+  // smoothing state was killed by the flicker and never recovered).
+  TEST_ASSERT_EQUAL(int(PanPresence::OBSTRUCTED),
+                    int(fa.process(make_uniform(34.0f, 800)).presence));
+}
+
+static void test_long_obstruction_no_snap_absent(void) {
+  FrameAnalyzer fa;
+  fa.process(make_disc(16, 12, 6, 200.0f, 100));            // hot pan tracked
+  // Obstructed well past the ABSENT hysteresis window...
+  uint32_t t = 300;
+  for (int i = 0; i < 6; ++i, t += 1000)
+    TEST_ASSERT_EQUAL(int(PanPresence::OBSTRUCTED),
+                      int(fa.process(make_uniform(34.0f, t)).presence));
+  // ...then ONE frame where the cover ratio dips: must be UNCERTAIN (grace
+  // window restarts from the obstruction), NOT an instant ABSENT.
+  TEST_ASSERT_EQUAL(int(PanPresence::UNCERTAIN),
+                    int(fa.process(make_uniform(27.0f, t)).presence));
+}
+
+static void test_removed_pan_with_warm_corner_goes_absent(void) {
+  FrameAnalyzer fa;
+  fa.process(make_disc(16, 12, 6, 200.0f, 100));            // hot pan tracked
+  // Pan removed; some OTHER faint warmth sits far away (residual burner ring
+  // at 34 C — below the primary bg+10 threshold, above the fallback's amb+8).
+  // The cooling fallback must NOT adopt it as "the pan" — after the hysteresis
+  // window this is ABSENT. (A hotter blob would be a legitimate new pan.)
+  ThermalFrame f = make_disc(28, 4, 3, 34.0f, 100 + PRESENCE_ABSENT_MS + 500);
+  PanReading r = fa.process(f);
+  TEST_ASSERT_EQUAL(int(PanPresence::ABSENT), int(r.presence));
+}
+
 static void test_tap_to_lock_picks_locked_blob(void) {
   // Two pans: a big one left (8,12) and a smaller one right (26,6).
   ThermalFrame f = make_disc(8, 12, 6, 200.0f, 100);
@@ -169,6 +208,9 @@ int main(int, char**) {
   RUN_TEST(test_removed_pan_is_absent_not_obstructed);
   RUN_TEST(test_cooling_pan_not_obstructed);
   RUN_TEST(test_warm_mass_without_prior_pan);
+  RUN_TEST(test_obstruction_survives_one_frame_flicker);
+  RUN_TEST(test_long_obstruction_no_snap_absent);
+  RUN_TEST(test_removed_pan_with_warm_corner_goes_absent);
   RUN_TEST(test_tap_to_lock_picks_locked_blob);
   RUN_TEST(test_stainless_signature);
   return UNITY_END();

@@ -436,10 +436,20 @@ void SensorTask(void*) {
       }
       const bool foodCue = nowm < foodCueUntil;
 
-      // Multi-pan zone 2 (M12): independent guidance on a second burner.
+      // Multi-pan zone 2 (M12): independent guidance on a second burner. The
+      // gate is zone-1-independent (zt[1] presence, not the pan count) so the
+      // second cook survives the primary pan being lifted away, and debounced
+      // over 3 frames so a momentary blob split can't flash the split screen.
       PanReading zt[2];
-      const int npan = tracker.process(frame, zt);
-      const bool z2 = npan >= 2 && zt[1].presence != PanPresence::ABSENT;
+      tracker.process(frame, zt);
+      const bool z2raw = zt[1].presence != PanPresence::ABSENT;
+      static uint8_t z2on = 0, z2off = 0;
+      static bool z2steady = false;
+      if (z2raw) { z2off = 0; if (z2on < 255) ++z2on; }
+      else       { z2on = 0;  if (z2off < 255) ++z2off; }
+      if (!z2steady && z2on >= 3) z2steady = true;
+      if (z2steady && z2off >= 3) z2steady = false;
+      const bool z2 = z2steady && z2raw;
       GuidanceState z2g = GuidanceState::IDLE;
       float z2temp = 0;
       const FoodEntry* food2 = g_food2;
@@ -452,6 +462,8 @@ void SensorTask(void*) {
         gi2.rateFPerMin = model2.rateFPerMin();
         gi2.confidence = zt[1].confidence;
         gi2.presence = zt[1].presence;
+        gi2.moved = zt[1].moved;
+        gi2.stainlessHint = zt[1].stainlessHint;   // zone-2 TOO_HOT suppression
         gi2.lagMinutes = g_applied_lag;
         z2g = guidance2.step(gi2, target2, nowm).state;
         z2temp = model2.displayTempC();

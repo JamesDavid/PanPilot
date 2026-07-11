@@ -47,7 +47,7 @@ float percentile(float* vals, int n, int pct) {
 
 void FrameAnalyzer::reset() {
   have_prev_ = false; ever_present_ = false; last_present_ms_ = 0;
-  prev_hot_ = false; locked_ = false;
+  prev_hot_ = false; tracked_ = false; locked_ = false;
 }
 void FrameAnalyzer::lockRoi(float cx, float cy) {
   locked_ = true; lock_cx_ = cx; lock_cy_ = cy;
@@ -102,12 +102,14 @@ PanReading FrameAnalyzer::process(const ThermalFrame& f) {
   int blobId = pick_largest(label);
 
   // Obstruction (§6.4): a hand or cool utensil over a previously-hot pan strips
-  // the hot pixels but leaves a warm, non-ambient, non-hot mass at the last ROI.
-  // Checked before the cooling fallback (which would otherwise grab the warm
-  // cover and mislabel it a pan). Distinct from a removed pan (scene -> ambient)
-  // and a cooling pan (still primary-detected while > ~45 °C).
-  if (blobId < 0 && ever_present_ && have_prev_ && prev_hot_) {
-    const int cr = (int)(prev_cy_ + 0.5f), cc0 = (int)(prev_cx_ + 0.5f);
+  // the hot pixels but leaves a warm, non-ambient, non-hot mass at the last
+  // known position. Gated on tracked_ (which SURVIVES missed frames — a single
+  // flicker of the cover below the warm window no longer disables detection
+  // for the rest of the obstruction, as gating on the smoothing state did).
+  // Checked before the cooling fallback, which would otherwise grab the warm
+  // cover and mislabel it a pan.
+  if (blobId < 0 && tracked_ && prev_hot_) {
+    const int cr = (int)(track_cy_ + 0.5f), cc0 = (int)(track_cx_ + 0.5f);
     int warm = 0, total = 0;
     for (int dr = -2; dr <= 2; ++dr)
       for (int dc = -2; dc <= 2; ++dc) {
@@ -119,26 +121,40 @@ PanReading FrameAnalyzer::process(const ThermalFrame& f) {
       }
     if (total > 0 && warm >= (int)(total * OBSTRUCT_COVER_FRAC)) {
       r.presence = PanPresence::OBSTRUCTED;
-      r.roiCx = prev_cx_; r.roiCy = prev_cy_;   // hold the last known location
+      r.roiCx = track_cx_; r.roiCy = track_cy_;  // hold the last known location
       r.confidence = 0;
-      return r;                                  // keep have_prev_/prev_hot_
+      // The pan is still believed there — refresh the presence clock so a long
+      // obstruction can't snap straight to ABSENT on one below-window frame.
+      last_present_ms_ = f.t_ms;
+      return r;                                  // keep tracked_/prev_hot_
     }
   }
 
   // Cooling-pan fallback (§6.1): a cooling pan can drop below the delta; if we
-  // were tracking one, re-threshold at ambient+cooling near the last position.
-  if (blobId < 0 && ever_present_) {
+  // were tracking one, re-threshold at ambient+cooling NEAR THE LAST POSITION.
+  // The distance gate is what makes "near" true — without it any residual
+  // warmth anywhere in view (burner ring, a hand) became "the pan" and ABSENT
+  // never fired after a real removal.
+  if (blobId < 0 && tracked_) {
     for (int i = 0; i < N; ++i)
       cand[i] = px[i] > f.ambientC + cfg_.coolingAbsDelta;
     blobId = pick_largest(label);
+    if (blobId >= 0) {
+      int cnt = 0; float sx = 0, sy = 0;
+      for (int rr = 0; rr < R; ++rr)
+        for (int cc = 0; cc < C; ++cc)
+          if (label[idx(rr, cc)] == blobId) { ++cnt; sx += cc; sy += rr; }
+      const float d = std::hypot(sx / cnt - track_cx_, sy / cnt - track_cy_);
+      if (d > 8.0f) blobId = -1;   // warm thing elsewhere is not our pan
+    }
   }
 
   if (blobId < 0) {
     // No pan. ABSENT only after the hysteresis window (§6.3).
-    r.presence = (!ever_present_ ||
-                  (f.t_ms - last_present_ms_) > cfg_.absentMs)
-                     ? PanPresence::ABSENT
-                     : PanPresence::UNCERTAIN;
+    const bool absent = !ever_present_ ||
+                        (f.t_ms - last_present_ms_) > cfg_.absentMs;
+    r.presence = absent ? PanPresence::ABSENT : PanPresence::UNCERTAIN;
+    if (absent) { tracked_ = false; prev_hot_ = false; }  // position expires
     have_prev_ = false;
     return r;
   }
@@ -206,6 +222,9 @@ PanReading FrameAnalyzer::process(const ThermalFrame& f) {
   ever_present_ = true;
   last_present_ms_ = f.t_ms;
   prev_hot_ = r.panTempC > OBSTRUCT_WAS_HOT_C;   // gate for obstruction detection
+  tracked_ = true;                               // raw (unsmoothed) position —
+  track_cx_ = sx / count;                        // survives missed frames until
+  track_cy_ = sy / count;                        // ABSENT finally declares
   r.presence = (r.confidence < cfg_.uncertainConf) ? PanPresence::UNCERTAIN
                                                    : PanPresence::PRESENT;
   return r;

@@ -64,6 +64,13 @@ PanReading readBlob(const ThermalFrame& f, const int* label, int blobId,
   const float spread = pmax - pmin;
   int conf = (int)(100.0f * (0.5f * std::min(1.0f, count / 60.0f) +
                              0.5f * std::max(0.0f, 1.0f - spread / 50.0f)));
+  // Same reflective-stainless signature as frame_analysis (§6.3/§7.5): without
+  // it, zone 2 never got the stainless TOO_HOT suppression and the same pan
+  // that reads trend-only on zone 1 would false-alarm on zone 2.
+  if (spread > STAINLESS_SPREAD_C && r.panTempC < 150.0f) {
+    r.stainlessHint = true;
+    conf = std::min(conf, (int)STAINLESS_CONF_CAP);
+  }
   r.confidence = (uint8_t)std::max(0, std::min(100, conf));
   r.presence = r.confidence < CONFIDENCE_UNCERTAIN ? PanPresence::UNCERTAIN
                                                    : PanPresence::PRESENT;
@@ -71,7 +78,10 @@ PanReading readBlob(const ThermalFrame& f, const int* label, int blobId,
 }
 }  // namespace
 
-void MultiPanTracker::reset() { have_[0] = have_[1] = false; }
+void MultiPanTracker::reset() {
+  have_[0] = have_[1] = false;
+  miss_[0] = miss_[1] = 0;
+}
 
 int MultiPanTracker::process(const ThermalFrame& f, PanReading out[2]) {
   out[0] = PanReading{}; out[1] = PanReading{};
@@ -102,6 +112,14 @@ int MultiPanTracker::process(const ThermalFrame& f, PanReading out[2]) {
     if (best[b] >= 0 && bestSz[b] >= MIN_PAN_PIXELS)
       found[nf++] = readBlob(f, label, best[b], bg);
 
+  // A momentarily split blob (spatula across one pan) yields two fragments a
+  // few pixels apart; without a separation gate the second fragment claimed a
+  // free zone and phantom zone-2 guidance/timers started against the SAME pan.
+  // Real adjacent burners are far wider apart than this.
+  if (nf == 2 && std::hypot(found[0].roiCx - found[1].roiCx,
+                            found[0].roiCy - found[1].roiCy) < 6.0f)
+    nf = 1;   // keep the larger fragment (found[0] came from the bigger blob)
+
   // Associate found blobs to persistent zones by nearest previous centroid.
   bool usedZone[2] = {false, false};
   bool assigned[2] = {false, false};
@@ -115,18 +133,26 @@ int MultiPanTracker::process(const ThermalFrame& f, PanReading out[2]) {
     if (bestZ >= 0 && bestD < 8.0f) {
       out[bestZ] = found[i]; usedZone[bestZ] = true; assigned[i] = true;
       cx_[bestZ] = found[i].roiCx; cy_[bestZ] = found[i].roiCy;
+      miss_[bestZ] = 0;
     }
   }
-  // Place any unassigned blobs into free zones (new pans).
+  // Place any unassigned blobs into free zones (new pans). A zone counts as
+  // free only once its dropout hysteresis has expired, so a one-frame miss of
+  // pan A can't hand its zone to pan B.
   for (int i = 0; i < nf; ++i) {
     if (assigned[i]) continue;
     for (int z = 0; z < 2; ++z)
-      if (!usedZone[z]) {
+      if (!usedZone[z] && !have_[z]) {
         out[z] = found[i]; usedZone[z] = true; have_[z] = true;
         cx_[z] = found[i].roiCx; cy_[z] = found[i].roiCy;
+        miss_[z] = 0;
         break;
       }
   }
-  for (int z = 0; z < 2; ++z) if (!usedZone[z]) have_[z] = false;
+  // Dropout hysteresis: a zone survives up to 3 consecutive unmatched frames
+  // (its reading is ABSENT meanwhile) before its identity is released — one
+  // noisy frame no longer reshuffles which pan is which.
+  for (int z = 0; z < 2; ++z)
+    if (have_[z] && !usedZone[z] && ++miss_[z] >= 3) { have_[z] = false; miss_[z] = 0; }
   return nf;
 }
