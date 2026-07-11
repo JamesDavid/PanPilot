@@ -894,7 +894,10 @@ void setup() {
                   m.used_pct, m.frag_pct, (unsigned)m.free_biggest_size); }
 
   g_snap_mtx = xSemaphoreCreateMutex();
-  xTaskCreatePinnedToCore(SensorTask, "sensor", 8192, nullptr, 2, nullptr, 0);
+  // 16 KB stack: SensorTask's locals include a 3 KB ThermalFrame plus the
+  // guidance/recovery/timer/recipe/autotune engines — 8 KB tripped the stack
+  // canary on real hardware (bench-found boot loop).
+  xTaskCreatePinnedToCore(SensorTask, "sensor", 16384, nullptr, 2, nullptr, 0);
 
 #if defined(ENABLE_WIFI)
   net::begin();   // Wi-Fi is a convenience mirror; cooking works without it
