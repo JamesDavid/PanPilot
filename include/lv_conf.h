@@ -17,11 +17,13 @@
 #define LV_MEM_CUSTOM         0
 // LVGL heap. The classic ESP32 (basic board) has much tighter contiguous DRAM
 // than the S3, and M1's frame-analysis scratch buffers eat into it — give it a
-// smaller heap; the S3 keeps the roomy one.
+// smaller heap. The S3 gets 64 KB: the full screen set (created lazily, never
+// destroyed) plus a 1800-pt Last Cook chart estimates at ~40 KB steady-state,
+// which made 48 KB marginal. Boot logs lv_mem usage — bench-check it.
 #ifdef BOARD_CROWPANEL35_BASIC
   #define LV_MEM_SIZE         (26U * 1024U)
 #else
-  #define LV_MEM_SIZE         (48U * 1024U)
+  #define LV_MEM_SIZE         (64U * 1024U)
 #endif
 
 // ---- HAL / tick ----

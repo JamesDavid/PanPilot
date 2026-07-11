@@ -81,17 +81,15 @@ void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
   s_learnCb = onLearn;
   s_foodCb = onFood;
   s_recipeCb = onRecipe;
+  // LAZY CREATION: only the home screen is built at boot. Every other screen
+  // is created on first show. Eagerly building all ~11 screens (~260 LVGL
+  // objects) exhausted the basic board's 26 KB LVGL heap during init — and
+  // LV_USE_ASSERT_MALLOC's default handler is while(1), i.e. a boot hang. The
+  // simulator renders one screen per scene, so screenshots never exercised
+  // the all-at-once footprint. Screens are still never destroyed; worst-case
+  // steady state (user visits everything) is logged at boot + tracked in
+  // HARDWARE_TEST.
   s_home = home_create();
-  s_thermal = thermal_create();
-  s_presets = presets_create();
-  s_learn = learn_create();
-  s_lastcook = lastcook_create();
-  s_foods = foods_create();
-  s_settings = settings_create();
-  s_preset_edit = preset_edit_create();
-  s_assist = assist_create();
-  s_onboarding = onboarding_create();
-  s_autotune = autotune_create();
   lv_scr_load(s_home);
   s_active = HOME;
 }
@@ -116,9 +114,10 @@ void set_profiles(const ProfileStore* store, ProfileCb onProfile) {
   s_profileCb = onProfile;
 }
 void show_profiles() {
-  profiles_create();
+  lv_obj_t* scr = profiles_create();   // idempotent; create once
+  if (!scr) return;                    // heap-exhausted create: stay put
   if (s_profiles) profiles_update(*s_profiles);
-  lv_scr_load(profiles_create());
+  lv_scr_load(scr);
   s_active = PROFILES;
 }
 void profile_cmd(uint8_t cmd, int idx) {
@@ -152,7 +151,7 @@ void set_food2_cb(FoodCb onFood2) { s_food2Cb = onFood2; }
 void food_feedback(uint8_t verdict) { if (s_feedbackCb) s_feedbackCb(verdict); }
 
 void show_home() { if (s_home) { lv_scr_load(s_home); s_active = HOME; } }
-void show_thermal() { if (s_thermal) { lv_scr_load(s_thermal); s_active = THERMAL; } }
+void show_thermal() { if (!s_thermal) s_thermal = thermal_create(); lv_scr_load(s_thermal); s_active = THERMAL; }
 
 void show_idle() {
   if (!s_idle) {
@@ -173,13 +172,13 @@ void show_idle() {
   s_active = IDLE_SCREEN;
 }
 
-void show_learn() { if (s_learn) { lv_scr_load(s_learn); s_active = LEARN; } }
-void show_lastcook() { if (s_lastcook) { lv_scr_load(s_lastcook); s_active = LASTCOOK; } }
-void show_foods() { if (s_foods) { s_foodZone = 0; lv_scr_load(s_foods); s_active = FOODS; } }
-void show_foods_zone2() { if (s_foods) { s_foodZone = 1; lv_scr_load(s_foods); s_active = FOODS; } }
+void show_learn() { if (!s_learn) s_learn = learn_create(); lv_scr_load(s_learn); s_active = LEARN; }
+void show_lastcook() { if (!s_lastcook) s_lastcook = lastcook_create(); lv_scr_load(s_lastcook); s_active = LASTCOOK; }
+void show_foods() { if (!s_foods) s_foods = foods_create(); s_foodZone = 0; lv_scr_load(s_foods); s_active = FOODS; }
+void show_foods_zone2() { if (!s_foods) s_foods = foods_create(); s_foodZone = 1; lv_scr_load(s_foods); s_active = FOODS; }
 void cook_a_food() { (s_presetZone == 1) ? show_foods_zone2() : show_foods(); }
-void show_presets() { if (s_presets) { s_presetZone = 0; presets_refresh(); lv_scr_load(s_presets); s_active = PRESETS; } }
-void show_presets_zone2() { if (s_presets) { s_presetZone = 1; presets_refresh(); lv_scr_load(s_presets); s_active = PRESETS; } }
+void show_presets() { if (!s_presets) s_presets = presets_create(); s_presetZone = 0; presets_refresh(); lv_scr_load(s_presets); s_active = PRESETS; }
+void show_presets_zone2() { if (!s_presets) s_presets = presets_create(); s_presetZone = 1; presets_refresh(); lv_scr_load(s_presets); s_active = PRESETS; }
 void show_settings() {
   if (!s_settings) s_settings = settings_create();
   settings_refresh();

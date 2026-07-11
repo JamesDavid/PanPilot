@@ -885,6 +885,14 @@ void setup() {
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot
 
+  // LVGL heap check (screens are lazy-created; the worst case grows as screens
+  // are visited). Bench-watch this line — free_biggest shrinking toward zero
+  // means LV_MEM_SIZE needs raising for this board.
+  { lv_mem_monitor_t m;
+    lv_mem_monitor(&m);
+    Serial.printf("[lvgl] heap used %u%% frag %u%% biggest %u\n",
+                  m.used_pct, m.frag_pct, (unsigned)m.free_biggest_size); }
+
   g_snap_mtx = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(SensorTask, "sensor", 8192, nullptr, 2, nullptr, 0);
 

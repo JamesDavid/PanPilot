@@ -82,10 +82,15 @@ lv_obj_t* settings_create() {
   s_val_sound = mk_row(list, "Sound", sound_cb);
   s_val_bright = mk_row(list, "Brightness", bright_cb);
   s_val_tz = mk_row(list, "Time zone", tz_cb);
+#if defined(ENABLE_WIFI) || defined(PANPILOT_SIM)
+  // Autopilot + autotune need the MQTT actuator — no point offering them (or
+  // paying their screens' LVGL heap) on the Wi-Fi-less basic build. The sim
+  // keeps them so the screenshots show the full set.
   lv_obj_t* av = mk_row(list, "Autopilot", assist_cb);
   lv_label_set_text(av, "Set up  " LV_SYMBOL_RIGHT);
   lv_obj_t* at = mk_row(list, "PID autotune", autotune_cb);
   lv_label_set_text(at, "Tune  " LV_SYMBOL_RIGHT);
+#endif
   return s_screen;
 }
 
