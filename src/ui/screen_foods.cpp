@@ -40,22 +40,30 @@ lv_obj_t* foods_create() {
   lv_label_set_text(dl, "Done");
   lv_obj_center(dl);
 
-  // Recipe entry (M19) — its own full-width row below the header (no overlap).
-  lv_obj_t* rec = lv_btn_create(scr);
-  lv_obj_set_size(rec, 464, 32);
-  lv_obj_align(rec, LV_ALIGN_TOP_MID, 0, 42);
-  lv_obj_set_style_bg_color(rec, lv_color_hex(0x2E5AAC), 0);
-  lv_obj_add_event_cb(rec, recipe_cb, LV_EVENT_CLICKED, nullptr);
-  lv_obj_t* rl = lv_label_create(rec);
-  lv_label_set_text(rl, LV_SYMBOL_PLAY "  Recipe: Smash Burgers x4");
-  lv_obj_center(rl);
-
   // Scrollable food list — two-line rows so nothing truncates.
   lv_obj_t* list = lv_list_create(scr);
-  lv_obj_set_size(list, 468, 232);
+  lv_obj_set_size(list, 468, 272);
   lv_obj_align(list, LV_ALIGN_BOTTOM_MID, 0, -6);
   lv_obj_set_style_bg_color(list, lv_color_hex(0x101418), 0);
   lv_obj_set_style_pad_row(list, 4, 0);
+
+  // The built-in recipe PROGRAM (M19) is the first row of the same list —
+  // visually distinct (blue) but scrolls with everything else. It used to be
+  // a permanent button pinned above the list, which read as a separate,
+  // confusing UI band (bench feedback). Foods below it are single-food
+  // timers; this row runs the multi-step sequencer.
+  {
+    lv_obj_t* row = lv_btn_create(list);
+    lv_obj_set_width(row, lv_pct(100));
+    lv_obj_set_height(row, 48);
+    lv_obj_set_style_bg_color(row, lv_color_hex(0x2E5AAC), 0);
+    lv_obj_set_style_radius(row, 8, 0);
+    lv_obj_add_event_cb(row, recipe_cb, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t* rl = lv_label_create(row);
+    lv_label_set_text(rl, LV_SYMBOL_PLAY "  Recipe program: Smash Burgers x4");
+    lv_obj_set_style_text_font(rl, &lv_font_montserrat_14, 0);
+    lv_obj_align(rl, LV_ALIGN_LEFT_MID, 4, 0);
+  }
 
   for (int i = 0; i < foodlib_count(); ++i) {
     const FoodEntry& f = foodlib_entry(i);

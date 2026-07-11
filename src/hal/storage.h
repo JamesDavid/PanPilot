@@ -19,6 +19,8 @@ bool storage_get_onboarded(bool def = false);     // first-boot wizard completed
 void storage_set_onboarded(bool done);
 int  storage_get_timezone(int def = 0);           // index into TIMEZONES (NTP clock)
 void storage_set_timezone(int idx);
+bool storage_get_stainless(bool def = false);     // global "stainless pan" toggle
+void storage_set_stainless(bool on);
 bool storage_get_gains(float& kp, float& ki, float& kd);  // PID autotune result
 void storage_set_gains(float kp, float ki, float kd);
 // Target band + last preset (base spec §7.3, §10).

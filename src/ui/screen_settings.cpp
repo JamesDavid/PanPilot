@@ -13,14 +13,78 @@ lv_obj_t* s_val_unit = nullptr;
 lv_obj_t* s_val_sound = nullptr;
 lv_obj_t* s_val_bright = nullptr;
 lv_obj_t* s_val_tz = nullptr;
+lv_obj_t* s_val_stainless = nullptr;
+
+// Time-zone picker (own screen): a tap-to-cycle row inside a scrollable list
+// was bench-found flaky — taps kept registering as scroll-drags. The row now
+// opens a plain scrollable list to pick from (current zone checkmarked).
+lv_obj_t* s_tz_screen = nullptr;
+lv_obj_t* s_tz_list = nullptr;
+uint8_t s_tz_current = 0;
 
 void done_cb(lv_event_t*) { ui::show_home(); }
 void unit_cb(lv_event_t*) { ui::settings_toggle_unit(); }
 void sound_cb(lv_event_t*) { ui::settings_toggle_mute(); }
 void bright_cb(lv_event_t*) { ui::settings_cycle_brightness(); }
-void tz_cb(lv_event_t*) { ui::settings_cycle_timezone(); }
+void stainless_cb(lv_event_t*) { ui::settings_toggle_stainless(); }
 void assist_cb(lv_event_t*) { ui::show_assist_arm(); }
 void autotune_cb(lv_event_t*) { ui::show_autotune(); }
+
+void tz_pick_cb(lv_event_t* e) {
+  ui::settings_set_timezone((uint8_t)(uintptr_t)lv_event_get_user_data(e));
+  lv_scr_load(s_screen);            // back to Settings, new zone shown
+}
+void tz_back_cb(lv_event_t*) { lv_scr_load(s_screen); }
+
+void tz_picker_build();             // fwd
+void tz_cb(lv_event_t*) {           // the Settings row opens the picker
+  tz_picker_build();
+  lv_scr_load(s_tz_screen);
+}
+
+void tz_picker_build() {
+  if (!s_tz_screen) {
+    s_tz_screen = lv_obj_create(nullptr);
+    lv_obj_set_style_bg_color(s_tz_screen, lv_color_hex(0x101418), LV_PART_MAIN);
+    lv_obj_clear_flag(s_tz_screen, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* title = lv_label_create(s_tz_screen);
+    lv_label_set_text(title, "Time zone");
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(title, lv_color_hex(0x8A93A0), 0);
+    lv_obj_align(title, LV_ALIGN_TOP_LEFT, 12, 10);
+
+    lv_obj_t* back = lv_btn_create(s_tz_screen);
+    lv_obj_set_size(back, 84, 30);
+    lv_obj_align(back, LV_ALIGN_TOP_RIGHT, -8, 6);
+    lv_obj_add_event_cb(back, tz_back_cb, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t* bl = lv_label_create(back);
+    lv_label_set_text(bl, "Back");
+    lv_obj_center(bl);
+
+    s_tz_list = lv_list_create(s_tz_screen);
+    lv_obj_set_size(s_tz_list, 468, 272);
+    lv_obj_align(s_tz_list, LV_ALIGN_BOTTOM_MID, 0, -4);
+    lv_obj_set_style_bg_color(s_tz_list, lv_color_hex(0x101418), 0);
+    lv_obj_set_style_pad_row(s_tz_list, 4, 0);
+  }
+  lv_obj_clean(s_tz_list);          // rebuild so the checkmark tracks current
+  for (int i = 0; i < tz_count(); ++i) {
+    lv_obj_t* row = lv_btn_create(s_tz_list);
+    lv_obj_set_width(row, lv_pct(100));
+    lv_obj_set_height(row, 44);
+    const bool cur = (i == (int)s_tz_current);
+    lv_obj_set_style_bg_color(row, lv_color_hex(cur ? 0x2E5AAC : 0x1A2027), 0);
+    lv_obj_set_style_radius(row, 8, 0);
+    lv_obj_add_event_cb(row, tz_pick_cb, LV_EVENT_CLICKED, (void*)(uintptr_t)i);
+    lv_obj_t* l = lv_label_create(row);
+    char b[40];
+    lv_snprintf(b, sizeof(b), "%s%s", cur ? LV_SYMBOL_OK "  " : "", tz_name(i));
+    lv_label_set_text(l, b);
+    lv_obj_set_style_text_font(l, &lv_font_montserrat_20, 0);
+    lv_obj_align(l, LV_ALIGN_LEFT_MID, 8, 0);
+  }
+}
 
 // One "Label ............ value" row (added to a scroll container) that fires cb
 // on tap. Returns the value label so settings_update() can refresh it.
@@ -81,6 +145,9 @@ lv_obj_t* settings_create() {
   s_val_unit = mk_row(list, "Temperature", unit_cb);
   s_val_sound = mk_row(list, "Sound", sound_cb);
   s_val_bright = mk_row(list, "Brightness", bright_cb);
+  // Pan material, not a preset (design decision 2026-07-11): applies to every
+  // preset/food; ORed with the reflective-stainless auto-detection.
+  s_val_stainless = mk_row(list, "Stainless pan", stainless_cb);
   s_val_tz = mk_row(list, "Time zone", tz_cb);
 #if defined(ENABLE_WIFI) || defined(PANPILOT_SIM)
   // Autopilot + autotune need the MQTT actuator — no point offering them (or
@@ -95,12 +162,14 @@ lv_obj_t* settings_create() {
 }
 
 void settings_update(bool useF, bool muted, uint8_t brightnessLevel,
-                     uint8_t tzIndex) {
+                     uint8_t tzIndex, bool stainlessPan) {
   if (!s_screen) settings_create();
+  s_tz_current = tzIndex;
   lv_label_set_text(s_val_unit, useF ? "\xC2\xB0" "F" : "\xC2\xB0" "C");
   lv_label_set_text(s_val_sound, muted ? "Muted" : "On");
   lv_label_set_text(s_val_bright, panpilot::brightness_name(brightnessLevel));
   lv_label_set_text(s_val_tz, tz_name(tzIndex));
+  lv_label_set_text(s_val_stainless, stainlessPan ? "Yes" : "No");
 }
 
 }  // namespace ui

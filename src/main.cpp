@@ -75,6 +75,16 @@ volatile bool g_pluginWarn = false;
 // into UiState and by the UI loop to pick the ACTIVE-state PWM.
 volatile uint8_t g_bright = 2;
 
+// Global "stainless pan" toggle (Settings). Pan material, not a preset: it
+// feeds the same trend-only/alarm-suppression logic as the per-frame
+// reflective-stainless auto-detection, for cooks who use stainless for
+// everything. Persisted.
+volatile bool g_stainlessPan = false;
+void on_stainless(bool on) {
+  g_stainlessPan = on;
+  hal::storage_set_stainless(on);
+}
+
 // NTP clock (Settings). g_tz indexes TIMEZONES; the clock is read in the UI loop.
 volatile uint8_t g_tz = 0;
 volatile bool g_timeValid = false;
@@ -345,6 +355,7 @@ void SensorTask(void*) {
     }
     u.muted = hal::buzzer_is_muted();
     u.brightnessLevel = g_bright;
+    u.stainlessPan = g_stainlessPan;
     u.tzIndex = g_tz;
     u.timeValid = g_timeValid;
     u.clockHour = g_clockH; u.clockMin = g_clockM;
@@ -408,7 +419,8 @@ void SensorTask(void*) {
       gi.confidence = r.confidence;
       gi.presence = r.presence;
       gi.moved = r.moved;
-      gi.stainlessHint = r.stainlessHint;   // suppress reflective misread alarms
+      // Auto-detected reflective read OR the user's global stainless toggle.
+      gi.stainlessHint = r.stainlessHint || g_stainlessPan;
       gi.lagMinutes = g_applied_lag;    // learned lag (Learn Pan Mode)
       GuidanceOutput go = guidance.step(gi, target, millis());
       // Alerts are routed through the attention manager in the UI loop (§3.5).
@@ -500,7 +512,7 @@ void SensorTask(void*) {
         gi2.confidence = zt[1].confidence;
         gi2.presence = zt[1].presence;
         gi2.moved = zt[1].moved;
-        gi2.stainlessHint = zt[1].stainlessHint;   // zone-2 TOO_HOT suppression
+        gi2.stainlessHint = zt[1].stainlessHint || g_stainlessPan;
         gi2.lagMinutes = g_applied_lag;
         z2g = guidance2.step(gi2, target2, nowm).state;
         z2temp = model2.displayTempC();
@@ -669,7 +681,8 @@ void SensorTask(void*) {
       u.trend = model.trend();
       u.confidence = r.confidence;
       u.moved = r.moved;
-      u.stainlessHint = r.stainlessHint;
+      u.stainlessHint = r.stainlessHint || g_stainlessPan;
+      u.stainlessPan = g_stainlessPan;
       u.muted = hal::buzzer_is_muted();
       u.brightnessLevel = g_bright;
       u.tzIndex = g_tz;
@@ -896,6 +909,7 @@ void setup() {
 #endif
   g_bright = panpilot::brightness_clamp(hal::storage_get_brightness());
   g_tz = (uint8_t)tz_clamp(hal::storage_get_timezone());
+  g_stainlessPan = hal::storage_get_stainless();
   { uint8_t fbBlob[panpilot::FeedbackStore::MAX * 8];
     uint32_t n = hal::storage_get_foodfb(fbBlob, sizeof(fbBlob));
     if (n > 0) { g_feedback.loadBlob(fbBlob, n);
@@ -906,7 +920,7 @@ void setup() {
       Serial.printf("[presets] loaded %d custom\n", presets_custom_count()); } }
   ui::root_init(hal::storage_get_unit_useF(), persist_unit, on_target_delta,
                 on_preset, on_learn, on_food, on_preset2, on_recipe);
-  ui::set_settings_cbs(on_mute, on_brightness, on_timezone);
+  ui::set_settings_cbs(on_mute, on_brightness, on_timezone, on_stainless);
   ui::set_food2_cb(on_food2);
   ui::set_feedback_cb(on_feedback);
   ui::set_preset_edit_cbs(on_preset_save, on_preset_delete);

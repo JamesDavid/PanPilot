@@ -125,7 +125,8 @@ int main(int argc, char** argv) {
     lv_scr_load(ui::foods_create());
   } else if (scene == "settings") {
     lv_scr_load(ui::settings_create());
-    ui::settings_update(/*useF=*/true, /*muted=*/false, /*brightness=*/2, /*tz=*/5);
+    ui::settings_update(/*useF=*/true, /*muted=*/false, /*brightness=*/2, /*tz=*/5,
+                        /*stainless=*/false);
   } else if (scene == "presetedit") {
     lv_scr_load(ui::preset_edit_create());
     ui::preset_edit_load("Smash burger", 450, 500, false, /*canDelete=*/false);

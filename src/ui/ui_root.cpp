@@ -42,6 +42,7 @@ bool s_useF = true;
 bool s_muted = false;        // cached from the per-tick snapshot for Settings
 uint8_t s_bright = 2;
 uint8_t s_tz = 0;
+bool s_stainless = false;
 UnitChangeCb s_unitCb = nullptr;
 TargetDeltaCb s_targetCb = nullptr;
 PresetCb s_presetCb = nullptr;
@@ -54,6 +55,7 @@ RecipeCb s_recipeCb = nullptr;
 MuteCb s_muteCb = nullptr;
 BrightnessCb s_brightCb = nullptr;
 TimezoneCb s_tzCb = nullptr;
+StainlessCb s_stainlessCb = nullptr;
 FeedbackCb s_feedbackCb = nullptr;
 PresetSaveCb s_presetSaveCb = nullptr;
 PresetDeleteCb s_presetDelCb = nullptr;
@@ -68,7 +70,9 @@ enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS,
               SETTINGS, PRESET_EDIT, ASSIST, ONBOARDING, AUTOTUNE,
               PROFILES } s_active = HOME;
 
-void settings_refresh() { settings_update(s_useF, s_muted, s_bright, s_tz); }
+void settings_refresh() {
+  settings_update(s_useF, s_muted, s_bright, s_tz, s_stainless);
+}
 }  // namespace
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
@@ -141,10 +145,12 @@ void set_preset_edit_cbs(PresetSaveCb onSave, PresetDeleteCb onDelete) {
 }
 void set_assist_cb(AssistCb onAssist) { s_assistCb = onAssist; }
 
-void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness, TimezoneCb onTimezone) {
+void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness, TimezoneCb onTimezone,
+                      StainlessCb onStainless) {
   s_muteCb = onMute;
   s_brightCb = onBrightness;
   s_tzCb = onTimezone;
+  s_stainlessCb = onStainless;
 }
 
 void set_feedback_cb(FeedbackCb onFeedback) { s_feedbackCb = onFeedback; }
@@ -244,10 +250,16 @@ void settings_cycle_brightness() {
   s_bright = nb;
   settings_refresh();
 }
-void settings_cycle_timezone() {
-  const uint8_t nz = (uint8_t)tz_cycle(s_tz);
+void settings_set_timezone(uint8_t idx) {
+  const uint8_t nz = (uint8_t)tz_clamp(idx);
   if (s_tzCb) s_tzCb(nz);
   s_tz = nz;
+  settings_refresh();
+}
+void settings_toggle_stainless() {
+  const bool ns = !s_stainless;
+  if (s_stainlessCb) s_stainlessCb(ns);
+  s_stainless = ns;
   settings_refresh();
 }
 bool unit_useF() { return s_useF; }
@@ -272,6 +284,7 @@ void root_update(const ThermalFrame& f, const PanReading& r, const UiState& s) {
   s_muted = s.muted;                 // keep Settings' cache in sync with device truth
   s_bright = s.brightnessLevel;
   s_tz = s.tzIndex;
+  s_stainless = s.stainlessPan;
   s_assistAvail = s.actuatorAvailable;
   s_actuatorName = s.actuatorName;
   if (s_active == HOME) home_update(s, s_useF);

@@ -13,8 +13,13 @@ struct Preset {
 };
 
 // Order is stable (persisted by index). Generic is last.
+// NOTE: the base spec's "Stainless" preset was removed by design decision
+// (2026-07-11): stainless is a PAN MATERIAL, not a food target — it's now a
+// global "Stainless pan" Settings toggle (plus auto-detection), so any preset
+// can be cooked on stainless. A stale persisted index past PRESET_COUNT falls
+// back to Generic.
 enum PresetId : uint8_t {
-  PRESET_EGGS, PRESET_PANCAKES, PRESET_STAINLESS, PRESET_SEAR,
+  PRESET_EGGS, PRESET_PANCAKES, PRESET_SEAR,
   PRESET_TORTILLAS, PRESET_GENERIC, PRESET_COUNT
 };
 

@@ -25,6 +25,8 @@ bool storage_get_onboarded(bool def) { ensure(); return s_prefs.getBool("onboard
 void storage_set_onboarded(bool done) { ensure(); s_prefs.putBool("onboard", done); }
 int storage_get_timezone(int def) { ensure(); return s_prefs.getInt("tz", def); }
 void storage_set_timezone(int idx) { ensure(); s_prefs.putInt("tz", idx); }
+bool storage_get_stainless(bool def) { ensure(); return s_prefs.getBool("stainless", def); }
+void storage_set_stainless(bool on) { ensure(); s_prefs.putBool("stainless", on); }
 bool storage_get_gains(float& kp, float& ki, float& kd) {
   ensure();
   float g[3];

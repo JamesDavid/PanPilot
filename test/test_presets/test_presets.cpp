@@ -25,8 +25,15 @@ static void test_preset_target_mapping(void) {
 }
 
 static void test_stainless_flag(void) {
-  TEST_ASSERT_TRUE(preset(PRESET_STAINLESS).stainlessHints);
-  TEST_ASSERT_FALSE(preset(PRESET_EGGS).stainlessHints);
+  // The built-in "Stainless" preset was removed (pan material != food target;
+  // stainless is now a Settings toggle + auto-detect). No BUILT-IN preset
+  // carries the flag; a CUSTOM preset still can (its editor has the toggle).
+  for (uint8_t id = 0; id < PRESET_COUNT; ++id)
+    TEST_ASSERT_FALSE(preset(id).stainlessHints);
+  presets_load_custom(nullptr, 0);
+  const int id = presets_add("Steel sear", 450, 500, /*stainless*/ true);
+  TEST_ASSERT_TRUE(preset((uint8_t)id).stainlessHints);
+  presets_load_custom(nullptr, 0);
 }
 
 // --- custom presets (Phase 2 editor) ---

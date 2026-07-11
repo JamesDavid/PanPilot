@@ -92,7 +92,7 @@ void publishDiscovery() {
         String("{\"name\":\"Preset\",\"stat_t\":\"") + STATE + "\",\"avty_t\":\"" +
             AVTY + "\",\"cmd_t\":\"" + PRESET_SET +
             "\",\"uniq_id\":\"pp_preset\",\"val_tpl\":\"{{ value_json.preset }}\","
-            "\"options\":[\"Eggs\",\"Pancakes\",\"Stainless\",\"Sear\","
+            "\"options\":[\"Eggs\",\"Pancakes\",\"Sear\","
             "\"Tortillas\",\"Generic\"]," + DEV + "}");
 }
 

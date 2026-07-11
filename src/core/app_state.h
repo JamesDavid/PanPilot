@@ -30,6 +30,9 @@ struct UiState {
   bool  useF = true;        // display unit (persisted, base spec §4)
   bool  muted = false;
   uint8_t brightnessLevel = 2;  // 0=Low,1=Medium,2=High (Settings, persisted)
+  bool stainlessPan = false;    // global "stainless pan" toggle (Settings) —
+                                // pan material, not a preset; ORed with the
+                                // per-frame reflective-stainless detection
 
   // NTP clock (Settings). timeValid=false until SNTP syncs (or no Wi-Fi).
   uint8_t tzIndex = 0;      // index into TIMEZONES

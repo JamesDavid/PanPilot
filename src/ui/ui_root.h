@@ -19,6 +19,7 @@ using RecipeCb = void (*)(uint8_t cmd);        // 0=start, 1=stop, 2=ack cue
 using MuteCb = void (*)(bool muted);           // Settings: sound on/off
 using BrightnessCb = void (*)(uint8_t level);  // Settings: backlight 0/1/2
 using TimezoneCb = void (*)(uint8_t tzIndex);  // Settings: NTP timezone
+using StainlessCb = void (*)(bool on);         // Settings: global stainless pan
 using FeedbackCb = void (*)(uint8_t verdict);  // post-cook: 0=under,1=perfect,2=over
 // Preset editor (Phase 2). editId < 0 => add a new custom preset.
 using PresetSaveCb = void (*)(int editId, const char* name, int loF, int hiF, bool stainless);
@@ -45,7 +46,8 @@ void show_foods_zone2();    // food picker for the second pan (Phase 3)
 void cook_a_food();   // food picker for whichever pan's preset picker is open
 void show_presets_zone2();  // preset picker that sets zone-2's target (M12)
 void show_settings(); // device Settings (Phase 2)
-void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness, TimezoneCb onTimezone);
+void set_settings_cbs(MuteCb onMute, BrightnessCb onBrightness, TimezoneCb onTimezone,
+                      StainlessCb onStainless);
 void set_food2_cb(FoodCb onFood2);   // second-pan food selection (Phase 3)
 void set_feedback_cb(FeedbackCb onFeedback);
 void food_feedback(uint8_t verdict);   // fires FeedbackCb (0=under,1=perfect,2=over)
@@ -70,7 +72,8 @@ void profile_cmd(uint8_t cmd, int idx); // fires ProfileCb (0=activate,1=delete)
 void settings_toggle_unit();       // fires UnitChangeCb + refreshes Settings
 void settings_toggle_mute();       // fires MuteCb + refreshes Settings
 void settings_cycle_brightness();  // fires BrightnessCb + refreshes Settings
-void settings_cycle_timezone();    // fires TimezoneCb + refreshes Settings
+void settings_set_timezone(uint8_t idx);  // from the tz picker list (absolute)
+void settings_toggle_stainless();  // fires StainlessCb + refreshes Settings
 void toggle_unit();
 void set_display_unit(bool useF);   // set unit directly (onboarding); fires UnitChangeCb
 bool unit_useF();

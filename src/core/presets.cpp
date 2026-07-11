@@ -9,7 +9,6 @@ const Preset kPresets[PRESET_COUNT] = {
   //  name              lo   hi   warn  recov  stainless
   { "Eggs",            270, 300,  360,  false, false },
   { "Pancakes",        350, 375,  440,  true,  false },
-  { "Stainless",       400, 450,  520,  false, true  },
   { "Sear",            475, 550,  650,  true,  false },
   { "Tortillas",       400, 450,  520,  false, false },
   { "Generic",         340, 360,  450,  false, false },

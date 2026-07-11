@@ -9,5 +9,5 @@
 namespace ui {
 lv_obj_t* settings_create();
 void settings_update(bool useF, bool muted, uint8_t brightnessLevel,
-                     uint8_t tzIndex);
+                     uint8_t tzIndex, bool stainlessPan);
 }
