@@ -28,3 +28,9 @@ Thumbs.db
 # Local secrets / device-specific
 *.local
 secrets.h
+
+# Full-flash factory images dumped from bench boards (16 MB binaries, local
+# only — covered by *.bin above, listed explicitly for clarity). Restore with:
+#   python -m esptool --port COMx --baud 921600 write_flash 0x0 \
+#     hardware/factory_backups/<image>.bin
+hardware/factory_backups/
