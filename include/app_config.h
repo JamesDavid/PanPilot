@@ -134,6 +134,9 @@
 #define ATTN_STROBE_MAX_HZ         3       // photosensitivity cap
 #define COMPLY_WINDOW_MS           20000   // watch for knob-turn effect this long
 #define COMPLY_RATE_FMIN           10.0f   // "turned down" => rate falls below this
+#define OVERLAY_READY_MS           6000    // ms: READY takeover auto-dismisses to
+                                           // the action bar (a pan HOLDING at temp
+                                           // is READY forever — bench 2026-07-11)
 
 // ---- Battery / power subsystem (roadmap spec §2.1) -------------------------
 #define BATTERY_LOW_PCT            15      // low-battery event threshold

@@ -372,12 +372,15 @@ the same policy that blocks arming on dev builds.
 | B.6 | Reboot | Map persists (stored on the pan profile, NVS `profs3`); calibrated hints still used | ☐ |
 | B.7 | Devsim build: run the wizard end-to-end | Completes, but Save disabled + "SIMULATED data" note; serial `[bmap] save REFUSED` if forced | ☐ |
 
-## Alert-overlay context lines
+## Alert-overlay context lines + dismissal
 
 | # | Step | Expected | ☐ |
 |---|---|---|---|
 | C.1 | Pick a food (e.g. Eggs), heat to READY | Overlay shows **food name** above "READY" and "<temp> — add food, timer starts" below | ☐ |
 | C.2 | Overshoot → TURN DOWN NOW / TOO HOT | Context line + action sub-line ("peak ~x — try <knob>", "<temp> — turn burner to LOW") | ☐ |
+| C.3 | Let READY sit untouched | Overlay auto-dismisses after ~6 s back to the home screen (green READY action bar remains); home controls usable while the pan holds at temp | ☐ |
+| C.4 | Tap a READY / TURN DOWN / ADD BATCH overlay | Dismisses immediately; re-appears only when the state changes and comes back (e.g. food-added dip → recovery → READY again) | ☐ |
+| C.5 | TOO HOT (or battery-critical) overlay | **Not** dismissible by tap and never auto-hides — stays until the condition clears (safety) | ☐ |
 
 ---
 # SECONDARY BOARDS — CrowPanel Advance 5" (800×480 RGB)

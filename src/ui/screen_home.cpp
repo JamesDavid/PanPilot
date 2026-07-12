@@ -47,6 +47,23 @@ lv_obj_t* s_fb_title = nullptr;
 lv_obj_t* s_stop = nullptr;        // ASSIST STOP bar (roadmap §3.3)
 lv_obj_t* s_stop_lbl = nullptr;
 
+// Overlay dismissal (bench 2026-07-11: a pan that HOLDS at temperature is
+// READY forever, so the takeover pinned itself over every control and the
+// device looked frozen). Non-safety takeovers (READY / TURN DOWN / ADD BATCH)
+// are tap-to-dismiss and READY also auto-dismisses after OVERLAY_READY_MS —
+// the action bar keeps showing the state. TOO HOT and PLUG ME IN are safety:
+// they stay until the condition clears.
+enum OvCause : uint8_t { OV_NONE, OV_PLUGIN, OV_TOOHOT, OV_BATCH, OV_READY,
+                         OV_TURNDOWN };
+OvCause s_ovCause = OV_NONE;
+uint32_t s_ovShownMs = 0;
+bool s_ovAcked = false;
+
+void overlay_tap_cb(lv_event_t*) {
+  if (s_ovCause == OV_BATCH || s_ovCause == OV_READY || s_ovCause == OV_TURNDOWN)
+    s_ovAcked = true;
+}
+
 void temp_tap_cb(lv_event_t*) { ui::show_thermal(); }
 void unit_cb(lv_event_t*) { ui::toggle_unit(); }
 void preset_tap_cb(lv_event_t*) { ui::show_presets(); }
@@ -203,6 +220,8 @@ lv_obj_t* home_create() {
   lv_obj_remove_style_all(s_overlay);
   lv_obj_set_size(s_overlay, 480, 320);
   lv_obj_center(s_overlay);
+  lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_add_event_cb(s_overlay, overlay_tap_cb, LV_EVENT_CLICKED, nullptr);
   // Context line: full-screen alerts used to lose all context ("READY for
   // what?"). Bench feedback: name the cook — "Pancakes / READY / add food".
   s_overlay_ctx = lv_label_create(s_overlay);
@@ -442,6 +461,7 @@ void home_update(const UiState& s, bool useF) {
     if (s.pluginWarning) {
       lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0xC62828), 0);
       lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
+      lv_label_set_text(s_overlay_ctx, "");
       lv_label_set_text(s_overlay_lbl, "PLUG ME IN");
       lv_label_set_text(s_overlay_sub, "battery critical");
       lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
@@ -449,6 +469,7 @@ void home_update(const UiState& s, bool useF) {
                s.zone2Guidance == GuidanceState::TOO_HOT) {
       lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0xC62828), 0);
       lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
+      lv_label_set_text(s_overlay_ctx, "");
       lv_label_set_text(s_overlay_lbl, "TOO HOT");
       lv_label_set_text(s_overlay_sub,
                         s.guidance == GuidanceState::TOO_HOT ? "Pan 1" : "Pan 2");
@@ -577,16 +598,36 @@ void home_update(const UiState& s, bool useF) {
   const bool loud = s.guidance == GuidanceState::TOO_HOT ||
                     (!cooking && (s.guidance == GuidanceState::READY ||
                                   s.guidance == GuidanceState::TURN_DOWN_NOW));
+  // Which state wants the takeover this tick (priority order), with the
+  // dismissal rules from the top of this file: tap-away for the non-safety
+  // causes, and READY additionally auto-dismisses (a holding pan is READY
+  // indefinitely). The ack resets whenever the cause changes.
+  OvCause cause = OV_NONE;
+  if (s.pluginWarning) cause = OV_PLUGIN;
+  else if (s.addBatchPrompt) cause = OV_BATCH;
+  else if (s.guidance == GuidanceState::TOO_HOT) cause = OV_TOOHOT;
+  else if (loud && s.guidance == GuidanceState::READY) cause = OV_READY;
+  else if (loud && s.guidance == GuidanceState::TURN_DOWN_NOW) cause = OV_TURNDOWN;
+  if (cause != s_ovCause) {
+    s_ovCause = cause;
+    s_ovShownMs = lv_tick_get();
+    s_ovAcked = false;
+  }
+  bool ovShow = cause != OV_NONE && !s_ovAcked;
+  if (cause == OV_READY && lv_tick_elaps(s_ovShownMs) > OVERLAY_READY_MS)
+    ovShow = false;
   // Context for takeover alerts: the cook this alert is about.
   const char* alertCtx = s.food ? s.food->name : preset(s.presetId).name;
-  if (s.pluginWarning) {
+  if (!ovShow) {
+    lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
+  } else if (cause == OV_PLUGIN) {
     lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0xC62828), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
     lv_label_set_text(s_overlay_ctx, "");
     lv_label_set_text(s_overlay_lbl, "PLUG ME IN");
     lv_label_set_text(s_overlay_sub, "battery critical");
     lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
-  } else if (s.addBatchPrompt) {
+  } else if (cause == OV_BATCH) {
     lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0x2E7D32), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
     lv_label_set_text(s_overlay_ctx, alertCtx);
@@ -596,7 +637,7 @@ void home_update(const UiState& s, bool useF) {
                   int(t + 0.5f), useF ? "F" : "C");
     lv_label_set_text(s_overlay_sub, buf);
     lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
-  } else if (loud) {
+  } else {
     lv_obj_set_style_bg_color(s_overlay, lv_color_hex(bs.color), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
     lv_label_set_text(s_overlay_ctx, alertCtx);
@@ -626,8 +667,6 @@ void home_update(const UiState& s, bool useF) {
     }
     lv_label_set_text(s_overlay_sub, buf);
     lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
-  } else {
-    lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
   }
 
   // ASSIST STOP bar (roadmap §3.3): while armed it replaces the action bar and
