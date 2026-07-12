@@ -28,7 +28,8 @@ using AssistCb = void (*)(uint8_t cmd);   // ASSIST: 0=arm, 1=stop/disarm
 using OnboardingDoneCb = void (*)();      // first-boot wizard finished
 using AutotuneCb = void (*)(uint8_t cmd); // PID autotune: 0=start, 1=save, 2=cancel
 using RoiCb = void (*)(float px, float py, bool lock);  // thermal tap-to-lock ROI
-using ProfileCb = void (*)(uint8_t cmd, int idx);       // pans: 0=activate, 1=delete
+using ProfileCb = void (*)(uint8_t cmd, int idx);       // pans: 0=activate, 1=delete, 2=toggle SS
+using BurnerMapCb = void (*)(uint8_t cmd);   // map wizard: 0=start,1=knob-ready,2=cancel,3=save
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
                PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2,
@@ -68,7 +69,10 @@ void roi_lock(float px, float py);      // thermal tap: pin the ROI to a pixel
 void roi_clear();                       // thermal "Auto": back to auto-follow
 void set_profiles(const ProfileStore* store, ProfileCb onProfile);
 void show_profiles();                   // saved pan-profile picker
-void profile_cmd(uint8_t cmd, int idx); // fires ProfileCb (0=activate,1=delete)
+void profile_cmd(uint8_t cmd, int idx); // fires ProfileCb (0=activate,1=delete,2=SS)
+void set_burnermap_cb(BurnerMapCb onBmap);
+void show_burnermap();                  // Map Burner wizard (active pan)
+void burnermap_cmd(uint8_t cmd);        // fires BurnerMapCb
 void settings_toggle_unit();       // fires UnitChangeCb + refreshes Settings
 void settings_toggle_mute();       // fires MuteCb + refreshes Settings
 void settings_cycle_brightness();  // fires BrightnessCb + refreshes Settings

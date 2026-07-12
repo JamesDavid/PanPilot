@@ -283,6 +283,35 @@ void apply_active_lag() {
   const PanProfile* ap = g_profiles.activeProfile();
   g_applied_lag = ap ? ap->lagMinutes : LAG_MINUTES_DEFAULT;
 }
+
+// Map Burner wizard handshake (Phase 3 burner suggestions). UI core ->
+// SensorTask via g_bmap_req (1 start, 2 knob-confirmed, 3 cancel); the DONE
+// result is staged in g_bmapResult and SAVED on the loop core (NVS writes
+// never run on the sensor core). g_bmapReal latches whether every frame that
+// fed the wizard was from the real MLX — a DEV_FAKE_SENSOR run measures the
+// scripted ramp, which must never be persisted as calibration (same policy
+// as arming: fake data earns no authority).
+volatile uint8_t g_bmap_req = 0;
+volatile bool g_bmap_save = false;
+BurnerMap g_bmapResult = {};        // staged by SensorTask when the wizard hits DONE
+volatile bool g_bmapReal = false;
+// The ACTIVE pan's map, copied to the SensorTask under g_target_mtx (loop core
+// owns ProfileStore mutation; the sensor core only ever reads this copy).
+BurnerMap g_activeBmap = {};
+void stage_active_bmap() {
+  const PanProfile* ap = g_profiles.activeProfile();
+  if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) != pdTRUE) return;
+  g_activeBmap = ap ? ap->burner : BurnerMap{};
+  xSemaphoreGive(g_target_mtx);
+}
+void on_burnermap(uint8_t cmd) {
+  if (cmd == 3) {
+    g_bmap_save = true;    // loop core persists the staged result
+    g_bmap_req = 3;        // and the mapper resets for the next run
+  } else {
+    g_bmap_req = cmd + 1;  // 0/1/2 -> start/confirm/cancel
+  }
+}
 // Pans picker. cmd 0 = activate idx, 1 = delete idx, 2 = toggle stainless.
 // The selected pan is first-class: its lag drives overshoot prediction and its
 // material drives the stainless guidance behavior.
@@ -293,6 +322,7 @@ void on_profile(uint8_t cmd, int idx) {
     g_profiles.setStainless(idx, !g_profiles.at(idx).stainless);
   persist_profiles();
   apply_active_lag();
+  stage_active_bmap();   // the down-cue hint follows the selected pan
 }
 
 // Effective stainless = the SELECTED PAN's material, with the Settings toggle
@@ -358,6 +388,9 @@ void SensorTask(void*) {
   Controller controller;
   RelayAutotuner autotune;
   bool atActive = false;
+  BurnerMapper bmapper;
+  bool bmapReal = true;        // no simulated frame has fed the current run
+  BurnerMap activeBmap = {};   // this tick's copy of the active pan's map
   uint32_t lastCtrlMs = 0;
   uint32_t lastGoodFrameMs = 0;   // S6 frame-gap input + the read-fail failsafe
   uint32_t lastFoodMs = 0;        // last FOOD ADDED (counts as interaction, S10)
@@ -466,6 +499,7 @@ void SensorTask(void*) {
       uint8_t presetId = PRESET_GENERIC;
       if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(10)) == pdTRUE) {
         target = g_target; presetId = g_presetId;
+        activeBmap = g_activeBmap;   // active pan's burner map (loop core stages)
         xSemaphoreGive(g_target_mtx);
       }
       // A running recipe's HOLD step drives the guidance target (M19), and a
@@ -733,6 +767,32 @@ void SensorTask(void*) {
         }
       }
 
+      // Map Burner wizard (Phase 3): runs on the frame feed. It measures
+      // whatever temperature stream it's given, so a run that ever saw a
+      // simulated frame is marked unsaveable (fake data is not calibration).
+      if (g_bmap_req == 1) {
+        bmapper.start(ThermalModel::cToF(frame.ambientC), nowm);
+        bmapReal = !simFrames;
+        g_bmap_req = 0;
+        Serial.println("[bmap] wizard started");
+      } else if (g_bmap_req == 2) {
+        bmapper.confirm(nowm); g_bmap_req = 0;
+      } else if (g_bmap_req == 3) {
+        bmapper.cancel(); g_bmap_req = 0;
+      }
+      if (bmapper.phase() != BurnerMapper::IDLE &&
+          bmapper.phase() != BurnerMapper::DONE) {
+        if (simFrames) bmapReal = false;
+        bmapper.update(gi.tempF, nowm);
+        if (bmapper.phase() == BurnerMapper::DONE) {
+          g_bmapResult = bmapper.result();
+          g_bmapReal = bmapReal;
+          Serial.printf("[bmap] done valid=%d real=%d kLoss=%.4f/min\n",
+                        (int)g_bmapResult.valid, (int)bmapReal,
+                        burnermap_kloss(g_bmapResult));
+        }
+      }
+
       UiState u;
       u.sensorOk = true;
       u.sensorSimulated = simFrames;   // dev banner; never true off DEV builds
@@ -783,6 +843,22 @@ void SensorTask(void*) {
       u.autotuneState = g_autotune_state;
       u.autotuneProgress = g_autotune_prog;
       u.autotuneKp = g_at_kp; u.autotuneKi = g_at_ki; u.autotuneKd = g_at_kd;
+      u.bmapPhase = (uint8_t)bmapper.phase();
+      u.bmapSetting = (uint8_t)bmapper.setting();
+      { const int sl = bmapper.secondsLeft(nowm);
+        u.bmapSecsLeft = (uint8_t)(sl > 0 ? (sl > 255 ? 255 : sl) : 0); }
+      if (bmapper.phase() == BurnerMapper::DONE) {
+        const BurnerMap& bm = bmapper.result();
+        for (int i = 0; i < BURNER_SETTINGS; ++i)
+          u.bmapSettleF[i] = (int16_t)(burnermap_settleF(bm, i) + 0.5f);
+        u.bmapCanSave = bm.valid && g_bmapReal;
+      }
+      // Down-cue knob hint: the active pan's calibrated suggestion when its
+      // map is valid, else the generic target->knob table.
+      u.burnerHint = activeBmap.valid
+                         ? burnermap_suggest_name(activeBmap, (float)target.centerF)
+                         : nullptr;
+      if (!u.burnerHint) u.burnerHint = burner_hint_for_targetF(target.centerF);
 #if defined(ENABLE_WIFI) && !defined(DEV_FAKE_SENSOR)
       // Arming is offered only while the box's retained status says online
       // (M14.5) — not merely because the actuator code is compiled in.
@@ -966,6 +1042,7 @@ void setup() {
       if (hal::storage_load_profile(pf)) g_profiles.add(pf);
     }
     apply_active_lag();
+    stage_active_bmap();
     Serial.printf("[profile] %d pan(s), active lag=%.2f min\n",
                   g_profiles.count(), g_applied_lag); }
 #if defined(HAS_FILESYSTEM)
@@ -990,6 +1067,7 @@ void setup() {
   ui::set_preset_edit_cbs(on_preset_save, on_preset_delete);
   ui::set_assist_cb(on_assist);
   ui::set_autotune_cb(on_autotune);
+  ui::set_burnermap_cb(on_burnermap);
   { float kp, ki, kd;
     if (hal::storage_get_gains(kp, ki, kd)) {
       g_kp = kp; g_ki = ki; g_kd = kd; g_gains_valid = true;
@@ -1062,6 +1140,21 @@ void loop() {
   }
   if (g_persist_gains) { g_persist_gains = false;
     hal::storage_set_gains(g_kp, g_ki, g_kd); }
+  // Map Burner save (staged by SensorTask at DONE; NVS write belongs here).
+  // g_bmapReal gates it: a wizard run fed by simulated frames is refused, the
+  // same policy that keeps dev builds from arming.
+  if (g_bmap_save) {
+    g_bmap_save = false;
+    if (g_bmapReal && g_bmapResult.valid && g_profiles.active() >= 0) {
+      g_profiles.setBurnerMap(g_profiles.active(), g_bmapResult);
+      persist_profiles();
+      stage_active_bmap();
+      Serial.printf("[bmap] saved to pan '%s'\n",
+                    g_profiles.activeProfile()->name);
+    } else {
+      Serial.println("[bmap] save REFUSED (simulated, invalid, or no active pan)");
+    }
+  }
 
   // Poll the fuel gauge every 2 s (roadmap §2.1).
   if (now - lastBatt >= 2000) {
@@ -1125,11 +1218,13 @@ void loop() {
       else if (u.addBatchPrompt)
         attn.raise(AttnLevel::L2, "ADD BATCH", "", now);
       else if (u.guidance == GuidanceState::TURN_DOWN_NOW) {
-        // Concrete knob advice (generic mapping; AttentionManager stores the
+        // Concrete knob advice (calibrated per-pan map when the active pan
+        // has one, else the generic table; AttentionManager stores the
         // pointer, so the buffer must persist across ticks).
         static char tdSub[24];
         snprintf(tdSub, sizeof(tdSub), "aim knob at %s",
-                 burner_hint_for_targetF(u.targetCenterF));
+                 u.burnerHint ? u.burnerHint
+                              : burner_hint_for_targetF(u.targetCenterF));
         attn.raise(AttnLevel::L2, "TURN DOWN NOW", tdSub, now);
       }
       else if (u.guidance == GuidanceState::TURN_DOWN_SOON)

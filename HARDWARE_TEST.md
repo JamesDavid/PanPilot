@@ -353,6 +353,33 @@ fault, actuator heartbeat, comms loss, STOP bar, unattended 45 min, die > 85 °C
 | 18.1 | 4 pancake batches under control | Recovery-to-ready **faster + more consistent** than the M6 advisory baseline (compare logs) | ☐ |
 
 ---
+# BENCH ROUNDS — live-iteration features (2026-07)
+
+## Map Burner wizard (per-pan knob calibration)
+
+Needs the **real MLX + a real burner** (`crowpanel35_advance` build). On the
+`_devsim` build the wizard runs against the scripted ramp for UI checks, but
+**Save is blocked** (`bmapCanSave=false`, "SIMULATED data — cannot be saved"),
+the same policy that blocks arming on dev builds.
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| B.1 | My Pans → **Map burner** (needs ≥1 saved pan; button hidden when none) | Intro screen explains the ~5-min protocol; Start / Back | ☐ |
+| B.2 | Follow the 5 prompts LOW→HIGH with the empty active pan | Each: "Set the burner knob to <NAME>, tap Ready" → 15 s settle + 30 s measure countdowns | ☐ |
+| B.3 | "Turn the burner OFF, tap Ready" | 10 s settle + 30 s cool measure, then **Burner mapped!** with 5 predicted hold temps | ☐ |
+| B.4 | Sanity-check the predictions | Monotonic LOW→HIGH; MED near where that burner actually holds a pan (compare a reference thermometer if handy) | ☐ |
+| B.5 | **Save to pan**, then push past target until TURN DOWN NOW | Cue reads "aim knob at <NAME>" / "try <NAME>" using the **calibrated** suggestion, not the generic table; serial `[bmap] saved to pan '<name>'` | ☐ |
+| B.6 | Reboot | Map persists (stored on the pan profile, NVS `profs3`); calibrated hints still used | ☐ |
+| B.7 | Devsim build: run the wizard end-to-end | Completes, but Save disabled + "SIMULATED data" note; serial `[bmap] save REFUSED` if forced | ☐ |
+
+## Alert-overlay context lines
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| C.1 | Pick a food (e.g. Eggs), heat to READY | Overlay shows **food name** above "READY" and "<temp> — add food, timer starts" below | ☐ |
+| C.2 | Overshoot → TURN DOWN NOW / TOO HOT | Context line + action sub-line ("peak ~x — try <knob>", "<temp> — turn burner to LOW") | ☐ |
+
+---
 # SECONDARY BOARDS — CrowPanel Advance 5" (800×480 RGB)
 
 > The 5" targets (`crowpanel_adv_5_v11`, `crowpanel_adv_5_v12`) are

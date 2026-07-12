@@ -39,6 +39,7 @@ lv_obj_t* s_cook = nullptr;
 lv_obj_t* s_bar = nullptr;
 lv_obj_t* s_bar_lbl = nullptr;
 lv_obj_t* s_overlay = nullptr;
+lv_obj_t* s_overlay_ctx = nullptr;   // context line: what this alert is about
 lv_obj_t* s_overlay_lbl = nullptr;
 lv_obj_t* s_overlay_sub = nullptr;
 lv_obj_t* s_fb = nullptr;          // post-cook feedback prompt (spec §2.7)
@@ -202,6 +203,13 @@ lv_obj_t* home_create() {
   lv_obj_remove_style_all(s_overlay);
   lv_obj_set_size(s_overlay, 480, 320);
   lv_obj_center(s_overlay);
+  // Context line: full-screen alerts used to lose all context ("READY for
+  // what?"). Bench feedback: name the cook — "Pancakes / READY / add food".
+  s_overlay_ctx = lv_label_create(s_overlay);
+  lv_obj_set_style_text_font(s_overlay_ctx, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(s_overlay_ctx, lv_color_hex(0xFFFFFF), 0);
+  lv_obj_set_style_text_opa(s_overlay_ctx, LV_OPA_80, 0);
+  lv_obj_align(s_overlay_ctx, LV_ALIGN_CENTER, 0, -78);
   s_overlay_lbl = lv_label_create(s_overlay);
   lv_obj_set_style_text_font(s_overlay_lbl, &lv_font_montserrat_48, 0);
   lv_obj_set_style_text_color(s_overlay_lbl, lv_color_hex(0xFFFFFF), 0);
@@ -569,15 +577,19 @@ void home_update(const UiState& s, bool useF) {
   const bool loud = s.guidance == GuidanceState::TOO_HOT ||
                     (!cooking && (s.guidance == GuidanceState::READY ||
                                   s.guidance == GuidanceState::TURN_DOWN_NOW));
+  // Context for takeover alerts: the cook this alert is about.
+  const char* alertCtx = s.food ? s.food->name : preset(s.presetId).name;
   if (s.pluginWarning) {
     lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0xC62828), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
+    lv_label_set_text(s_overlay_ctx, "");
     lv_label_set_text(s_overlay_lbl, "PLUG ME IN");
     lv_label_set_text(s_overlay_sub, "battery critical");
     lv_obj_clear_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
   } else if (s.addBatchPrompt) {
     lv_obj_set_style_bg_color(s_overlay, lv_color_hex(0x2E7D32), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
+    lv_label_set_text(s_overlay_ctx, alertCtx);
     lv_label_set_text(s_overlay_lbl, "ADD NEXT BATCH");
     const float t = useF ? cToF(s.displayTempC) : s.displayTempC;
     std::snprintf(buf, sizeof(buf), "pan recovered - %d\xC2\xB0%s",
@@ -587,8 +599,9 @@ void home_update(const UiState& s, bool useF) {
   } else if (loud) {
     lv_obj_set_style_bg_color(s_overlay, lv_color_hex(bs.color), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
+    lv_label_set_text(s_overlay_ctx, alertCtx);
     lv_label_set_text(s_overlay_lbl, bs.text);
-    // Down-cues carry a concrete knob instruction, not just the state.
+    // The sub line is the ACTION: what to do next, plus the number behind it.
     if (s.guidance == GuidanceState::TOO_HOT) {
       const float t = useF ? cToF(s.displayTempC) : s.displayTempC;
       std::snprintf(buf, sizeof(buf), "%d\xC2\xB0%s - turn burner to LOW",
@@ -597,7 +610,16 @@ void home_update(const UiState& s, bool useF) {
       const float pk = useF ? s.projectedPeakF : (s.projectedPeakF - 32) * 5 / 9;
       std::snprintf(buf, sizeof(buf), "peak ~%d\xC2\xB0%s - try %s",
                     int(pk + 0.5f), useF ? "F" : "C",
-                    burner_hint_for_targetF(s.targetCenterF));
+                    s.burnerHint ? s.burnerHint
+                                 : burner_hint_for_targetF(s.targetCenterF));
+    } else if (s.guidance == GuidanceState::READY && s.food) {
+      const float t = useF ? cToF(s.displayTempC) : s.displayTempC;
+      std::snprintf(buf, sizeof(buf), "%d\xC2\xB0%s - add food, timer starts",
+                    int(t + 0.5f), useF ? "F" : "C");
+    } else if (s.guidance == GuidanceState::READY) {
+      const float t = useF ? cToF(s.displayTempC) : s.displayTempC;
+      std::snprintf(buf, sizeof(buf), "%d\xC2\xB0%s - at temperature",
+                    int(t + 0.5f), useF ? "F" : "C");
     } else {
       const float t = useF ? cToF(s.displayTempC) : s.displayTempC;
       std::snprintf(buf, sizeof(buf), "%d\xC2\xB0%s", int(t + 0.5f), useF ? "F" : "C");

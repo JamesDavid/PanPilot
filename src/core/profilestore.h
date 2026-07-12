@@ -42,6 +42,9 @@ class ProfileStore {
   void setStainless(int i, bool s) {
     if (i >= 0 && i < n_) p_[i].stainless = s;
   }
+  void setBurnerMap(int i, const BurnerMap& m) {
+    if (i >= 0 && i < n_) p_[i].burner = m;
+  }
 
   // --- persistence ---
   const void* blob() const { return p_; }

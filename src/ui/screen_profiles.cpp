@@ -11,9 +11,11 @@ namespace {
 lv_obj_t* s_screen = nullptr;
 lv_obj_t* s_list = nullptr;
 lv_obj_t* s_empty = nullptr;
+lv_obj_t* s_map = nullptr;   // "Map burner" — hidden until a pan exists
 
 void done_cb(lv_event_t*) { ui::show_home(); }
 void learn_cb(lv_event_t*) { ui::show_learn(); }
+void map_cb(lv_event_t*) { ui::show_burnermap(); }   // calibrates the ACTIVE pan
 void act_cb(lv_event_t* e) {
   ui::profile_cmd(0, (int)(intptr_t)lv_event_get_user_data(e));   // activate
 }
@@ -55,6 +57,16 @@ lv_obj_t* profiles_create() {
   lv_label_set_text(llb, "Learn a pan " LV_SYMBOL_RIGHT);
   lv_obj_center(llb);
 
+  s_map = lv_btn_create(scr);
+  lv_obj_set_size(s_map, 118, 30);
+  lv_obj_align(s_map, LV_ALIGN_TOP_RIGHT, -258, 6);
+  lv_obj_set_style_bg_color(s_map, lv_color_hex(0xE07000), 0);
+  lv_obj_add_event_cb(s_map, map_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* ml = lv_label_create(s_map);
+  lv_label_set_text(ml, "Map burner");
+  lv_obj_center(ml);
+  lv_obj_add_flag(s_map, LV_OBJ_FLAG_HIDDEN);
+
   s_list = lv_list_create(scr);
   lv_obj_set_size(s_list, 468, 250);
   lv_obj_align(s_list, LV_ALIGN_BOTTOM_MID, 0, -8);
@@ -77,6 +89,9 @@ void profiles_update(const ProfileStore& ps) {
   const int n = ps.count();
   (n == 0) ? lv_obj_clear_flag(s_empty, LV_OBJ_FLAG_HIDDEN)
            : lv_obj_add_flag(s_empty, LV_OBJ_FLAG_HIDDEN);
+  // Map burner works on the active pan, so it needs a pan to exist.
+  (n == 0) ? lv_obj_add_flag(s_map, LV_OBJ_FLAG_HIDDEN)
+           : lv_obj_clear_flag(s_map, LV_OBJ_FLAG_HIDDEN);
 
   for (int i = 0; i < n; ++i) {
     const bool active = (i == ps.active());

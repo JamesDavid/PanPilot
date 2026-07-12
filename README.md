@@ -331,6 +331,19 @@ thin nonstick each get guidance tuned to how *they* hold and shed heat.
        alt="My Pans: cast iron active, nonstick, carbon steel with learned lags">
 </p>
 
+Each pan row also carries an **SS** chip (tap to mark the pan stainless — the
+active pan's material drives the stainless guidance behavior for the whole cook).
+
+**Map Burner (per-pan knob calibration).** "Turn down" cues normally suggest a
+knob setting from a generic temperature table. Tap **Map burner** on My Pans to
+calibrate the *active pan on your actual burner* instead (~5 minutes): the wizard
+walks you through the five knob positions (LOW → HIGH), measuring the heating
+rate at each, then one burner-off window to measure how fast the pan sheds heat.
+From those six numbers it predicts the **hold temperature of every knob setting**
+and shows them before you save. From then on, cues like "aim knob at MED-LOW"
+come from *your* burner's map, not the generic table. Maps are per-pan — a thin
+nonstick and a cast iron on the same burner get different maps.
+
 ### Settings
 
 Open **Settings** from the preset picker's bottom row to change the things that

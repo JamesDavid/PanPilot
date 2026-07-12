@@ -15,6 +15,7 @@
 #include "ui/screen_onboarding.h"
 #include "ui/screen_autotune.h"
 #include "ui/screen_profiles.h"
+#include "ui/screen_burnermap.h"
 #include "core/profilestore.h"
 #include "core/settings.h"
 #include "core/timezones.h"
@@ -34,6 +35,7 @@ lv_obj_t* s_preset_edit = nullptr;
 lv_obj_t* s_assist = nullptr;
 lv_obj_t* s_onboarding = nullptr;
 lv_obj_t* s_autotune = nullptr;
+lv_obj_t* s_burnermap = nullptr;
 int s_editId = -1;                 // preset id being edited (-1 = new)
 uint8_t s_editReturnZone = 0;      // which pan's picker the editor came from
 bool s_assistAvail = false;        // actuator configured (from the snapshot)
@@ -65,10 +67,11 @@ AutotuneCb s_autotuneCb = nullptr;
 RoiCb s_roiCb = nullptr;
 const ProfileStore* s_profiles = nullptr;
 ProfileCb s_profileCb = nullptr;
+BurnerMapCb s_bmapCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS,
               SETTINGS, PRESET_EDIT, ASSIST, ONBOARDING, AUTOTUNE,
-              PROFILES } s_active = HOME;
+              PROFILES, BURNERMAP } s_active = HOME;
 
 void settings_refresh() {
   settings_update(s_useF, s_muted, s_bright, s_tz, s_stainless);
@@ -128,6 +131,17 @@ void show_profiles() {
 void profile_cmd(uint8_t cmd, int idx) {
   if (s_profileCb) s_profileCb(cmd, idx);
   if (s_profiles) profiles_update(*s_profiles);   // reflect the mutation
+}
+
+void set_burnermap_cb(BurnerMapCb onBmap) { s_bmapCb = onBmap; }
+void show_burnermap() {
+  if (!s_burnermap) s_burnermap = burnermap_create();
+  lv_scr_load(s_burnermap);
+  s_active = BURNERMAP;
+}
+void burnermap_cmd(uint8_t cmd) {
+  if (s_bmapCb) s_bmapCb(cmd);
+  if (cmd == 2 || cmd == 3) show_profiles();   // cancel/save -> back to My Pans
 }
 
 void set_onboarding_cb(OnboardingDoneCb onDone) { s_onboardCb = onDone; }
@@ -292,6 +306,7 @@ void root_update(const ThermalFrame& f, const PanReading& r, const UiState& s) {
   else if (s_active == LEARN) learn_update(s);
   else if (s_active == SETTINGS) settings_refresh();
   else if (s_active == AUTOTUNE) autotune_update(s);
+  else if (s_active == BURNERMAP) burnermap_update(s, s_useF);
   // presets / idle screens are static; nothing to update per tick
 }
 

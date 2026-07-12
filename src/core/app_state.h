@@ -9,6 +9,7 @@
 #include "core/recovery.h"
 #include "core/battery.h"
 #include "core/foodtimer.h"
+#include "core/burnermap.h"
 
 enum class Mode : uint8_t { THERMOMETER, TARGET, PRESET };
 enum class LearnPhase : uint8_t { OFF, RECORDING, DONE };  // Learn Pan Mode (M6)
@@ -101,4 +102,14 @@ struct UiState {
   uint8_t autotuneState = 0;
   uint8_t autotuneProgress = 0;  // observed oscillation cycles (0..5)
   float autotuneKp = 0, autotuneKi = 0, autotuneKd = 0;
+
+  // Map Burner wizard (per-pan knob calibration).
+  uint8_t bmapPhase = 0;         // BurnerMapper::Phase
+  uint8_t bmapSetting = 0;       // knob index in play
+  uint8_t bmapSecsLeft = 0;      // countdown in a measure window
+  int16_t bmapSettleF[BURNER_SETTINGS] = {0};   // DONE: predicted hold temps
+  bool bmapCanSave = false;      // false on simulated frames (dev build)
+  // Knob hint for down-cues: the active pan's calibrated suggestion when
+  // mapped, else the generic table. Points at a static string.
+  const char* burnerHint = nullptr;
 };

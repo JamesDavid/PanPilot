@@ -5,6 +5,7 @@
 #pragma once
 #include <stdint.h>
 #include "app_config.h"
+#include "core/burnermap.h"
 
 struct PanProfile {
   uint16_t magic;            // 0xPA71 sentinel (base spec §10 versioned blob)
@@ -15,10 +16,12 @@ struct PanProfile {
   bool     valid;
   bool     stainless;        // pan MATERIAL (v2): the selected pan drives the
                              // stainless trend-only/alarm-suppression behavior
+  BurnerMap burner;          // v3: per-knob calibration (Map Burner wizard) —
+                             // data-driven knob hints when burner.valid
 };
 
 constexpr uint16_t PANPROFILE_MAGIC = 0xA71C;
-constexpr uint16_t PANPROFILE_VERSION = 2;   // v2: + stainless (struct grew)
+constexpr uint16_t PANPROFILE_VERSION = 3;   // v3: + burner map (struct grew)
 
 // Heuristic: a faster-heating pan/burner overshoots further, so it has a larger
 // effective lag. Derived from the peak heating rate observed during Learn Pan
