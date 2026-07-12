@@ -19,6 +19,7 @@
 #include "core/foodlib.h"
 #include "core/recipe.h"
 #include "core/recipe_validate.h"
+#include "core/preplib.h"
 #include "core/timezones.h"
 #include "hal/storage.h"
 #include "hal/session_store.h"
@@ -199,6 +200,17 @@ void begin() {
       j += "\",\"lo\":"; j += f.panTargetF_lo; j += ",\"hi\":"; j += f.panTargetF_hi;
       j += ",\"side1\":"; j += f.sideSec[0]; j += ",\"side2\":"; j += f.sideSec[1];
       j += ",\"safe\":"; j += f.safeInternalF; j += '}';
+    }
+    j += ']';
+    r->send(200, "application/json", j);
+  });
+  // Fats for the Creator's PREP dropdown (name is all the page needs; the
+  // firmware owns the temps/smoke points).
+  s_server.on("/api/preplib", HTTP_GET, [](AsyncWebServerRequest* r) {
+    String j = "[";
+    for (int i = 0; i < preplib_count(); ++i) {
+      if (i) j += ',';
+      j += "{\"name\":\""; j += preplib_entry(i).name; j += "\"}";
     }
     j += ']';
     r->send(200, "application/json", j);
