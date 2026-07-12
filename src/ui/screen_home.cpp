@@ -588,9 +588,16 @@ void home_update(const UiState& s, bool useF) {
     lv_obj_set_style_bg_color(s_overlay, lv_color_hex(bs.color), 0);
     lv_obj_set_style_bg_opa(s_overlay, LV_OPA_COVER, 0);
     lv_label_set_text(s_overlay_lbl, bs.text);
-    if (s.guidance == GuidanceState::TURN_DOWN_NOW && s.projectedPeakF > 0) {
+    // Down-cues carry a concrete knob instruction, not just the state.
+    if (s.guidance == GuidanceState::TOO_HOT) {
+      const float t = useF ? cToF(s.displayTempC) : s.displayTempC;
+      std::snprintf(buf, sizeof(buf), "%d\xC2\xB0%s - turn burner to LOW",
+                    int(t + 0.5f), useF ? "F" : "C");
+    } else if (s.guidance == GuidanceState::TURN_DOWN_NOW && s.projectedPeakF > 0) {
       const float pk = useF ? s.projectedPeakF : (s.projectedPeakF - 32) * 5 / 9;
-      std::snprintf(buf, sizeof(buf), "peak ~%d\xC2\xB0%s", int(pk + 0.5f), useF ? "F" : "C");
+      std::snprintf(buf, sizeof(buf), "peak ~%d\xC2\xB0%s - try %s",
+                    int(pk + 0.5f), useF ? "F" : "C",
+                    burner_hint_for_targetF(s.targetCenterF));
     } else {
       const float t = useF ? cToF(s.displayTempC) : s.displayTempC;
       std::snprintf(buf, sizeof(buf), "%d\xC2\xB0%s", int(t + 0.5f), useF ? "F" : "C");

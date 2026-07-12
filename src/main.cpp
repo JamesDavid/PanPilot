@@ -405,9 +405,16 @@ void SensorTask(void*) {
     for (int rr = 0; rr < THERM_ROWS; ++rr)
       for (int cc = 0; cc < THERM_COLS; ++cc) f.px[rr][cc] = 24.0f;
     const float t = nowMs / 1000.0f;
-    float panC = 24.0f + std::min(161.0f, t * 1.6f);   // ~24->185 C over ~100 s
-    const float cyc = t - 90.0f * (int)(t / 90.0f);    // fmod(t, 90)
-    if (panC > 150.0f && cyc < 10.0f) panC -= 14.0f;   // periodic food-added dip
+    // TARGET-AWARE: ramp toward the CURRENTLY SELECTED target and settle just
+    // inside its ready band, so the demo walks HEAT MORE -> HOLD -> READY
+    // rather than blowing past a low preset's warn threshold into a
+    // perpetually flashing TOO HOT (bench feedback). `target` is the previous
+    // tick's copy of g_target — change the target on the device and the
+    // simulated pan follows.
+    const float targetC = ((float)target.centerF - 32.0f) / 1.8f;
+    float panC = std::min(24.0f + t * 1.6f, targetC + 2.0f);   // ~+4 F: in band
+    const float cyc = t - 90.0f * (int)(t / 90.0f);            // fmod(t, 90)
+    if (panC > targetC - 10.0f && cyc < 10.0f) panC -= 14.0f;  // food-added dip
     for (int rr = 0; rr < THERM_ROWS; ++rr)
       for (int cc = 0; cc < THERM_COLS; ++cc) {
         const float dx = cc - 16.0f, dy = rr - 12.0f;
@@ -1110,15 +1117,21 @@ void loop() {
       if (u.pluginWarning)
         attn.raise(AttnLevel::L3, "PLUG ME IN", "battery critical", now);
       else if (u.guidance == GuidanceState::TOO_HOT)
-        attn.raise(AttnLevel::L3, "TOO HOT", "", now);
+        attn.raise(AttnLevel::L3, "TOO HOT", "turn burner to LOW", now);
       else if (u.recipeActive && u.recipeCue[0])
         attn.raise(AttnLevel::L2, u.recipeCue, "tap when done", now);
       else if (u.foodCue)
         attn.raise(AttnLevel::L2, u.foodCueVerb, u.foodCueSub, now);
       else if (u.addBatchPrompt)
         attn.raise(AttnLevel::L2, "ADD BATCH", "", now);
-      else if (u.guidance == GuidanceState::TURN_DOWN_NOW)
-        attn.raise(AttnLevel::L2, "TURN DOWN NOW", "", now);
+      else if (u.guidance == GuidanceState::TURN_DOWN_NOW) {
+        // Concrete knob advice (generic mapping; AttentionManager stores the
+        // pointer, so the buffer must persist across ticks).
+        static char tdSub[24];
+        snprintf(tdSub, sizeof(tdSub), "aim knob at %s",
+                 burner_hint_for_targetF(u.targetCenterF));
+        attn.raise(AttnLevel::L2, "TURN DOWN NOW", tdSub, now);
+      }
       else if (u.guidance == GuidanceState::TURN_DOWN_SOON)
         attn.raise(AttnLevel::L2, "TURN DOWN SOON", "", now);
       else if (u.guidance == GuidanceState::READY)

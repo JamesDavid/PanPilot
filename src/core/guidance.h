@@ -42,6 +42,18 @@ struct GuidanceOutput {
   AlertAction alert = AlertAction::NONE;
 };
 
+// Rough burner-knob neighborhood for a target temperature — a generic
+// electric-range mapping so down-cues can say WHAT to set, not just "turn
+// down". Honest generic advice only; per-burner Learn calibration can refine
+// it later (roadmap Phase 3 wishlist).
+inline const char* burner_hint_for_targetF(int targetF) {
+  if (targetF <= 275) return "LOW";
+  if (targetF <= 325) return "MED-LOW";
+  if (targetF <= 375) return "MED";
+  if (targetF <= 450) return "MED-HIGH";
+  return "HIGH";
+}
+
 class GuidanceEngine {
  public:
   GuidanceOutput step(const GuidanceInput& in, const Target& t, uint32_t now_ms);
