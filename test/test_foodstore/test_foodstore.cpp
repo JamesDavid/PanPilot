@@ -1,4 +1,5 @@
-// test_foodstore — custom foods store + the seed merge: appends new foods,
+// test_foodstore — custom foods store + the compiled-table merge (Appendix A
+// seed + FOODLIB_USER additions): appends new foods,
 // shadows a seed entry when (name,variant) matches, rejects bad input, and
 // reverts cleanly (spec §2.7).
 #include <unity.h>
@@ -13,7 +14,7 @@ void tearDown() { foodlib_set_custom(nullptr); }
 static const uint16_t SIDES2[2] = {80, 40};
 
 static void test_seed_only_by_default(void) {
-  TEST_ASSERT_EQUAL_INT((int)FOODLIB_SEED_COUNT, foodlib_count());
+  TEST_ASSERT_EQUAL_INT((int)(FOODLIB_SEED_COUNT + FOODLIB_USER_COUNT), foodlib_count());
 }
 
 static void test_append_new_food(void) {
@@ -21,7 +22,7 @@ static void test_append_new_food(void) {
   TEST_ASSERT_TRUE(s.add("Halloumi", "1/2-inch slabs", 375, 425, SIDES2, 2,
                          400, -10, 0, 0, "flip when golden"));
   foodlib_set_custom(&s);
-  TEST_ASSERT_EQUAL_INT((int)FOODLIB_SEED_COUNT + 1, foodlib_count());
+  TEST_ASSERT_EQUAL_INT((int)(FOODLIB_SEED_COUNT + FOODLIB_USER_COUNT) + 1, foodlib_count());
   const FoodEntry* f = foodlib_find("Halloumi", "1/2-inch slabs");
   TEST_ASSERT_NOT_NULL(f);
   TEST_ASSERT_EQUAL_INT(375, f->panTargetF_lo);
@@ -36,7 +37,7 @@ static void test_override_shadows_seed(void) {
                          2, 365, -12, 0, 0, "my griddle runs cool"));
   foodlib_set_custom(&s);
   // No new row — it shadowed the seed in place.
-  TEST_ASSERT_EQUAL_INT((int)FOODLIB_SEED_COUNT, foodlib_count());
+  TEST_ASSERT_EQUAL_INT((int)(FOODLIB_SEED_COUNT + FOODLIB_USER_COUNT), foodlib_count());
   const FoodEntry* f = foodlib_find("Pancakes", "4-inch, standard batter");
   TEST_ASSERT_NOT_NULL(f);
   TEST_ASSERT_EQUAL_INT(200, f->sideSec[0]);   // custom time, not the seed's 150
@@ -73,9 +74,9 @@ static void test_capacity_and_revert(void) {
   }
   TEST_ASSERT_EQUAL_INT(FoodStore::MAX, s.count());
   foodlib_set_custom(&s);
-  TEST_ASSERT_EQUAL_INT((int)FOODLIB_SEED_COUNT + FoodStore::MAX, foodlib_count());
+  TEST_ASSERT_EQUAL_INT((int)(FOODLIB_SEED_COUNT + FOODLIB_USER_COUNT) + FoodStore::MAX, foodlib_count());
   foodlib_set_custom(nullptr);
-  TEST_ASSERT_EQUAL_INT((int)FOODLIB_SEED_COUNT, foodlib_count());
+  TEST_ASSERT_EQUAL_INT((int)(FOODLIB_SEED_COUNT + FOODLIB_USER_COUNT), foodlib_count());
 }
 
 int main(int, char**) {

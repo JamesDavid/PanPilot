@@ -71,11 +71,17 @@ void tz_picker_build() {
     lv_obj_align(s_tz_list, LV_ALIGN_BOTTOM_MID, 0, -4);
     lv_obj_set_style_bg_color(s_tz_list, lv_color_hex(0x101418), 0);
     lv_obj_set_style_pad_row(s_tz_list, 4, 0);
+    // 90% rows / fat scrollbar, same treatment as the food list.
+    lv_obj_set_scrollbar_mode(s_tz_list, LV_SCROLLBAR_MODE_ON);
+    lv_obj_set_style_width(s_tz_list, 20, LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_color(s_tz_list, lv_color_hex(0x3A4552), LV_PART_SCROLLBAR);
+    lv_obj_set_style_bg_opa(s_tz_list, LV_OPA_70, LV_PART_SCROLLBAR);
+    lv_obj_set_style_radius(s_tz_list, 6, LV_PART_SCROLLBAR);
   }
   lv_obj_clean(s_tz_list);          // rebuild so the checkmark tracks current
   for (int i = 0; i < tz_count(); ++i) {
     lv_obj_t* row = lv_btn_create(s_tz_list);
-    lv_obj_set_width(row, lv_pct(100));
+    lv_obj_set_width(row, 424);
     lv_obj_set_height(row, 44);
     const bool cur = (i == (int)s_tz_current);
     lv_obj_set_style_bg_color(row, lv_color_hex(cur ? 0x2E5AAC : 0x1A2027), 0);

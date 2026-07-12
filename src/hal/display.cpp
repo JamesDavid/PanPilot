@@ -69,15 +69,29 @@ void touch_read_cb(lv_indev_drv_t* drv, lv_indev_data_t* data) {
   uint16_t x = 0, y = 0;
   // GT911 shares the I2C bus with the MLX90640 (base spec §4) — serialize.
   hal::I2CGuard guard(10);
+  // Scroll feel (bench 2026-07-12: "faster + reverse the swipe direction"):
+  // while a press is down, the reported point is the press ORIGIN plus
+  // TOUCH_SCROLL_GAIN x the finger's travel. |gain|>1 scrolls farther than
+  // the finger moves; a negative gain reverses the swipe. Taps are unaffected
+  // (zero travel), so hit targets stay exact.
+  static bool sPrev = false;
+  static int sOx = 0, sOy = 0;
   if (guard.held && lcd.getTouch(&x, &y)) {
-    const int lx = (int)x - kOffX, ly = (int)y - kOffY;   // panel -> UI coords
+    int lx = (int)x - kOffX, ly = (int)y - kOffY;   // panel -> UI coords
     if (lx >= 0 && lx < (int)kHor && ly >= 0 && ly < (int)kVer) {
+      if (!sPrev) { sOx = lx; sOy = ly; }           // press origin
+      lx = sOx + (int)((lx - sOx) * TOUCH_SCROLL_GAIN);
+      ly = sOy + (int)((ly - sOy) * TOUCH_SCROLL_GAIN);
+      if (lx < 0) lx = 0; else if (lx >= (int)kHor) lx = kHor - 1;
+      if (ly < 0) ly = 0; else if (ly >= (int)kVer) ly = kVer - 1;
+      sPrev = true;
       data->state = LV_INDEV_STATE_PRESSED;
       data->point.x = lx;
       data->point.y = ly;
       return;
     }
   }
+  sPrev = false;
   data->state = LV_INDEV_STATE_RELEASED;
 }
 
