@@ -93,11 +93,14 @@ bool mlx_read(ThermalFrame& out) {
     return false;
   }
 
-  // Validate + copy (reject NaN/inf/out-of-range, base spec §5).
+  // Validate + copy (reject NaN/inf/out-of-range, base spec §5), applying the
+  // SENSOR_FLIP_* orientation so every consumer sees a camera-style frame.
   float lo = 1e9f;
   for (int r = 0; r < THERM_ROWS; ++r)
     for (int c = 0; c < THERM_COLS; ++c) {
-      const float v = s_frame[r * THERM_COLS + c];
+      const int sr = SENSOR_FLIP_Y ? (THERM_ROWS - 1 - r) : r;
+      const int sc = SENSOR_FLIP_X ? (THERM_COLS - 1 - c) : c;
+      const float v = s_frame[sr * THERM_COLS + sc];
       if (!(v > SENSOR_MIN_VALID_C && v < SENSOR_MAX_VALID_C)) {
         if (++s_badFrames >= SENSOR_BAD_FRAMES_FAULT) {}
         out.valid = false;

@@ -49,6 +49,13 @@
 #define SENSOR_MAX_VALID_C         600.0f // ...range (§5)
 #define SENSOR_BAD_FRAMES_FAULT    10     // consecutive bad frames -> SENSOR FAULT
 #define SENSOR_DIE_WARN_C          85.0f  // die temp warning (§5)
+// Frame orientation. The MLX90640 pixel order is defined looking FROM the
+// sensor AT the scene, so rendered camera-style it mirrors; flip applied at
+// the HAL so analysis/ROI/web all agree. X flip bench-confirmed 2026-07-12
+// (D55 breakout, first live frames); Y flip reserved for an upside-down
+// enclosure mount.
+#define SENSOR_FLIP_X              1      // mirror columns (0/1)
+#define SENSOR_FLIP_Y              0      // mirror rows (0/1)
 
 // ---- Frame analysis / ROI (base spec §6) -----------------------------------
 #define PAN_DELTA_C                10.0f  // px > bg+this = candidate (§6.1)
