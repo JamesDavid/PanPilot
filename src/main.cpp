@@ -1197,8 +1197,10 @@ void loop() {
     // Settings Wi-Fi row: live provisioning status (dirty-checked in the UI).
     { static char wifiLine[64];
       if (net::connected())
-        snprintf(wifiLine, sizeof(wifiLine), "%s - panpilot.local",
-                 net::ssid().c_str());
+        // The raw IP, not panpilot.local: Android browsers can't resolve
+        // .local, and the IP works from everything (bench 2026-07-11).
+        snprintf(wifiLine, sizeof(wifiLine), "%s - %s",
+                 net::ssid().c_str(), net::ip().c_str());
       else if (net::portal_active())
         snprintf(wifiLine, sizeof(wifiLine), "join AP %s", net::ap_name());
       else

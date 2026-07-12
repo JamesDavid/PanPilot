@@ -28,6 +28,7 @@ bool portal_active();          // captive portal AP is up right now
 const char* ap_name();         // "PanPilot-XXXX" (the portal SSID)
 void start_portal();           // reopen the config portal (no-op if connected)
 String ssid();                 // joined network name ("" if not connected)
+String ip();                   // STA address as text ("" if not connected)
 String mqtt_broker();          // MQTT broker captured at provisioning ("" = off)
 void set_settings_cbs(UnitCb, SetMuteCb, SetBrightCb, SetTzCb);
 }  // namespace net

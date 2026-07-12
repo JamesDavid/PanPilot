@@ -148,7 +148,10 @@ void begin() {
     hal::storage_set_mqtt_broker(mqttParam.getValue());
   hal::storage_set_web_pin(pinParam.getValue());
 
-  if (MDNS.begin("panpilot")) MDNS.addService("http", "tcp", 80);
+  // mDNS is (re)registered from net::loop() on every connect transition — a
+  // begin() here at boot ran before the STA had a network whenever the user
+  // provisioned via the portal minutes later, and panpilot.local never
+  // resolved until a reboot (bench 2026-07-11).
 
   s_server.on("/", HTTP_GET, [](AsyncWebServerRequest* r) {
     r->send_P(200, "text/html", PANPILOT_INDEX_HTML);
@@ -287,6 +290,17 @@ void loop() {
     if (WiFi.status() == WL_CONNECTED || !s_wm.getConfigPortalActive())
       s_portal = false;
   }
+  // (Re)start mDNS on every connect transition — it must bind AFTER the STA
+  // has an address (late portal provisioning, router reboots, DHCP renews).
+  static bool wasUp = false;
+  const bool up = WiFi.status() == WL_CONNECTED;
+  if (up && !wasUp) {
+    MDNS.end();
+    if (MDNS.begin("panpilot")) MDNS.addService("http", "tcp", 80);
+    Serial.printf("[net] connected  SSID=%s  IP=%s  http://panpilot.local/\n",
+                  WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+  }
+  wasUp = up;
   s_ws.cleanupClients();
   ElegantOTA.loop();
   // Apply any web settings edits here, on the loop core (safe for NVS/UI).
@@ -300,6 +314,7 @@ bool connected() { return WiFi.status() == WL_CONNECTED; }
 bool portal_active() { return s_portal; }
 const char* ap_name() { return s_ap; }
 String ssid() { return connected() ? WiFi.SSID() : String(); }
+String ip() { return connected() ? WiFi.localIP().toString() : String(); }
 void start_portal() {
   if (s_portal || WiFi.status() == WL_CONNECTED) return;
   s_wm.setConfigPortalTimeout(180);

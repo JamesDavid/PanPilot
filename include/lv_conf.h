@@ -35,6 +35,14 @@
 
 #define LV_DPI_DEF            160
 
+// ---- Input / scrolling ----
+// A press that moves this many px becomes a SCROLL and the release no longer
+// clicks the row under the finger. LVGL's default 10 px let scroll flicks on
+// the list screens land as taps ("changing settings by bonking a toggle" —
+// bench 2026-07-11). 6 px still leaves comfortable slack for a stationary tap
+// on the GT911 capacitive panel.
+#define LV_INDEV_DEF_SCROLL_LIMIT  6
+
 // ---- Features ----
 #define LV_USE_SNAPSHOT      1     // kickoff: screenshot capture in the simulator
 #define LV_USE_LOG           1

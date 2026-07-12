@@ -90,25 +90,31 @@ void tz_picker_build() {
   }
 }
 
-// One "Label ............ value" row (added to a scroll container) that fires cb
-// on tap. Returns the value label so settings_update() can refresh it.
+// One settings TILE (2-column grid): name on top (grey), value below (blue);
+// the whole tile fires cb on tap. Returns the value label so settings_update()
+// can refresh it. The grid replaced a scrollable row list — flick-scrolling a
+// list of tap-to-toggle rows kept "bonking" settings (bench 2026-07-11); with
+// every tile on screen at once there is nothing to scroll and a tap can only
+// mean the tile under the finger.
 lv_obj_t* mk_row(lv_obj_t* p, const char* name, lv_event_cb_t cb) {
-  lv_obj_t* row = lv_btn_create(p);
-  lv_obj_set_width(row, lv_pct(100));
-  lv_obj_set_height(row, 50);
-  lv_obj_set_style_bg_color(row, lv_color_hex(0x1A2027), 0);
-  lv_obj_set_style_radius(row, 10, 0);
-  lv_obj_add_event_cb(row, cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* tile = lv_btn_create(p);
+  lv_obj_set_size(tile, 229, 62);
+  lv_obj_set_style_bg_color(tile, lv_color_hex(0x1A2027), 0);
+  lv_obj_set_style_radius(tile, 10, 0);
+  lv_obj_add_event_cb(tile, cb, LV_EVENT_CLICKED, nullptr);
 
-  lv_obj_t* nm = lv_label_create(row);
+  lv_obj_t* nm = lv_label_create(tile);
   lv_label_set_text(nm, name);
-  lv_obj_set_style_text_font(nm, &lv_font_montserrat_20, 0);
-  lv_obj_align(nm, LV_ALIGN_LEFT_MID, 8, 0);
+  lv_obj_set_style_text_font(nm, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_color(nm, lv_color_hex(0x8A93A0), 0);
+  lv_obj_align(nm, LV_ALIGN_TOP_LEFT, 8, 4);
 
-  lv_obj_t* v = lv_label_create(row);
+  lv_obj_t* v = lv_label_create(tile);
   lv_obj_set_style_text_font(v, &lv_font_montserrat_20, 0);
   lv_obj_set_style_text_color(v, lv_color_hex(0x5AA0FF), 0);
-  lv_obj_align(v, LV_ALIGN_RIGHT_MID, -12, 0);
+  lv_obj_align(v, LV_ALIGN_BOTTOM_LEFT, 8, -4);
+  lv_label_set_long_mode(v, LV_LABEL_LONG_DOT);
+  lv_obj_set_width(v, 213);
   return v;
 }
 }  // namespace
