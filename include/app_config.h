@@ -144,11 +144,15 @@
 #define OVERLAY_READY_MS           6000    // ms: READY takeover auto-dismisses to
                                            // the action bar (a pan HOLDING at temp
                                            // is READY forever — bench 2026-07-11)
-#define TOUCH_SCROLL_GAIN          -1.6f   // scroll travel multiplier (hal touch
+#define TOUCH_SCROLL_GAIN          1.6f    // scroll travel multiplier (hal touch
                                            // reader): |g|>1 = faster than the
-                                           // finger, negative = reversed swipe
-                                           // (bench 2026-07-12 request). Taps
-                                           // are unaffected (zero travel).
+                                           // finger; negative reverses. Bench
+                                           // 2026-07-12: -1.6 was tried and
+                                           // fought LVGL's momentum — swipes on
+                                           // the big preset cards read as taps
+                                           // ("can't scroll, touching selects"),
+                                           // so direction is back to natural.
+                                           // Taps unaffected (zero travel).
 
 // ---- Battery / power subsystem (roadmap spec §2.1) -------------------------
 #define BATTERY_LOW_PCT            15      // low-battery event threshold

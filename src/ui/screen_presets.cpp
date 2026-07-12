@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "ui/ui_root.h"
+#include "ui/list_style.h"
 #include "core/presets.h"
 #include "core/foodlib.h"
 #include "core/favstore.h"
@@ -21,6 +22,7 @@ void card_cb(lv_event_t* e) {
 void fav_card_cb(lv_event_t* e) {
   ui::select_food((int)(intptr_t)lv_event_get_user_data(e));
 }
+void program_card_cb(lv_event_t*) { ui::start_recipe(); }
 void edit_cb(lv_event_t* e) {
   const int id = (int)(intptr_t)lv_event_get_user_data(e);
   ui::show_preset_edit(id);
@@ -38,12 +40,39 @@ void settings_cb(lv_event_t*) { ui::show_settings(); }
 void build_cards() {
   if (!s_grid) return;
   lv_obj_clean(s_grid);
-  const int cols = 3, cw = 148, ch = 116, gx = 8, gy = 6;
-  const int x0 = (480 - (cols * cw + (cols - 1) * gx)) / 2;
+  // 140-wide cards leave the right gutter free for the always-on scrollbar
+  // (list_style.h treatment; the grid's content area is 480 - 30 pad_right).
+  const int cols = 3, cw = 140, ch = 116, gx = 8, gy = 6;
+  const int x0 = 4;
   const int y0 = 4;
 
-  // Favorite-food cards (amber star; star/unstar lives in the food picker).
+  // ONE top-level grid (bench 2026-07-12: "why are there three different
+  // classes of these things"): favorites (amber, food timers), the recipe
+  // program (blue, multi-step), then plain temp presets (grey). The food
+  // picker stays the full catalog; anything used a lot lives HERE.
   int slot0 = 0;
+  {
+    const int r = slot0 / cols, c = slot0 % cols;
+    lv_obj_t* card = lv_btn_create(s_grid);
+    lv_obj_set_size(card, cw, ch);
+    lv_obj_set_pos(card, x0 + c * (cw + gx), y0 + r * (ch + gy));
+    lv_obj_set_style_radius(card, 12, 0);
+    lv_obj_set_style_bg_color(card, lv_color_hex(0x2E5AAC), 0);
+    lv_obj_add_event_cb(card, program_card_cb, LV_EVENT_CLICKED, nullptr);
+    lv_obj_t* pl = lv_label_create(card);
+    lv_label_set_text(pl, LV_SYMBOL_PLAY "  Smash\nBurgers x4");
+    lv_obj_set_style_text_font(pl, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_align(pl, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(pl, LV_ALIGN_CENTER, 0, -8);
+    lv_obj_t* sub = lv_label_create(card);
+    lv_label_set_text(sub, "program");
+    lv_obj_set_style_text_font(sub, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(sub, lv_color_hex(0xB9C8E4), 0);
+    lv_obj_align(sub, LV_ALIGN_BOTTOM_MID, 0, -6);
+    ++slot0;
+  }
+
+  // Favorite-food cards (amber star; star/unstar lives in the food picker).
   const FavStore* fv = ui::favs();
   if (fv && fv->count() > 0) {
     for (int i = 0; i < foodlib_count(); ++i) {
@@ -170,8 +199,7 @@ lv_obj_t* presets_create() {
   lv_obj_remove_style_all(s_grid);
   lv_obj_set_size(s_grid, 480, 250);
   lv_obj_align(s_grid, LV_ALIGN_TOP_MID, 0, 34);
-  lv_obj_set_scroll_dir(s_grid, LV_DIR_VER);
-  lv_obj_set_scrollbar_mode(s_grid, LV_SCROLLBAR_MODE_AUTO);
+  apply_scroll_list_style(s_grid);   // the one 90/10 list format (list_style.h)
   build_cards();
 
   lv_obj_t* done = lv_btn_create(scr);
