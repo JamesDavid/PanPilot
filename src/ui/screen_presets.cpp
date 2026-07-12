@@ -22,7 +22,7 @@ void edit_cb(lv_event_t* e) {
 }
 void new_cb(lv_event_t*) { ui::show_preset_edit(-1); }
 void done_cb(lv_event_t*) { ui::show_home(); }
-void learn_cb(lv_event_t*) { ui::show_learn(); }
+void learn_cb(lv_event_t*) { ui::show_profiles(); }  // pick/learn the PAN (first-class)
 void lastcook_cb(lv_event_t*) { ui::show_lastcook(); }
 void foods_cb(lv_event_t*) { ui::cook_a_food(); }   // routes to the open pan's zone
 void settings_cb(lv_event_t*) { ui::show_settings(); }
@@ -145,7 +145,7 @@ lv_obj_t* presets_create() {
   lv_obj_set_style_bg_color(learn, lv_color_hex(0x2A323C), 0);
   lv_obj_add_event_cb(learn, learn_cb, LV_EVENT_CLICKED, nullptr);
   lv_obj_t* ll = lv_label_create(learn);
-  lv_label_set_text(ll, "Learn Pan " LV_SYMBOL_RIGHT);
+  lv_label_set_text(ll, "Pans " LV_SYMBOL_RIGHT);   // select the pan for the cook
   lv_obj_center(ll);
 
   lv_obj_t* set = lv_btn_create(scr);

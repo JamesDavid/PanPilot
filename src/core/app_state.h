@@ -20,6 +20,8 @@ struct UiState {
                             // the UI stays fully usable (settings, presets,
                             // Wi-Fi) with a "sensor not connected" note.
                             // (Defaults true so sim scenes/tests read normal.)
+  bool  sensorSimulated = false;  // DEV_FAKE_SENSOR build feeding synthetic
+                                  // frames — banner shown; arming refused.
   bool  modelValid = false;
   float displayTempC = 0;
   float rateCPerMin = 0;

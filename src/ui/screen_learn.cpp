@@ -16,6 +16,8 @@ lv_obj_t* s_primary = nullptr;  // Start / Save
 lv_obj_t* s_primary_lbl = nullptr;
 lv_obj_t* s_secondary = nullptr;  // Cancel / Redo
 lv_obj_t* s_secondary_lbl = nullptr;
+lv_obj_t* s_stain_sw = nullptr;   // DONE step: mark this pan as stainless
+lv_obj_t* s_stain_lbl = nullptr;
 
 void primary_cb(lv_event_t*) {
   // Start (from OFF) or Save (from DONE) — the controller reads the phase.
@@ -83,12 +85,29 @@ lv_obj_t* learn_create() {
   lv_obj_t* pl = lv_label_create(pans);
   lv_label_set_text(pl, LV_SYMBOL_LIST " My Pans");
   lv_obj_center(pl);
+
+  // DONE step only: record the pan's material with its profile — the selected
+  // pan (not a preset) is what drives the stainless guidance behavior.
+  s_stain_sw = lv_switch_create(scr);
+  lv_obj_align(s_stain_sw, LV_ALIGN_CENTER, -70, 78);
+  lv_obj_add_flag(s_stain_sw, LV_OBJ_FLAG_HIDDEN);
+  s_stain_lbl = lv_label_create(scr);
+  lv_label_set_text(s_stain_lbl, "Stainless pan");
+  lv_obj_set_style_text_font(s_stain_lbl, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_color(s_stain_lbl, lv_color_hex(0xB7C0CC), 0);
+  lv_obj_align(s_stain_lbl, LV_ALIGN_CENTER, 30, 78);
+  lv_obj_add_flag(s_stain_lbl, LV_OBJ_FLAG_HIDDEN);
   return s_screen;
 }
 
 void learn_update(const UiState& s) {
   if (!s_screen) learn_create();
   char buf[64];
+  const bool done = s.learnPhase == LearnPhase::DONE;
+  done ? lv_obj_clear_flag(s_stain_sw, LV_OBJ_FLAG_HIDDEN)
+       : lv_obj_add_flag(s_stain_sw, LV_OBJ_FLAG_HIDDEN);
+  done ? lv_obj_clear_flag(s_stain_lbl, LV_OBJ_FLAG_HIDDEN)
+       : lv_obj_add_flag(s_stain_lbl, LV_OBJ_FLAG_HIDDEN);
   switch (s.learnPhase) {
     case LearnPhase::RECORDING:
       lv_label_set_text(s_body,
@@ -117,6 +136,10 @@ void learn_update(const UiState& s) {
       lv_label_set_text(s_secondary_lbl, "Cancel");
       break;
   }
+}
+
+bool learn_get_stainless() {
+  return s_stain_sw && lv_obj_has_state(s_stain_sw, LV_STATE_CHECKED);
 }
 
 }  // namespace ui

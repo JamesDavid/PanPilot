@@ -20,6 +20,9 @@ void act_cb(lv_event_t* e) {
 void del_cb(lv_event_t* e) {
   ui::profile_cmd(1, (int)(intptr_t)lv_event_get_user_data(e));   // delete
 }
+void stain_cb(lv_event_t* e) {
+  ui::profile_cmd(2, (int)(intptr_t)lv_event_get_user_data(e));   // toggle SS
+}
 }  // namespace
 
 lv_obj_t* profiles_create() {
@@ -98,7 +101,20 @@ void profiles_update(const ProfileStore& ps) {
     lv_label_set_text(lag, buf);
     lv_obj_set_style_text_font(lag, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(lag, lv_color_hex(active ? 0xCBD6EA : 0x8A93A0), 0);
-    lv_obj_align(lag, LV_ALIGN_RIGHT_MID, -54, 0);
+    lv_obj_align(lag, LV_ALIGN_RIGHT_MID, -104, 0);
+
+    // Pan-material chip: amber "SS" when stainless; tap to toggle. The pan
+    // carries its material — selecting a stainless pan turns on the stainless
+    // guidance behavior for the whole cook.
+    lv_obj_t* ss = lv_btn_create(row);
+    lv_obj_set_size(ss, 44, 40);
+    lv_obj_align(ss, LV_ALIGN_RIGHT_MID, -52, 0);
+    lv_obj_set_style_bg_color(ss, lv_color_hex(p.stainless ? 0xC08A00 : 0x2A323C), 0);
+    lv_obj_add_event_cb(ss, stain_cb, LV_EVENT_CLICKED, (void*)(intptr_t)i);
+    lv_obj_t* sl = lv_label_create(ss);
+    lv_label_set_text(sl, "SS");
+    lv_obj_set_style_text_font(sl, &lv_font_montserrat_14, 0);
+    lv_obj_center(sl);
 
     lv_obj_t* del = lv_btn_create(row);
     lv_obj_set_size(del, 40, 40);

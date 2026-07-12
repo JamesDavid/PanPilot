@@ -39,6 +39,9 @@ class ProfileStore {
     std::strncpy(p_[i].name, name, sizeof(p_[i].name) - 1);
     p_[i].name[sizeof(p_[i].name) - 1] = '\0';
   }
+  void setStainless(int i, bool s) {
+    if (i >= 0 && i < n_) p_[i].stainless = s;
+  }
 
   // --- persistence ---
   const void* blob() const { return p_; }

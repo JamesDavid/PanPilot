@@ -47,6 +47,7 @@
 #include "hal/food_json.h"
 #include "core/foodstore.h"
 #include "ui/screen_lastcook.h"
+#include "ui/screen_learn.h"   // learn_get_stainless (pan material at save)
 #include "sensor/mlx90640_source.h"
 #include "sensor/frame_analysis.h"
 #include "ui/ui_root.h"
@@ -212,6 +213,13 @@ void on_autotune(uint8_t cmd) { g_autotune_req = (cmd == 0) ? 1 : (cmd == 1 ? 2 
 // Arming ceremony result (roadmap §3.3). cmd 0 = arm, 1 = STOP/disarm.
 void on_assist(uint8_t cmd) {
   if (cmd == 0) {
+#if defined(DEV_FAKE_SENSOR)
+    // SAFETY: a dev build that may fabricate sensor data must never gain
+    // burner authority — fake temperatures driving a real SSR is the one
+    // combination this project can never allow.
+    Serial.println("[assist] REFUSED - DEV_FAKE_SENSOR build cannot arm");
+    return;
+#endif
 #if defined(ENABLE_WIFI)
     // M14.5 arming gate: refuse until the box's retained status says online.
     if (!g_plug.isAlive()) {
@@ -275,12 +283,23 @@ void apply_active_lag() {
   const PanProfile* ap = g_profiles.activeProfile();
   g_applied_lag = ap ? ap->lagMinutes : LAG_MINUTES_DEFAULT;
 }
-// Pans picker (Phase 3). cmd 0 = activate idx, 1 = delete idx.
+// Pans picker. cmd 0 = activate idx, 1 = delete idx, 2 = toggle stainless.
+// The selected pan is first-class: its lag drives overshoot prediction and its
+// material drives the stainless guidance behavior.
 void on_profile(uint8_t cmd, int idx) {
   if (cmd == 0) g_profiles.setActive(idx);
   else if (cmd == 1) g_profiles.remove(idx);
+  else if (cmd == 2 && idx >= 0 && idx < g_profiles.count())
+    g_profiles.setStainless(idx, !g_profiles.at(idx).stainless);
   persist_profiles();
   apply_active_lag();
+}
+
+// Effective stainless = the SELECTED PAN's material, with the Settings toggle
+// as the no-pan fallback / global override.
+bool stainless_active() {
+  const PanProfile* ap = g_profiles.activeProfile();
+  return g_stainlessPan || (ap && ap->stainless);
 }
 
 void on_learn(uint8_t cmd) {
@@ -291,7 +310,8 @@ void on_learn(uint8_t cmd) {
     } else if (g_learn_phase == 2) {
       char nm[16];
       std::snprintf(nm, sizeof(nm), "Pan %d", g_profiles.count() + 1);
-      g_profiles.add(make_profile(nm, g_learn_peak));   // appends + activates
+      // Material comes from the Learn screen's switch — the pan carries it.
+      g_profiles.add(make_profile(nm, g_learn_peak, ui::learn_get_stainless()));
       persist_profiles();
       apply_active_lag();
       g_learn_phase = 0;
@@ -371,17 +391,52 @@ void SensorTask(void*) {
     }
   };
 
+#if defined(DEV_FAKE_SENSOR)
+  // DEV BUILD ONLY: when no MLX answers the probe, fabricate plausible frames
+  // so the entire pipeline (analysis, guidance, timers, thermal view, split
+  // screen) runs live on a sensor-less bench. A pan disc ramps to ~365 F,
+  // holds, and takes a food-added dip every 90 s. Arming is REFUSED in this
+  // build (fake data must never drive a real burner) and the UI shows a
+  // SIMULATED banner.
+  auto synthFrame = [&](ThermalFrame& f) {
+    const uint32_t nowMs = millis();
+    f = ThermalFrame{};
+    f.valid = true; f.ambientC = 24.0f; f.t_ms = nowMs;
+    for (int rr = 0; rr < THERM_ROWS; ++rr)
+      for (int cc = 0; cc < THERM_COLS; ++cc) f.px[rr][cc] = 24.0f;
+    const float t = nowMs / 1000.0f;
+    float panC = 24.0f + std::min(161.0f, t * 1.6f);   // ~24->185 C over ~100 s
+    const float cyc = t - 90.0f * (int)(t / 90.0f);    // fmod(t, 90)
+    if (panC > 150.0f && cyc < 10.0f) panC -= 14.0f;   // periodic food-added dip
+    for (int rr = 0; rr < THERM_ROWS; ++rr)
+      for (int cc = 0; cc < THERM_COLS; ++cc) {
+        const float dx = cc - 16.0f, dy = rr - 12.0f;
+        const float d2 = dx * dx + dy * dy;
+        if (d2 <= 36.0f) f.px[rr][cc] = panC;          // disc r=6 at center
+        else if (d2 <= 49.0f) f.px[rr][cc] = panC * 0.6f + 9.6f;  // soft rim
+      }
+  };
+#endif
+
+  bool simFrames = false;   // this tick's frame is synthetic (dev build)
   for (;;) {
+    simFrames = false;
     if (!g_sensor_ok) {
       g_sensor_ok = sensor::mlx_begin();
       if (!g_sensor_ok) {
+#if defined(DEV_FAKE_SENSOR)
+        synthFrame(frame);
+        simFrames = true;                // fall through and process it
+#else
         publishIdleSnapshot();           // UI lives on without the sensor
         vTaskDelay(pdMS_TO_TICKS(2000)); // keep retrying the probe
         continue;
+#endif
+      } else {
+        Serial.println("[PanPilot] MLX90640 online");
       }
-      Serial.println("[PanPilot] MLX90640 online");
     }
-    if (!sensor::mlx_read(frame)) {
+    if (!simFrames && !sensor::mlx_read(frame)) {
       // SENSOR FAILSAFE: if frames stop while ASSIST is armed, the control
       // block below never runs — force duty to 0 (staged; the loop core
       // publishes). Without this the last nonzero duty stood until the box's
@@ -396,7 +451,7 @@ void SensorTask(void*) {
       if (lastGoodFrameMs != 0 && millis() - lastGoodFrameMs > IL_FRAME_GAP_MS)
         publishIdleSnapshot();
     } else {
-      lastGoodFrameMs = millis();
+      if (!simFrames) lastGoodFrameMs = millis();   // only REAL frames count
       if (g_roi_req == 1) { analyzer.lockRoi(g_roi_px, g_roi_py); g_roi_req = 0; }
       else if (g_roi_req == 2) { analyzer.clearLock(); g_roi_req = 0; }
       PanReading r = analyzer.process(frame);
@@ -420,7 +475,7 @@ void SensorTask(void*) {
       gi.presence = r.presence;
       gi.moved = r.moved;
       // Auto-detected reflective read OR the user's global stainless toggle.
-      gi.stainlessHint = r.stainlessHint || g_stainlessPan;
+      gi.stainlessHint = r.stainlessHint || stainless_active();
       gi.lagMinutes = g_applied_lag;    // learned lag (Learn Pan Mode)
       GuidanceOutput go = guidance.step(gi, target, millis());
       // Alerts are routed through the attention manager in the UI loop (§3.5).
@@ -512,7 +567,7 @@ void SensorTask(void*) {
         gi2.confidence = zt[1].confidence;
         gi2.presence = zt[1].presence;
         gi2.moved = zt[1].moved;
-        gi2.stainlessHint = zt[1].stainlessHint || g_stainlessPan;
+        gi2.stainlessHint = zt[1].stainlessHint || stainless_active();
         gi2.lagMinutes = g_applied_lag;
         z2g = guidance2.step(gi2, target2, nowm).state;
         z2temp = model2.displayTempC();
@@ -673,6 +728,7 @@ void SensorTask(void*) {
 
       UiState u;
       u.sensorOk = true;
+      u.sensorSimulated = simFrames;   // dev banner; never true off DEV builds
       u.mode = Mode::TARGET;
       u.presence = r.presence;
       u.modelValid = model.valid();
@@ -681,7 +737,7 @@ void SensorTask(void*) {
       u.trend = model.trend();
       u.confidence = r.confidence;
       u.moved = r.moved;
-      u.stainlessHint = r.stainlessHint || g_stainlessPan;
+      u.stainlessHint = r.stainlessHint || stainless_active();
       u.stainlessPan = g_stainlessPan;
       u.muted = hal::buzzer_is_muted();
       u.brightnessLevel = g_bright;
@@ -720,9 +776,10 @@ void SensorTask(void*) {
       u.autotuneState = g_autotune_state;
       u.autotuneProgress = g_autotune_prog;
       u.autotuneKp = g_at_kp; u.autotuneKi = g_at_ki; u.autotuneKd = g_at_kd;
-#if defined(ENABLE_WIFI)
+#if defined(ENABLE_WIFI) && !defined(DEV_FAKE_SENSOR)
       // Arming is offered only while the box's retained status says online
       // (M14.5) — not merely because the actuator code is compiled in.
+      // DEV_FAKE_SENSOR builds never offer it (fake data, real burner: no).
       u.actuatorAvailable = g_plug.isAlive();
       u.actuatorName = g_plug.name();
 #else

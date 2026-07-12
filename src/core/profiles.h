@@ -13,14 +13,17 @@ struct PanProfile {
   float    peakRateFPerMin;  // fastest observed heating rate
   float    lagMinutes;       // learned thermal lag (overshoot predictor)
   bool     valid;
+  bool     stainless;        // pan MATERIAL (v2): the selected pan drives the
+                             // stainless trend-only/alarm-suppression behavior
 };
 
 constexpr uint16_t PANPROFILE_MAGIC = 0xA71C;
-constexpr uint16_t PANPROFILE_VERSION = 1;
+constexpr uint16_t PANPROFILE_VERSION = 2;   // v2: + stainless (struct grew)
 
 // Heuristic: a faster-heating pan/burner overshoots further, so it has a larger
 // effective lag. Derived from the peak heating rate observed during Learn Pan
 // Mode; clamped to a sane band. (Refined later by measuring post-cutoff drift.)
 float learn_lag_from_rate(float peakRateFPerMin);
 
-PanProfile make_profile(const char* name, float peakRateFPerMin);
+PanProfile make_profile(const char* name, float peakRateFPerMin,
+                        bool stainless = false);

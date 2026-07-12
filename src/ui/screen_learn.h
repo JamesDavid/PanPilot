@@ -8,4 +8,5 @@
 namespace ui {
 lv_obj_t* learn_create();
 void learn_update(const UiState& s);
+bool learn_get_stainless();   // the DONE step's "stainless pan" switch state
 }

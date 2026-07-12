@@ -94,14 +94,17 @@ bool storage_load_profile(PanProfile& out) {
          out.valid;
 }
 
+// Key is versioned with the PanProfile layout: v2 added `stainless`, growing
+// the struct — a v1 blob under the old key would misparse by size, so it is
+// simply orphaned (re-learn the pans).
 uint32_t storage_get_profiles(void* out, uint32_t maxBytes) {
   ensure();
-  return (uint32_t)s_prefs.getBytes("profs", out, maxBytes);
+  return (uint32_t)s_prefs.getBytes("profs2", out, maxBytes);
 }
 void storage_set_profiles(const void* data, uint32_t bytes) {
   ensure();
-  if (bytes == 0) s_prefs.remove("profs");
-  else s_prefs.putBytes("profs", data, bytes);
+  if (bytes == 0) s_prefs.remove("profs2");
+  else s_prefs.putBytes("profs2", data, bytes);
 }
 int storage_get_active_profile(int def) { ensure(); return s_prefs.getInt("profact", def); }
 void storage_set_active_profile(int idx) { ensure(); s_prefs.putInt("profact", idx); }

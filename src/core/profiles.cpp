@@ -9,7 +9,8 @@ float learn_lag_from_rate(float peakRateFPerMin) {
   return std::max(0.3f, std::min(1.5f, lag));
 }
 
-PanProfile make_profile(const char* name, float peakRateFPerMin) {
+PanProfile make_profile(const char* name, float peakRateFPerMin,
+                        bool stainless) {
   PanProfile p{};
   p.magic = PANPROFILE_MAGIC;
   p.version = PANPROFILE_VERSION;
@@ -17,5 +18,6 @@ PanProfile make_profile(const char* name, float peakRateFPerMin) {
   p.peakRateFPerMin = peakRateFPerMin;
   p.lagMinutes = learn_lag_from_rate(peakRateFPerMin);
   p.valid = true;
+  p.stainless = stainless;
   return p;
 }
