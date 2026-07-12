@@ -2,6 +2,7 @@
 #include "screen_foods.h"
 
 #include <cstdio>
+#include <cstring>
 
 #include "ui/ui_root.h"
 #include "ui/list_style.h"
@@ -42,17 +43,33 @@ void add_food_row(int i, bool fav) {
   lv_obj_set_style_radius(row, 8, 0);
   lv_obj_add_event_cb(row, food_cb, LV_EVENT_CLICKED, (void*)(intptr_t)i);
 
+  // Strip the "[REVIEW]" authoring tag from display (it is source metadata,
+  // not UI text) — it also made long variants even longer.
+  char vshort[40];
+  {
+    const char* vs = f.variant;
+    const char* cut = std::strstr(vs, "[REVIEW]");
+    size_t len = cut ? (size_t)(cut - vs) : std::strlen(vs);
+    while (len > 0 && vs[len - 1] == ' ') --len;
+    if (len >= sizeof(vshort)) len = sizeof(vshort) - 1;
+    std::memcpy(vshort, vs, len);
+    vshort[len] = '\0';
+  }
   // One recolored two-line label per row keeps the object count low: name
-  // (line 1), "variant · temp · time" (line 2, grey).
+  // (line 1), "variant · temp · time" (line 2, grey). BOUNDED so a long
+  // variant never runs under the star chip (bench 2026-07-12: "porkchop
+  // 3/4 in and the temp overlap").
   char txt[160];
   std::snprintf(txt, sizeof(txt),
                 "%s\n#8a93a0 %s   |   %d-%d\xC2\xB0" "F   |   %d:%02d#",
-                f.name, f.variant, f.panTargetF_lo, f.panTargetF_hi,
+                f.name, vshort, f.panTargetF_lo, f.panTargetF_hi,
                 total / 60, total % 60);
   lv_obj_t* lab = lv_label_create(row);
   lv_label_set_recolor(lab, true);
   lv_label_set_text(lab, txt);
   lv_obj_set_style_text_font(lab, &lv_font_montserrat_14, 0);
+  lv_label_set_long_mode(lab, LV_LABEL_LONG_CLIP);
+  lv_obj_set_size(lab, 350, 40);   // stops short of the star chip
   lv_obj_align(lab, LV_ALIGN_LEFT_MID, 4, 0);
 
   // Star chip: favorites surface to the top of this list AND onto the preset
