@@ -34,3 +34,7 @@ secrets.h
 #   python -m esptool --port COMx --baud 921600 write_flash 0x0 \
 #     hardware/factory_backups/<image>.bin
 hardware/factory_backups/
+
+# Vendor CAD + meshes (regenerate: hardware/ref/convert_stp.py)
+hardware/ref/*.stp
+hardware/ref/*.stl

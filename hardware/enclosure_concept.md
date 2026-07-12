@@ -1,9 +1,13 @@
 # PanPilot enclosure — design concept
 
-> Status: **concept only.** The parametric OpenSCAD model is tabled until the
-> board can be measured (kickoff rule: never guess dimensions). This doc captures
-> the design intent + the measurements needed so the `.scad` can be generated in
-> one pass. See the checklist at the bottom.
+> Status: **v1 model generated** (2026-07-12) — `hardware/enclosure/panpilot_enclosure.scad`,
+> print parts `shell` / `lid` / `base` (+ `assembly` preview; renders in
+> `hardware/enclosure/renders/`). Board dimensions were measured from Elecrow's
+> factory STEP model (`hardware/ref/`, regenerate the mesh with `convert_stp.py`),
+> the MLX90640-D55 from Waveshare's dimension drawing — no calipers needed after
+> all. Fit is **pending a test print** (HARDWARE_TEST "ENCLOSURE"): the corner
+> screw thread (assumed M2 per the factory model), the D55 hole diameter
+> (assumed 2.5), and the USB-C cutout alignment are the bench-verify items.
 
 PanPilot is a hands-free device that lives **above the cooktop**, aims the
 thermal sensor **down at the pans**, and angles the touchscreen **toward the

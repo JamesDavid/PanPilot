@@ -403,6 +403,22 @@ the same policy that blocks arming on dev builds.
 | C.5 | TOO HOT (or battery-critical) overlay | **Not** dismissible by tap and never auto-hides — stays until the condition clears (safety) | ☐ |
 
 ---
+# ENCLOSURE — v1 test print (hardware/enclosure/panpilot_enclosure.scad)
+
+Print `part="shell"`, `"lid"`, `"base"` in PETG/ASA (not PLA — it lives over a
+cooktop). Dimensions came from the factory STEP + the Waveshare drawing; these
+are the assumptions a print has to confirm:
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| F.1 | Drop the board into the shell | Envelope fits with the 0.6 mm clearance; glass window centered on the display | ☐ |
+| F.2 | Lid + 4 longer **M2** screws into the corner standoffs | Threads match (factory ZM_M2 screws imply M2 — verify!); lid registration lip seats | ☐ |
+| F.3 | USB-C cutout (right wall) | Both ports reachable with a cable | ☐ |
+| F.4 | D55 in the sensor pod | PCB pocket fits; **hole dia assumed 2.5** for self-tap M2.5; lens centered in the aperture; PH2.0 tail reaches the cavity through the neck slots | ☐ |
+| F.5 | Shell on the shelf base | Cradle rails capture it; screen ≈30° from vertical; stable when tapped | ☐ |
+| F.6 | Aim check at mount height | Sensor sees the burner(s) (~42 × 25 cm footprint at 40 cm); thermal view confirms nothing clips the FOV cone | ☐ |
+
+---
 # SECONDARY BOARDS — CrowPanel Advance 5" (800×480 RGB)
 
 > The 5" targets (`crowpanel_adv_5_v11`, `crowpanel_adv_5_v12`) are
