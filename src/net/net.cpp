@@ -12,8 +12,12 @@
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 
+#include <esp_system.h>
+
 #include "web_assets.h"
 #include "web_creator.h"
+#include "hal/weblog.h"
+#include "app_config.h"
 #include "core/thermal_model.h"
 #include "core/presets.h"
 #include "core/foodlib.h"
@@ -228,6 +232,27 @@ void begin() {
               [](AsyncWebServerRequest*) {}, nullptr, bodyHandler(false));
   s_server.on("/api/programs/new", HTTP_PUT,
               [](AsyncWebServerRequest*) {}, nullptr, bodyHandler(true));
+
+  // Wi-Fi debugging (bench 2026-07-12): the serial tee's ring at /log means a
+  // stove-mounted device needs no cable — everything Serial.* printed since
+  // (roughly) the last few minutes is one curl away. /api/health carries the
+  // vitals a remote debugger wants first.
+  s_server.on("/log", HTTP_GET, [](AsyncWebServerRequest* r) {
+    static char buf[6400];             // static: the async task's stack is small
+    weblog_snapshot(buf, sizeof(buf));
+    r->send(200, "text/plain; charset=utf-8", buf);
+  });
+  s_server.on("/api/health", HTTP_GET, [](AsyncWebServerRequest* r) {
+    char j[320];
+    snprintf(j, sizeof(j),
+             "{\"fw\":\"%s\",\"uptimeS\":%lu,\"heapFree\":%u,\"heapMin\":%u,"
+             "\"resetReason\":%d,\"rssi\":%d,\"ip\":\"%s\"}",
+             PANPILOT_FW_VERSION, (unsigned long)(millis() / 1000),
+             (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(),
+             (int)esp_reset_reason(), (int)WiFi.RSSI(),
+             WiFi.localIP().toString().c_str());
+    r->send(200, "application/json", j);
+  });
 
   // Web settings mirror (Phase 2).
   s_server.on("/settings", HTTP_GET, [](AsyncWebServerRequest* r) {

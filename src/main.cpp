@@ -1037,6 +1037,10 @@ void setup() {
   Serial.begin(115200);
   delay(50);
   Serial.printf("\n[PanPilot] %s  fw=%s\n", BOARD_NAME, PANPILOT_FW_VERSION);
+  // Reset reason into the (tee'd) log — the first thing to check when a
+  // stove-mounted unit rebooted on its own (1=power-on, 3=sw, 4=panic,
+  // 5=int-wdt, 6=task-wdt, 7=other-wdt, 8=deepsleep, 9=brownout).
+  Serial.printf("[PanPilot] reset reason: %d\n", (int)esp_reset_reason());
 
   hal::ota_boot_guard();   // boot-loop rollback guard, before anything can hang
 

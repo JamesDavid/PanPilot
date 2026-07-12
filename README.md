@@ -408,6 +408,13 @@ open **http://panpilot.local/** from any phone or laptop on the same network:
   applied on the device's main loop (never from the web task), so they're safe
   and show up on the panel instantly.
 
+- **Cable-free debugging** — the entire serial log is mirrored to a RAM ring
+  served at **`/log`** (the last few minutes of everything the firmware
+  printed), and **`/api/health`** reports firmware version, uptime, free heap,
+  last reset reason, and Wi-Fi signal. With browser OTA at `/update` (or
+  `tools/ota_flash.ps1` from the repo), a stove-mounted PanPilot can be
+  diagnosed, fixed, and reflashed without ever touching the USB port.
+
 Everything cooking-related keeps working with Wi-Fi off — the web UI is a
 convenience mirror. _(Browser screenshot added from a live device; the page is
 served from the ESP32 so it can't be rendered by the simulator.)_
