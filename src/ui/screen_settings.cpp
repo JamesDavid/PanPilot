@@ -164,6 +164,19 @@ lv_obj_t* settings_create() {
 void settings_update(bool useF, bool muted, uint8_t brightnessLevel,
                      uint8_t tzIndex, bool stainlessPan) {
   if (!s_screen) settings_create();
+  // Dirty-check. This runs on every 4 Hz UI tick while Settings is open (so
+  // web/MQTT-side changes mirror in live), but lv_label_set_text invalidates
+  // the label even for identical text — five forced redraw regions per tick
+  // on top of the scroll container made scrolling visibly laggy (bench
+  // 2026-07-11). At steady state this now touches nothing.
+  static bool have = false;
+  static bool pF, pM, pS;
+  static uint8_t pB, pT;
+  if (have && pF == useF && pM == muted && pB == brightnessLevel &&
+      pT == tzIndex && pS == stainlessPan)
+    return;
+  have = true;
+  pF = useF; pM = muted; pB = brightnessLevel; pT = tzIndex; pS = stainlessPan;
   s_tz_current = tzIndex;
   lv_label_set_text(s_val_unit, useF ? "\xC2\xB0" "F" : "\xC2\xB0" "C");
   lv_label_set_text(s_val_sound, muted ? "Muted" : "On");
