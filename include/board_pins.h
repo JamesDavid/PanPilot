@@ -49,7 +49,12 @@
 // GT911 capacitive touch, PCA9557 I/O expander @ 0x18, onboard buzzer.
   #define BOARD_NAME              "CrowPanel Advance 3.5\" (ESP32-S3)"
 
-  // Display — ILI9488 on SPI2_HOST, 40 MHz write (LovyanGFX factory config)
+  // Display — ILI9488 on SPI2_HOST (LovyanGFX factory config)
+  // Write clock: factory ships 40 MHz. ILI9488-over-SPI is 3 bytes/px, so
+  // full-screen scrolls are bus-bound (~11 fps at 40 MHz). 80 MHz was BENCH-
+  // TESTED 2026-07-11 on HW V1.2 and FAILED — totally scrambled image — so
+  // 40 MHz is this panel's ceiling. Do not raise without re-testing on glass.
+  #define TFT_SPI_WRITE_HZ        40000000
   #define TFT_SCLK                42
   #define TFT_MOSI                39
   #define TFT_MISO                -1    // not wired (write-only bus)

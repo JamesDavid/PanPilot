@@ -28,11 +28,15 @@ class LGFX_PanPilot : public lgfx::LGFX_Device {
 
  public:
   LGFX_PanPilot() {
-    { // SPI bus (SPI2_HOST, 40 MHz write)
+    { // SPI bus (SPI2_HOST; write clock is a bench-gated board tunable)
       auto cfg = _bus.config();
       cfg.spi_host    = SPI2_HOST;
       cfg.spi_mode    = 0;
-      cfg.freq_write  = 40000000;
+#if defined(TFT_SPI_WRITE_HZ)
+      cfg.freq_write  = TFT_SPI_WRITE_HZ;   // see board_pins.h provenance
+#else
+      cfg.freq_write  = 40000000;           // factory default
+#endif
       cfg.freq_read   = 16000000;
       cfg.spi_3wire   = false;
       cfg.use_lock    = true;

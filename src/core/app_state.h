@@ -90,6 +90,12 @@ struct UiState {
   bool recipeActive = false;
   const char* recipeCue = "";
   int recipeStepIndex = 0;
+  const char* recipeName = "";   // running program (context for labels/alerts)
+  int recipeSecsLeft = -1;       // TIMER step countdown (-1 = none)
+  bool recipeTouchAck = false;   // tapping the cue bar advances this step
+  bool recipeAction = false;     // step waits on the COOK (CUE/PREP) -> L2
+                                 // nag; passive TIMER/HOLD steps chirp once
+                                 // (bench: "why constantly beeping?")
 
   // Autopilot / ASSIST control (M14-M18, M21). armed=false => pure ADVISORY.
   bool assistArmed = false;

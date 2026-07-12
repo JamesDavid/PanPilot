@@ -1,6 +1,8 @@
 // screen_settings.cpp — see screen_settings.h.
 #include "screen_settings.h"
 
+#include <cstring>
+
 #include "ui/ui_root.h"
 #include "app_config.h"
 #include "core/settings.h"
@@ -14,6 +16,7 @@ lv_obj_t* s_val_sound = nullptr;
 lv_obj_t* s_val_bright = nullptr;
 lv_obj_t* s_val_tz = nullptr;
 lv_obj_t* s_val_stainless = nullptr;
+lv_obj_t* s_val_wifi = nullptr;
 
 // Time-zone picker (own screen): a tap-to-cycle row inside a scrollable list
 // was bench-found flaky — taps kept registering as scroll-drags. The row now
@@ -29,6 +32,7 @@ void bright_cb(lv_event_t*) { ui::settings_cycle_brightness(); }
 void stainless_cb(lv_event_t*) { ui::settings_toggle_stainless(); }
 void assist_cb(lv_event_t*) { ui::show_assist_arm(); }
 void autotune_cb(lv_event_t*) { ui::show_autotune(); }
+void wifi_cb(lv_event_t*) { ui::settings_wifi_tap(); }
 
 void tz_pick_cb(lv_event_t* e) {
   ui::settings_set_timezone((uint8_t)(uintptr_t)lv_event_get_user_data(e));
@@ -150,6 +154,12 @@ lv_obj_t* settings_create() {
   s_val_stainless = mk_row(list, "Stainless pan", stainless_cb);
   s_val_tz = mk_row(list, "Time zone", tz_cb);
 #if defined(ENABLE_WIFI) || defined(PANPILOT_SIM)
+  // Wi-Fi: shows the join address once connected; when unprovisioned, tapping
+  // reopens the captive-portal AP (bench 2026-07-11: the first-boot portal was
+  // undiscoverable — nothing on screen named it, and after its 3-min timeout
+  // there was no way back in).
+  s_val_wifi = mk_row(list, "Wi-Fi", wifi_cb);
+  lv_label_set_text(s_val_wifi, "tap to set up");
   // Autopilot + autotune need the MQTT actuator — no point offering them (or
   // paying their screens' LVGL heap) on the Wi-Fi-less basic build. The sim
   // keeps them so the screenshots show the full set.
@@ -183,6 +193,12 @@ void settings_update(bool useF, bool muted, uint8_t brightnessLevel,
   lv_label_set_text(s_val_bright, panpilot::brightness_name(brightnessLevel));
   lv_label_set_text(s_val_tz, tz_name(tzIndex));
   lv_label_set_text(s_val_stainless, stainlessPan ? "Yes" : "No");
+}
+
+void settings_set_wifi(const char* line) {
+  if (!s_val_wifi || !line) return;
+  if (std::strcmp(lv_label_get_text(s_val_wifi), line) == 0) return;  // no
+  lv_label_set_text(s_val_wifi, line);  // invalidation unless it changed
 }
 
 }  // namespace ui

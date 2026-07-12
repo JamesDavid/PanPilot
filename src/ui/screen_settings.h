@@ -10,4 +10,7 @@ namespace ui {
 lv_obj_t* settings_create();
 void settings_update(bool useF, bool muted, uint8_t brightnessLevel,
                      uint8_t tzIndex, bool stainlessPan);
+// Live value for the Wi-Fi row ("tap to set up" / "join AP ..." / address).
+// Dirty-checked internally; no-op on builds without the row.
+void settings_set_wifi(const char* line);
 }

@@ -116,6 +116,9 @@ void onMsg(char* topic, byte* payload, unsigned int len) {
 
 void reconnect() {
   if (s_broker.isEmpty() || s_mqtt.connected()) return;
+  // No Wi-Fi link -> a TCP connect would sit in its socket timeout for
+  // seconds, ON THE LOOP CORE, freezing LVGL every 5 s retry. Skip until up.
+  if (WiFi.status() != WL_CONNECTED) return;
   if (millis() - s_lastTry < 5000) return;
   s_lastTry = millis();
   s_plugOnline = false;   // stale until the retained box status arrives

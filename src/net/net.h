@@ -21,6 +21,13 @@ void loop();                  // housekeeping (portal + WS cleanup) + apply web 
 void publishState(const UiState& s, bool useF);
 void publishThermal(const ThermalFrame& f);
 bool connected();
+// Provisioning visibility (bench 2026-07-11: the first-boot captive portal was
+// undiscoverable — nothing on screen named the AP, and after its 3-min timeout
+// there was no way back). The Settings Wi-Fi row reads these + reopens it.
+bool portal_active();          // captive portal AP is up right now
+const char* ap_name();         // "PanPilot-XXXX" (the portal SSID)
+void start_portal();           // reopen the config portal (no-op if connected)
+String ssid();                 // joined network name ("" if not connected)
 String mqtt_broker();          // MQTT broker captured at provisioning ("" = off)
 void set_settings_cbs(UnitCb, SetMuteCb, SetBrightCb, SetTzCb);
 }  // namespace net

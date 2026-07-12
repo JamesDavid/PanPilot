@@ -210,6 +210,11 @@ volatile uint8_t g_autotune_state = 0;   // 0 idle, 1 running, 2 done
 volatile uint8_t g_autotune_prog = 0;
 volatile float g_at_kp = 0, g_at_ki = 0, g_at_kd = 0;
 void on_autotune(uint8_t cmd) { g_autotune_req = (cmd == 0) ? 1 : (cmd == 1 ? 2 : 3); }
+#if defined(ENABLE_WIFI)
+// Settings Wi-Fi row tapped: reopen the provisioning portal (no-op if already
+// connected — the row is informational then, showing SSID + panpilot.local).
+void on_wifi() { net::start_portal(); }
+#endif
 // Arming ceremony result (roadmap §3.3). cmd 0 = arm, 1 = STOP/disarm.
 void on_assist(uint8_t cmd) {
   if (cmd == 0) {
@@ -239,7 +244,17 @@ void on_assist(uint8_t cmd) {
   }
 }
 void on_recipe(uint8_t cmd) {
-  if (cmd == 0) g_recipe_start_req = true;
+  if (cmd == 0) {
+    // A recipe program owns the whole cook: drop any single-food selection so
+    // its timer/cues don't fight the sequencer (bench-found: Eggs stayed the
+    // context while the program preheated for burgers).
+    if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) == pdTRUE) {
+      g_food = nullptr;
+      g_foodFactor = 1.0f;
+      xSemaphoreGive(g_target_mtx);
+    }
+    g_recipe_start_req = true;
+  }
   else if (cmd == 1) { g_recipe_active = false; g_fatClampWarnF = 0; }
   else if (cmd == 2) g_recipe_touch = true;
 }
@@ -837,6 +852,11 @@ void SensorTask(void*) {
       u.recipeActive = g_recipe_active;
       u.recipeCue = g_recipe_active ? rout.cue : "";
       u.recipeStepIndex = rout.stepIndex;
+      u.recipeName = g_recipe_active ? recipe.name() : "";
+      u.recipeSecsLeft = g_recipe_active ? rout.secsLeft : -1;
+      u.recipeTouchAck = g_recipe_active && rout.touchAck;
+      u.recipeAction = g_recipe_active && (rout.type == StepType::CUE ||
+                                           rout.type == StepType::PREP);
       u.assistArmed = g_assist_armed;
       u.assistDuty = assistDuty;
       u.assistInterlock = ilv;
@@ -1068,6 +1088,9 @@ void setup() {
   ui::set_assist_cb(on_assist);
   ui::set_autotune_cb(on_autotune);
   ui::set_burnermap_cb(on_burnermap);
+#if defined(ENABLE_WIFI)
+  ui::set_wifi_cb(on_wifi);
+#endif
   { float kp, ki, kd;
     if (hal::storage_get_gains(kp, ki, kd)) {
       g_kp = kp; g_ki = ki; g_kd = kd; g_gains_valid = true;
@@ -1170,6 +1193,18 @@ void loop() {
   }
   if (now - last >= 250) {          // 4 Hz UI refresh + serial dump
     last = now;
+#if defined(ENABLE_WIFI)
+    // Settings Wi-Fi row: live provisioning status (dirty-checked in the UI).
+    { static char wifiLine[64];
+      if (net::connected())
+        snprintf(wifiLine, sizeof(wifiLine), "%s - panpilot.local",
+                 net::ssid().c_str());
+      else if (net::portal_active())
+        snprintf(wifiLine, sizeof(wifiLine), "join AP %s", net::ap_name());
+      else
+        snprintf(wifiLine, sizeof(wifiLine), "tap to set up");
+      ui::settings_wifi_status(wifiLine); }
+#endif
     Snapshot s;
     if (g_snap_mtx && xSemaphoreTake(g_snap_mtx, pdMS_TO_TICKS(5)) == pdTRUE) {
       s = g_snap;
@@ -1211,8 +1246,14 @@ void loop() {
         attn.raise(AttnLevel::L3, "PLUG ME IN", "battery critical", now);
       else if (u.guidance == GuidanceState::TOO_HOT)
         attn.raise(AttnLevel::L3, "TOO HOT", "turn burner to LOW", now);
-      else if (u.recipeActive && u.recipeCue[0])
+      else if (u.recipeActive && u.recipeCue[0] && u.recipeAction)
+        // Only steps waiting on the cook nag at L2 (repeat beep + strobe).
         attn.raise(AttnLevel::L2, u.recipeCue, "tap when done", now);
+      else if (u.recipeActive && u.recipeCue[0])
+        // Passive steps (searing timer, preheat hold): one entry chirp, no
+        // strobe, no repeats — constant L2 during a whole recipe was bench-
+        // rejected ("why constantly beeping?").
+        attn.raise(AttnLevel::L1, u.recipeCue, "", now);
       else if (u.foodCue)
         attn.raise(AttnLevel::L2, u.foodCueVerb, u.foodCueSub, now);
       else if (u.addBatchPrompt)

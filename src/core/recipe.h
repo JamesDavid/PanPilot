@@ -57,6 +57,10 @@ struct RecipeOut {
   // one step() call used to drop it. 0 = no fat in play.
   int fatClampWarnF = 0;
   const char* prepAdvice = ""; // the fat's ready hint
+  // UI affordances (bench 2026-07-11): live countdown for TIMER steps and an
+  // explicit "this step advances on a tap" flag so the cue bar can say so.
+  int secsLeft = -1;           // TIMER: whole seconds remaining (-1 = n/a)
+  bool touchAck = false;       // a tap on the cue advances this step
 };
 
 class RecipeEngine {
@@ -64,6 +68,7 @@ class RecipeEngine {
   void start(const RecipeProgram* p, uint32_t now);
   RecipeOut step(const RecipeInput& in);
   bool active() const { return prog_ && !finished_; }
+  const char* name() const { return prog_ ? prog_->name : ""; }
 
  private:
   const RecipeProgram* prog_ = nullptr;
@@ -75,6 +80,7 @@ class RecipeEngine {
   bool in_window_ = false;  // PREP: pan currently in the fat's add window
   uint32_t window_enter_ = 0;
   int fat_clamp_ = 0;       // latched fat smoke clamp (see RecipeOut)
+  int last_hold_ = 0;       // last HOLD setpoint; carried through CUE/TIMER
 
   void enter(int i, uint32_t now);
 };

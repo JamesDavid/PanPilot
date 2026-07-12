@@ -13,6 +13,7 @@ void RecipeEngine::enter(int i, uint32_t now) {
 
 void RecipeEngine::start(const RecipeProgram* p, uint32_t now) {
   prog_ = p; finished_ = false; loops_left_ = -1; fat_clamp_ = 0;
+  last_hold_ = 0;
   enter(0, now);
 }
 
@@ -31,22 +32,33 @@ RecipeOut RecipeEngine::step(const RecipeInput& in) {
     const RecipeStep& s = prog_->steps[idx_];
     o = RecipeOut{};
     o.active = true; o.stepIndex = idx_; o.type = s.type; o.cue = s.say;
+    // The last HOLD setpoint carries through the CUE/TIMER steps that follow
+    // it: while "searing side 1" the pan is still meant to sit at the sear
+    // temperature. Dropping to no-setpoint between HOLDs handed guidance back
+    // to whatever stale pre-recipe target was loaded — bench-found as TOO HOT
+    // alarms the moment the preheat step advanced (Eggs target, burger pan).
+    o.setpointF = last_hold_;
     bool advance = false; int jumpTo = -1;
 
     switch (s.type) {
       case StepType::HOLD:
+        last_hold_ = s.a;
         o.setpointF = s.a;
         if (std::fabs(in.panTempF - s.a) <= 15.0f) advance = true;   // "ready"
         break;
       case StepType::CUE:
+        o.touchAck = (s.expect & EXP_TOUCH) != 0;
         if ((s.expect & EXP_FOOD_ADDED) && foodAdded) { advance = true; foodAdded = false; }
         else if ((s.expect & EXP_TOUCH) && touch)     { advance = true; touch = false; }
         else if (s.b > 0 && in.now - step_start_ >= (uint32_t)s.b * 1000)
           advance = true;
         break;
-      case StepType::TIMER:
-        if (in.now - step_start_ >= (uint32_t)s.a * 1000) advance = true;
+      case StepType::TIMER: {
+        const uint32_t elapsed = in.now - step_start_;
+        if (elapsed >= (uint32_t)s.a * 1000) advance = true;
+        else o.secsLeft = (int)(((uint32_t)s.a * 1000 - elapsed + 999) / 1000);
         break;
+      }
       case StepType::PREP: {
         const PrepEntry& p = preplib_entry(s.a);
         // Track continuous dwell in the fat's add window (melt-detection).
@@ -79,6 +91,7 @@ RecipeOut RecipeEngine::step(const RecipeInput& in) {
         } else {
           o.cue = "Almost ready for the fat";
         }
+        o.touchAck = true;
         if (touch) { advance = true; touch = false; }  // human confirms it's in
         break;
       }
@@ -113,7 +126,9 @@ RecipeOut RecipeEngine::step(const RecipeInput& in) {
 // -------- built-in program: Smash Burgers x4 (roadmap §4.1 example) ----------
 static const RecipeStep kSmash[] = {
   { StepType::HOLD,  450, 0, EXP_NONE, "Preheat to 450" },
-  { StepType::CUE,     0, 120, EXP_FOOD_ADDED, "Add 2 patties + smash" },
+  // EXP_TOUCH added (bench 2026-07-11): the drop is usually auto-detected, but
+  // the cook can also tap the cue bar to say "they're in" — belt and braces.
+  { StepType::CUE,     0, 120, (uint8_t)(EXP_FOOD_ADDED | EXP_TOUCH), "Add 2 patties + smash" },
   { StepType::TIMER,  90, 0, EXP_NONE, "Searing side 1" },
   { StepType::CUE,     0, 0, (uint8_t)(EXP_FOOD_ADDED | EXP_TOUCH), "Flip + cheese" },
   { StepType::TIMER,  60, 0, EXP_NONE, "Finishing" },

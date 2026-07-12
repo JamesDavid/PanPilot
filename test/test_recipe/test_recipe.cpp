@@ -114,9 +114,32 @@ static void test_fat_clamp_survives_prep_advance(void) {
   TEST_ASSERT_EQUAL_INT((int)b.smokePointF - 25, o.fatClampWarnF);
 }
 
+static void test_hold_setpoint_carries_through_cue_and_timer(void) {
+  // Bench-found (Eggs -> burgers): between HOLD steps the engine used to emit
+  // setpointF=0, handing guidance back to whatever stale pre-recipe target was
+  // loaded -> instant TOO HOT during "searing side 1". The last HOLD setpoint
+  // must ride along on the CUE/TIMER steps that follow it.
+  RecipeEngine e;
+  e.start(recipe_builtin_smashburger(), 0);
+  RecipeOut o = e.step(mk(450));                    // HOLD 450 reached -> CUE
+  TEST_ASSERT_EQUAL(int(StepType::CUE), int(o.type));
+  TEST_ASSERT_EQUAL_INT(450, o.setpointF);          // carried, not dropped
+  TEST_ASSERT_TRUE(o.touchAck);                     // patties: tap OR food-add
+  o = e.step(mk(450, /*food*/ true));               // patties in -> TIMER
+  TEST_ASSERT_EQUAL(int(StepType::TIMER), int(o.type));
+  TEST_ASSERT_EQUAL_INT(450, o.setpointF);
+  // TIMER exposes a live countdown (90 s searing step).
+  TEST_ASSERT_EQUAL_INT(90, o.secsLeft);
+  g_now += 30000;
+  o = e.step(mk(450));
+  TEST_ASSERT_EQUAL_INT(60, o.secsLeft);
+  TEST_ASSERT_FALSE(o.touchAck);                    // passive step: no tap nag
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_smashburger_runs_four_batches);
+  RUN_TEST(test_hold_setpoint_carries_through_cue_and_timer);
   RUN_TEST(test_prep_too_hot_for_butter);
   RUN_TEST(test_one_touch_advances_one_gated_step);
   RUN_TEST(test_fat_clamp_survives_prep_advance);

@@ -482,7 +482,12 @@ void home_update(const UiState& s, bool useF) {
     return;
   }
 
-  std::snprintf(buf, sizeof(buf), "%s " LV_SYMBOL_LIST, preset(s.presetId).name);
+  // Context label: the running recipe program owns the cook; otherwise the
+  // selected preset (a picked food sets the preset to Generic, so the food
+  // name shows in the cook line below instead).
+  std::snprintf(buf, sizeof(buf), "%s " LV_SYMBOL_LIST,
+                s.recipeActive && s.recipeName[0] ? s.recipeName
+                                                  : preset(s.presetId).name);
   lv_label_set_text(s_mode, buf);
   const int tgt = useF ? s.targetCenterF : int((s.targetCenterF - 32) * 5 / 9);
   std::snprintf(buf, sizeof(buf), "%d\xC2\xB0%s", tgt, useF ? "F" : "C");
@@ -585,7 +590,17 @@ void home_update(const UiState& s, bool useF) {
   const BarStyle bs = bar_for(s.guidance);
   if (s.recipeActive && s.recipeCue[0]) {
     lv_obj_set_style_bg_color(s_bar, lv_color_hex(0x2E5AAC), 0);
-    lv_label_set_text(s_bar_lbl, s.recipeCue);
+    // TIMER steps count down live; tap-advanced steps say so (bench: no way
+    // to tell the device "I did add the patties" — the bar IS the button).
+    if (s.recipeSecsLeft >= 0)
+      std::snprintf(buf, sizeof(buf), "%s  %d:%02d", s.recipeCue,
+                    s.recipeSecsLeft / 60, s.recipeSecsLeft % 60);
+    else if (s.recipeTouchAck)
+      std::snprintf(buf, sizeof(buf), "%s - tap when done " LV_SYMBOL_OK,
+                    s.recipeCue);
+    else
+      std::snprintf(buf, sizeof(buf), "%s", s.recipeCue);
+    lv_label_set_text(s_bar_lbl, buf);
   } else {
     lv_obj_set_style_bg_color(s_bar, lv_color_hex(bs.color), 0);
     lv_label_set_text(s_bar_lbl, bs.text);
@@ -617,7 +632,9 @@ void home_update(const UiState& s, bool useF) {
   if (cause == OV_READY && lv_tick_elaps(s_ovShownMs) > OVERLAY_READY_MS)
     ovShow = false;
   // Context for takeover alerts: the cook this alert is about.
-  const char* alertCtx = s.food ? s.food->name : preset(s.presetId).name;
+  const char* alertCtx = s.recipeActive && s.recipeName[0] ? s.recipeName
+                         : s.food ? s.food->name
+                                  : preset(s.presetId).name;
   if (!ovShow) {
     lv_obj_add_flag(s_overlay, LV_OBJ_FLAG_HIDDEN);
   } else if (cause == OV_PLUGIN) {

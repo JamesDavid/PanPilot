@@ -68,6 +68,7 @@ RoiCb s_roiCb = nullptr;
 const ProfileStore* s_profiles = nullptr;
 ProfileCb s_profileCb = nullptr;
 BurnerMapCb s_bmapCb = nullptr;
+WifiCb s_wifiCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS,
               SETTINGS, PRESET_EDIT, ASSIST, ONBOARDING, AUTOTUNE,
@@ -132,6 +133,10 @@ void profile_cmd(uint8_t cmd, int idx) {
   if (s_profileCb) s_profileCb(cmd, idx);
   if (s_profiles) profiles_update(*s_profiles);   // reflect the mutation
 }
+
+void set_wifi_cb(WifiCb onWifi) { s_wifiCb = onWifi; }
+void settings_wifi_tap() { if (s_wifiCb) s_wifiCb(); }
+void settings_wifi_status(const char* line) { settings_set_wifi(line); }
 
 void set_burnermap_cb(BurnerMapCb onBmap) { s_bmapCb = onBmap; }
 void show_burnermap() {

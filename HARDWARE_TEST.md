@@ -372,6 +372,26 @@ the same policy that blocks arming on dev builds.
 | B.6 | Reboot | Map persists (stored on the pan profile, NVS `profs3`); calibrated hints still used | ☐ |
 | B.7 | Devsim build: run the wizard end-to-end | Completes, but Save disabled + "SIMULATED data" note; serial `[bmap] save REFUSED` if forced | ☐ |
 
+## Settings Wi-Fi row + provisioning
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| D.1 | Settings → **Wi-Fi** row, unprovisioned | Shows "tap to set up" | ☐ |
+| D.2 | Tap it; join `PanPilot-XXXX` from a phone | Row flips to "join AP PanPilot-XXXX"; captive portal opens (SSID + password + optional MQTT broker / Web PIN) | ☐ |
+| D.3 | Provision to your network | Row shows "<SSID> - panpilot.local"; `http://panpilot.local/` serves the dashboard; `/settings`, `/creator`, `/update` reachable | ☐ |
+| D.4 | Reboot | Reconnects on its own; row shows the address without any portal | ☐ |
+| D.5 | Let the first-boot portal time out (3 min), then Settings → Wi-Fi → tap | Portal reopens (serial: `[net] config portal reopened`) — no reboot needed | ☐ |
+
+## Recipe program run (Smash Burgers x4)
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| E.1 | Start the program (blue row in the food picker) with a food already selected | Any previously selected food is CLEARED; top-left shows "Smash Burgers x4" (not the old food/preset) | ☐ |
+| E.2 | After preheat advances to "Add 2 patties + smash" | **No TOO HOT alarm** at the 450 °F hold (the program's setpoint carries between steps); bar shows "- tap when done ✓" | ☐ |
+| E.3 | Tap the cue bar on an action step | Step advances (tap = "I did it"); food-drop auto-advance still works too | ☐ |
+| E.4 | "Searing side 1" | Bar shows a live countdown (1:30 → 0:00); ONE chirp on entry, **no repeated beeping/strobe** during the timer | ☐ |
+| E.5 | Action steps ("Flip + cheese") left unattended | These DO re-beep at L2 every 5 s until acted on (that's the point) | ☐ |
+
 ## Alert-overlay context lines + dismissal
 
 | # | Step | Expected | ☐ |

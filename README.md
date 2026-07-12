@@ -286,6 +286,24 @@ and saved to flash.
        alt="Post-cook prompt: Undercooked / Perfect / Overcooked">
 </p>
 
+### Running a recipe program _(M19)_
+
+The food picker's blue **Recipe program** row runs a multi-step cook program
+(the built-in is *Smash Burgers x4*; the [Recipe Creator](#recipe-creator-m20)
+adds your own). While a program runs, its name replaces the preset in the
+top-left, and the **bottom bar becomes the step display — and the button**:
+
+- **Action steps** ("Add 2 patties + smash", "Flip + cheese") show
+  **"— tap when done ✓"**: tap the bar to tell PanPilot you did it. Adding food
+  is also auto-detected from the temperature drop, so usually the program
+  advances by itself. Action steps nag at L2 (beep + strobe) until satisfied.
+- **Passive steps** ("Searing side 1", preheat) show a **live countdown**
+  (`Searing side 1  1:23`) and chirp **once** on entry — no nagging while the
+  pan is just doing its thing.
+- The program's hold temperature stays in force between steps — the pan is
+  still meant to sit at 450 °F *while* you're searing, and the overheat
+  threshold follows the program (clamped by any fat's smoke point).
+
 ## 7. Attention levels — beep & flash patterns _(M13)_
 
 Every cue — from a gentle trend tick to a loud alarm — routes through one
@@ -357,6 +375,12 @@ aren't part of a cook. Tap any row to change it:
   On the Wi-Fi build PanPilot syncs the clock over **NTP** and shows the time on
   the home screen; the zones carry full DST rules, so it springs forward and
   falls back on its own.
+- **Wi-Fi** — shows the connection at a glance: **"tap to set up"** when
+  unprovisioned, **"join AP PanPilot-XXXX"** while the setup hotspot is open,
+  and **"<your network> — panpilot.local"** once connected (that address is the
+  web interface). Tapping the row reopens the setup hotspot for 3 minutes: join
+  `PanPilot-XXXX` from your phone, and the captive portal asks for your Wi-Fi
+  password (plus the optional MQTT broker and Web PIN).
 
 Every choice is saved to flash and restored on the next boot. The settings list
 scrolls, and also holds entries for **Autopilot** and **PID autotune**.

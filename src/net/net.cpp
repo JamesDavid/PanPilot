@@ -29,6 +29,7 @@ WiFiManager s_wm;
 AsyncWebServer s_server(80);
 AsyncWebSocket s_ws("/ws");
 bool s_portal = false;
+char s_ap[20] = "PanPilot";   // portal SSID, shown on the Settings Wi-Fi row
 
 // Settings mirror. GET reads this cache (refreshed by publishState); POST stages
 // an edit that net::loop() applies on the loop core via these callbacks.
@@ -125,8 +126,7 @@ const char* bartext(GuidanceState g) {
 
 void begin() {
   WiFi.mode(WIFI_STA);
-  char ap[20];
-  snprintf(ap, sizeof(ap), "PanPilot-%04X",
+  snprintf(s_ap, sizeof(s_ap), "PanPilot-%04X",
            (uint16_t)(ESP.getEfuseMac() & 0xFFFF));
   static WiFiManagerParameter mqttParam("mqtt", "MQTT broker (optional)",
                                         hal::storage_get_mqtt_broker().c_str(), 40);
@@ -136,7 +136,14 @@ void begin() {
   s_wm.addParameter(&pinParam);
   s_wm.setConfigPortalBlocking(false);
   s_wm.setConfigPortalTimeout(180);
-  s_portal = !s_wm.autoConnect(ap);      // opens captive portal if unprovisioned
+  // Persist the extra params whenever the portal saves — including a portal
+  // reopened later from Settings, not just this first-boot autoConnect.
+  s_wm.setSaveParamsCallback([]() {
+    if (strlen(mqttParam.getValue()) > 0)
+      hal::storage_set_mqtt_broker(mqttParam.getValue());
+    hal::storage_set_web_pin(pinParam.getValue());
+  });
+  s_portal = !s_wm.autoConnect(s_ap);    // opens captive portal if unprovisioned
   if (strlen(mqttParam.getValue()) > 0)
     hal::storage_set_mqtt_broker(mqttParam.getValue());
   hal::storage_set_web_pin(pinParam.getValue());
@@ -265,7 +272,7 @@ void begin() {
   s_server.addHandler(&s_ws);
   ElegantOTA.begin(&s_server);        // browser OTA upload at /update (M10)
   s_server.begin();
-  Serial.printf("[net] AP=%s  http://panpilot.local/  (OTA: /update)\n", ap);
+  Serial.printf("[net] AP=%s  http://panpilot.local/  (OTA: /update)\n", s_ap);
 }
 
 void set_settings_cbs(UnitCb u, SetMuteCb m, SetBrightCb b, SetTzCb t) {
@@ -273,7 +280,13 @@ void set_settings_cbs(UnitCb u, SetMuteCb m, SetBrightCb b, SetTzCb t) {
 }
 
 void loop() {
-  if (s_portal) s_wm.process();
+  if (s_portal) {
+    s_wm.process();
+    // Portal ends by provisioning success or by its own timeout; track it so
+    // the Settings row stops advertising a dead AP.
+    if (WiFi.status() == WL_CONNECTED || !s_wm.getConfigPortalActive())
+      s_portal = false;
+  }
   s_ws.cleanupClients();
   ElegantOTA.loop();
   // Apply any web settings edits here, on the loop core (safe for NVS/UI).
@@ -284,6 +297,16 @@ void loop() {
 }
 
 bool connected() { return WiFi.status() == WL_CONNECTED; }
+bool portal_active() { return s_portal; }
+const char* ap_name() { return s_ap; }
+String ssid() { return connected() ? WiFi.SSID() : String(); }
+void start_portal() {
+  if (s_portal || WiFi.status() == WL_CONNECTED) return;
+  s_wm.setConfigPortalTimeout(180);
+  s_wm.startConfigPortal(s_ap);   // non-blocking (configured in begin)
+  s_portal = true;
+  Serial.printf("[net] config portal reopened - join AP %s\n", s_ap);
+}
 String mqtt_broker() { return hal::storage_get_mqtt_broker(); }
 
 void publishState(const UiState& s, bool useF) {
