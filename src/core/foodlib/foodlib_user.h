@@ -62,6 +62,18 @@ static const FoodEntry FOODLIB_USER[] = {
   350, 400, {300, 240, 0, 0}, 2, 375, -8, 0, 160,
   "Break up and stir often; 'flip' cue = give it a full turn" },
 
+// ------------------------------------------------------------- Multi-flip
+// James flips every ~2 min rather than once (bench 2026-07-12) — a legit
+// technique (more even cooking). Same total heat load as the flip-once rows,
+// split into 4 turns so the FLIP cue fires on his cadence.
+{ "Chicken breast", "butterflied, flip every 2 min  [REVIEW]",
+  350, 400, {120, 120, 120, 90}, 4, 375, -10, 180, 165,
+  "Turn on each cue; 165°F internal is non-negotiable" },
+
+{ "Pork chop", "3/4-inch med-well, flip every 2 min  [REVIEW]",
+  375, 400, {120, 120, 120, 120}, 4, 388, -10, 180, 145,
+  "Turn on each cue; firm with slight give when done" },
+
 };
 
 #define FOODLIB_USER_COUNT (sizeof(FOODLIB_USER) / sizeof(FOODLIB_USER[0]))

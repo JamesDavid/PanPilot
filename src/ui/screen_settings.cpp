@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "ui/ui_root.h"
+#include "ui/list_style.h"
 #include "app_config.h"
 #include "core/settings.h"
 #include "core/timezones.h"
@@ -71,17 +72,12 @@ void tz_picker_build() {
     lv_obj_align(s_tz_list, LV_ALIGN_BOTTOM_MID, 0, -4);
     lv_obj_set_style_bg_color(s_tz_list, lv_color_hex(0x101418), 0);
     lv_obj_set_style_pad_row(s_tz_list, 4, 0);
-    // 90% rows / fat scrollbar, same treatment as the food list.
-    lv_obj_set_scrollbar_mode(s_tz_list, LV_SCROLLBAR_MODE_ON);
-    lv_obj_set_style_width(s_tz_list, 20, LV_PART_SCROLLBAR);
-    lv_obj_set_style_bg_color(s_tz_list, lv_color_hex(0x3A4552), LV_PART_SCROLLBAR);
-    lv_obj_set_style_bg_opa(s_tz_list, LV_OPA_70, LV_PART_SCROLLBAR);
-    lv_obj_set_style_radius(s_tz_list, 6, LV_PART_SCROLLBAR);
+    apply_scroll_list_style(s_tz_list);   // the one 90/10 list format
   }
   lv_obj_clean(s_tz_list);          // rebuild so the checkmark tracks current
   for (int i = 0; i < tz_count(); ++i) {
     lv_obj_t* row = lv_btn_create(s_tz_list);
-    lv_obj_set_width(row, 424);
+    lv_obj_set_width(row, lv_pct(100));
     lv_obj_set_height(row, 44);
     const bool cur = (i == (int)s_tz_current);
     lv_obj_set_style_bg_color(row, lv_color_hex(cur ? 0x2E5AAC : 0x1A2027), 0);
@@ -103,7 +99,7 @@ void tz_picker_build() {
 // the global 6 px scroll threshold doing the tap-vs-scroll discrimination.
 lv_obj_t* mk_row(lv_obj_t* p, const char* name, lv_event_cb_t cb) {
   lv_obj_t* row = lv_btn_create(p);
-  lv_obj_set_size(row, 424, 56);   // ~90% of the container; scrollbar gets the rest
+  lv_obj_set_size(row, lv_pct(100), 56);   // gutter padding handles the 90/10
   lv_obj_set_style_bg_color(row, lv_color_hex(0x1A2027), 0);
   lv_obj_set_style_radius(row, 10, 0);
   lv_obj_add_event_cb(row, cb, LV_EVENT_CLICKED, nullptr);
@@ -151,15 +147,7 @@ lv_obj_t* settings_create() {
   lv_obj_set_style_pad_all(list, 6, 0);
   lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_pad_row(list, 6, 0);
-  lv_obj_set_scroll_dir(list, LV_DIR_VER);
-  // Fat, always-visible scrollbar owning the right edge (bench 2026-07-12:
-  // "90% button width, 10% scrollbar" — the bar doubles as a drag handle and
-  // as the visual cue that the list scrolls at all).
-  lv_obj_set_scrollbar_mode(list, LV_SCROLLBAR_MODE_ON);
-  lv_obj_set_style_width(list, 20, LV_PART_SCROLLBAR);
-  lv_obj_set_style_bg_color(list, lv_color_hex(0x3A4552), LV_PART_SCROLLBAR);
-  lv_obj_set_style_bg_opa(list, LV_OPA_70, LV_PART_SCROLLBAR);
-  lv_obj_set_style_radius(list, 6, LV_PART_SCROLLBAR);
+  apply_scroll_list_style(list);   // the one 90/10 list format (list_style.h)
 
   s_val_unit = mk_row(list, "Temperature", unit_cb);
   s_val_sound = mk_row(list, "Sound", sound_cb);

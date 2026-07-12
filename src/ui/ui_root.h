@@ -33,6 +33,7 @@ using ProfileCb = void (*)(uint8_t cmd, int idx);       // pans: 0=activate, 1=d
 using BurnerMapCb = void (*)(uint8_t cmd);   // map wizard: 0=start,1=knob-ready,2=cancel,3=save
 using WifiCb = void (*)();                   // Settings Wi-Fi row tapped (reopen portal)
 using FavCb = void (*)(int foodId);          // food star tapped (toggle favorite)
+using ProfileRenameCb = void (*)(int idx, const char* name);  // pan renamed
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
                PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2,
@@ -73,6 +74,9 @@ void roi_clear();                       // thermal "Auto": back to auto-follow
 void set_profiles(const ProfileStore* store, ProfileCb onProfile);
 void show_profiles();                   // saved pan-profile picker
 void profile_cmd(uint8_t cmd, int idx); // fires ProfileCb (0=activate,1=delete,2=SS)
+void set_profile_rename_cb(ProfileRenameCb onRename);
+void profile_rename(int idx, const char* name);  // fires cb + refreshes list
+const char* profile_name(int idx);      // current name ("" out of range)
 void set_burnermap_cb(BurnerMapCb onBmap);
 void show_burnermap();                  // Map Burner wizard (active pan)
 void burnermap_cmd(uint8_t cmd);        // fires BurnerMapCb

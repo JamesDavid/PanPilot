@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "ui/ui_root.h"
+#include "ui/list_style.h"
 #include "core/foodlib.h"
 #include "core/favstore.h"
 
@@ -35,8 +36,8 @@ void add_food_row(int i, bool fav) {
   for (int s = 0; s < f.sides; ++s) total += f.sideSec[s];
 
   lv_obj_t* row = lv_btn_create(s_list);
-  lv_obj_set_width(row, 424);   // ~90%; the fat scrollbar owns the right edge
-  lv_obj_set_height(row, 48);
+  lv_obj_set_width(row, lv_pct(100));   // of the content area; the list's
+  lv_obj_set_height(row, 48);           // pad_right reserves the scrollbar lane
   lv_obj_set_style_bg_color(row, lv_color_hex(fav ? 0x24313F : 0x1A2027), 0);
   lv_obj_set_style_radius(row, 8, 0);
   lv_obj_add_event_cb(row, food_cb, LV_EVENT_CLICKED, (void*)(intptr_t)i);
@@ -82,7 +83,7 @@ void foods_refresh() {
   // are single-food timers; this row runs the multi-step sequencer.
   {
     lv_obj_t* row = lv_btn_create(s_list);
-    lv_obj_set_width(row, 424);
+    lv_obj_set_width(row, lv_pct(100));
     lv_obj_set_height(row, 48);
     lv_obj_set_style_bg_color(row, lv_color_hex(0x2E5AAC), 0);
     lv_obj_set_style_radius(row, 8, 0);
@@ -126,13 +127,7 @@ lv_obj_t* foods_create() {
   lv_obj_align(s_list, LV_ALIGN_BOTTOM_MID, 0, -6);
   lv_obj_set_style_bg_color(s_list, lv_color_hex(0x101418), 0);
   lv_obj_set_style_pad_row(s_list, 4, 0);
-  // 90% rows / fat always-on scrollbar (bench 2026-07-12: "hard to scroll
-  // without selecting something" — the bar is a drag handle + a scroll cue).
-  lv_obj_set_scrollbar_mode(s_list, LV_SCROLLBAR_MODE_ON);
-  lv_obj_set_style_width(s_list, 20, LV_PART_SCROLLBAR);
-  lv_obj_set_style_bg_color(s_list, lv_color_hex(0x3A4552), LV_PART_SCROLLBAR);
-  lv_obj_set_style_bg_opa(s_list, LV_OPA_70, LV_PART_SCROLLBAR);
-  lv_obj_set_style_radius(s_list, 6, LV_PART_SCROLLBAR);
+  apply_scroll_list_style(s_list);   // the one 90/10 list format (list_style.h)
 
   foods_refresh();
   return s_screen;

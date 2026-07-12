@@ -341,6 +341,10 @@ void on_burnermap(uint8_t cmd) {
 // Pans picker. cmd 0 = activate idx, 1 = delete idx, 2 = toggle stainless.
 // The selected pan is first-class: its lag drives overshoot prediction and its
 // material drives the stainless guidance behavior.
+void on_profile_rename(int idx, const char* name) {
+  g_profiles.rename(idx, name);
+  persist_profiles();
+}
 void on_profile(uint8_t cmd, int idx) {
   if (cmd == 0) g_profiles.setActive(idx);
   else if (cmd == 1) g_profiles.remove(idx);
@@ -1113,6 +1117,7 @@ void setup() {
   ui::set_onboarding_cb(on_onboarding_done);
   ui::set_roi_cb(on_roi);
   ui::set_profiles(&g_profiles, on_profile);
+  ui::set_profile_rename_cb(on_profile_rename);
   { uint8_t fb[FavStore::MAX * 4];
     uint32_t n = hal::storage_get_favs(fb, sizeof(fb));
     if (n > 0) g_favs.loadBlob(fb, n); }

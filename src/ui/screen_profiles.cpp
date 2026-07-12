@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "ui/ui_root.h"
+#include "ui/list_style.h"
 #include "core/profilestore.h"
 
 namespace ui {
@@ -12,6 +13,12 @@ lv_obj_t* s_screen = nullptr;
 lv_obj_t* s_list = nullptr;
 lv_obj_t* s_empty = nullptr;
 lv_obj_t* s_map = nullptr;   // "Map burner" — hidden until a pan exists
+
+// Rename overlay (bench 2026-07-12 "can we name the pans?"): textarea +
+// keyboard over this screen; OK routes through ui::profile_rename.
+lv_obj_t* s_ren = nullptr;
+lv_obj_t* s_ren_ta = nullptr;
+int s_renIdx = -1;
 
 void done_cb(lv_event_t*) { ui::show_home(); }
 void learn_cb(lv_event_t*) { ui::show_learn(); }
@@ -24,6 +31,72 @@ void del_cb(lv_event_t* e) {
 }
 void stain_cb(lv_event_t* e) {
   ui::profile_cmd(2, (int)(intptr_t)lv_event_get_user_data(e));   // toggle SS
+}
+
+void ren_ok_cb(lv_event_t*) {
+  if (s_renIdx >= 0) ui::profile_rename(s_renIdx, lv_textarea_get_text(s_ren_ta));
+  s_renIdx = -1;
+  lv_obj_add_flag(s_ren, LV_OBJ_FLAG_HIDDEN);
+}
+void ren_cancel_cb(lv_event_t*) {
+  s_renIdx = -1;
+  lv_obj_add_flag(s_ren, LV_OBJ_FLAG_HIDDEN);
+}
+
+void ren_build() {
+  if (s_ren) return;
+  s_ren = lv_obj_create(s_screen);
+  lv_obj_set_size(s_ren, 480, 320);
+  lv_obj_center(s_ren);
+  lv_obj_set_style_bg_color(s_ren, lv_color_hex(0x101418), 0);
+  lv_obj_set_style_bg_opa(s_ren, LV_OPA_COVER, 0);
+  lv_obj_clear_flag(s_ren, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t* t = lv_label_create(s_ren);
+  lv_label_set_text(t, "Pan name");
+  lv_obj_set_style_text_font(t, &lv_font_montserrat_20, 0);
+  lv_obj_set_style_text_color(t, lv_color_hex(0x8A93A0), 0);
+  lv_obj_align(t, LV_ALIGN_TOP_LEFT, 8, 4);
+
+  s_ren_ta = lv_textarea_create(s_ren);
+  lv_textarea_set_one_line(s_ren_ta, true);
+  lv_textarea_set_max_length(s_ren_ta, 15);   // PanProfile.name[16]
+  lv_obj_set_size(s_ren_ta, 250, 44);
+  lv_obj_align(s_ren_ta, LV_ALIGN_TOP_LEFT, 100, 34);
+
+  lv_obj_t* ok = lv_btn_create(s_ren);
+  lv_obj_set_size(ok, 60, 44);
+  lv_obj_align(ok, LV_ALIGN_TOP_LEFT, 360, 34);
+  lv_obj_set_style_bg_color(ok, lv_color_hex(0x2E7D32), 0);
+  lv_obj_add_event_cb(ok, ren_ok_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* okl = lv_label_create(ok);
+  lv_label_set_text(okl, LV_SYMBOL_OK);
+  lv_obj_center(okl);
+
+  lv_obj_t* no = lv_btn_create(s_ren);
+  lv_obj_set_size(no, 44, 44);
+  lv_obj_align(no, LV_ALIGN_TOP_RIGHT, -8, 34);
+  lv_obj_set_style_bg_color(no, lv_color_hex(0x2A323C), 0);
+  lv_obj_add_event_cb(no, ren_cancel_cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* nol = lv_label_create(no);
+  lv_label_set_text(nol, LV_SYMBOL_CLOSE);
+  lv_obj_center(nol);
+
+  lv_obj_t* kb = lv_keyboard_create(s_ren);
+  lv_obj_set_size(kb, 464, 200);
+  lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, -4);
+  lv_keyboard_set_textarea(kb, s_ren_ta);
+
+  lv_obj_add_flag(s_ren, LV_OBJ_FLAG_HIDDEN);
+}
+
+void ren_cb(lv_event_t* e) {
+  const int i = (int)(intptr_t)lv_event_get_user_data(e);
+  ren_build();
+  s_renIdx = i;
+  lv_textarea_set_text(s_ren_ta, ui::profile_name(i));
+  lv_obj_clear_flag(s_ren, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(s_ren);
 }
 }  // namespace
 
@@ -72,6 +145,7 @@ lv_obj_t* profiles_create() {
   lv_obj_align(s_list, LV_ALIGN_BOTTOM_MID, 0, -8);
   lv_obj_set_style_bg_color(s_list, lv_color_hex(0x101418), 0);
   lv_obj_set_style_pad_row(s_list, 4, 0);
+  apply_scroll_list_style(s_list);   // the one 90/10 list format (list_style.h)
 
   s_empty = lv_label_create(scr);
   lv_label_set_text(s_empty, "No saved pans yet.\nTap \"Learn a pan\" to teach PanPilot one.");
@@ -104,19 +178,25 @@ void profiles_update(const ProfileStore& ps) {
     lv_obj_set_style_radius(row, 8, 0);
     lv_obj_add_event_cb(row, act_cb, LV_EVENT_CLICKED, (void*)(intptr_t)i);
 
+    // Two-line label (name + grey lag) frees the right side for the chips.
     lv_obj_t* nm = lv_label_create(row);
-    char buf[40];
-    std::snprintf(buf, sizeof(buf), "%s%s", active ? LV_SYMBOL_OK "  " : "", p.name);
+    char buf[64];
+    std::snprintf(buf, sizeof(buf), "%s%s\n#8a93a0 lag %.1f min#",
+                  active ? LV_SYMBOL_OK "  " : "", p.name, p.lagMinutes);
+    lv_label_set_recolor(nm, true);
     lv_label_set_text(nm, buf);
-    lv_obj_set_style_text_font(nm, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(nm, &lv_font_montserrat_14, 0);
     lv_obj_align(nm, LV_ALIGN_LEFT_MID, 8, 0);
 
-    lv_obj_t* lag = lv_label_create(row);
-    std::snprintf(buf, sizeof(buf), "lag %.1f min", p.lagMinutes);
-    lv_label_set_text(lag, buf);
-    lv_obj_set_style_text_font(lag, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(lag, lv_color_hex(active ? 0xCBD6EA : 0x8A93A0), 0);
-    lv_obj_align(lag, LV_ALIGN_RIGHT_MID, -104, 0);
+    // Rename pencil (bench: "can we name the pans?").
+    lv_obj_t* ren = lv_btn_create(row);
+    lv_obj_set_size(ren, 44, 40);
+    lv_obj_align(ren, LV_ALIGN_RIGHT_MID, -100, 0);
+    lv_obj_set_style_bg_color(ren, lv_color_hex(0x2A323C), 0);
+    lv_obj_add_event_cb(ren, ren_cb, LV_EVENT_CLICKED, (void*)(intptr_t)i);
+    lv_obj_t* rl = lv_label_create(ren);
+    lv_label_set_text(rl, LV_SYMBOL_EDIT);
+    lv_obj_center(rl);
 
     // Pan-material chip: amber "SS" when stainless; tap to toggle. The pan
     // carries its material — selecting a stainless pan turns on the stainless

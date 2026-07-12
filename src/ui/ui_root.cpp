@@ -68,6 +68,7 @@ AutotuneCb s_autotuneCb = nullptr;
 RoiCb s_roiCb = nullptr;
 const ProfileStore* s_profiles = nullptr;
 ProfileCb s_profileCb = nullptr;
+ProfileRenameCb s_profRenCb = nullptr;
 BurnerMapCb s_bmapCb = nullptr;
 WifiCb s_wifiCb = nullptr;
 const FavStore* s_favs = nullptr;
@@ -135,6 +136,16 @@ void show_profiles() {
 void profile_cmd(uint8_t cmd, int idx) {
   if (s_profileCb) s_profileCb(cmd, idx);
   if (s_profiles) profiles_update(*s_profiles);   // reflect the mutation
+}
+void set_profile_rename_cb(ProfileRenameCb onRename) { s_profRenCb = onRename; }
+void profile_rename(int idx, const char* name) {
+  if (s_profRenCb && name && name[0]) s_profRenCb(idx, name);
+  if (s_profiles) profiles_update(*s_profiles);
+}
+const char* profile_name(int idx) {
+  return (s_profiles && idx >= 0 && idx < s_profiles->count())
+             ? s_profiles->at(idx).name
+             : "";
 }
 
 void set_wifi_cb(WifiCb onWifi) { s_wifiCb = onWifi; }

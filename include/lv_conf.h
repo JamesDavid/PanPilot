@@ -23,6 +23,21 @@
 // which made 48 KB marginal. Boot logs lv_mem usage — bench-check it.
 #ifdef BOARD_CROWPANEL35_BASIC
   #define LV_MEM_SIZE         (26U * 1024U)
+#elif defined(BOARD_HAS_PSRAM) && !defined(PANPILOT_SIM)
+  // LVGL heap in PSRAM (bench 2026-07-12): at 64 KB internal the preset
+  // EDITOR (textarea + keyboard, the largest screen) failed to create and
+  // "+ New" did nothing — the food list had grown past 35 rows and screens
+  // are never destroyed. Raising the static pool to 96 KB starved Wi-Fi
+  // (~21 KB internal heap left), so the pool moves to the 8 MB PSRAM
+  // entirely: objects/styles live there (S3 cache hides most latency), the
+  // DMA draw buffers stay internal (static s_buf1/s_buf2 in display.cpp).
+  #define LV_MEM_CUSTOM 1
+  #define LV_MEM_CUSTOM_INCLUDE "esp_heap_caps.h"
+  #define LV_MEM_CUSTOM_ALLOC(size) \
+      heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
+  #define LV_MEM_CUSTOM_REALLOC(p, size) \
+      heap_caps_realloc(p, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)
+  #define LV_MEM_CUSTOM_FREE(p) heap_caps_free(p)
 #else
   #define LV_MEM_SIZE         (64U * 1024U)
 #endif
