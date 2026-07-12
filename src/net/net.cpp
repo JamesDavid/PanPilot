@@ -47,6 +47,8 @@ volatile uint8_t s_cBright = 2, s_cTz = 0, s_cH = 0, s_cM = 0;
 volatile bool s_pUnit = false, s_pMute = false, s_pBright = false, s_pTz = false;
 volatile bool s_pUnitVal = true, s_pMuteVal = false;
 volatile uint8_t s_pBrightVal = 2, s_pTzVal = 0;
+volatile bool s_pFoods = false;      // /foods.json changed -> reload on loop core
+FoodsChangedCb s_foodsCb = nullptr;
 
 bool pinOk(const String& given) {
   const String pin = hal::storage_get_web_pin();
@@ -208,6 +210,50 @@ void begin() {
     j += ']';
     r->send(200, "application/json", j);
   });
+  // New-food form on the Creator page (bench 2026-07-12 "can i make a
+  // food?"): POST one food (foods.example.json field names); it is merged
+  // into /foods.json (same name+variant replaces) and the store hot-reloads
+  // on the loop core via the foods-changed callback. The safety floor is
+  // enforced at load (safeInternalFloor) as always.
+  s_server.on(
+      "/api/foods", HTTP_POST, [](AsyncWebServerRequest*) {}, nullptr,
+      [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t index,
+         size_t total) {
+        static String body;
+        if (index == 0) { body = ""; body.reserve(total + 1); }
+        body.concat((const char*)data, len);
+        if (index + len != total) return;
+        JsonDocument nu;
+        if (deserializeJson(nu, body) || !(nu["name"].is<const char*>())) {
+          r->send(400, "application/json",
+                  "{\"ok\":false,\"reason\":\"bad json\"}");
+          return;
+        }
+        JsonDocument all;
+        if (LittleFS.exists("/foods.json")) {
+          File f = LittleFS.open("/foods.json", "r");
+          if (f) { deserializeJson(all, f); f.close(); }
+        }
+        if (!all["foods"].is<JsonArray>())
+          all["foods"].to<JsonArray>();
+        JsonArray arr = all["foods"].as<JsonArray>();
+        // Same (name, variant) replaces in place.
+        for (size_t i = 0; i < arr.size(); ++i) {
+          if (strcmp(arr[i]["name"] | "", nu["name"] | "") == 0 &&
+              strcmp(arr[i]["variant"] | "", nu["variant"] | "") == 0) {
+            arr.remove(i);
+            break;
+          }
+        }
+        arr.add(nu);
+        File f = LittleFS.open("/foods.json", "w");
+        if (!f) { r->send(500); return; }
+        serializeJson(all, f);
+        f.close();
+        s_pFoods = true;   // loop core reloads the store + food library
+        r->send(200, "application/json", "{\"ok\":true}");
+      });
+
   // Fats for the Creator's PREP dropdown (name is all the page needs; the
   // firmware owns the temps/smoke points).
   s_server.on("/api/preplib", HTTP_GET, [](AsyncWebServerRequest* r) {
@@ -345,7 +391,10 @@ void loop() {
   if (s_pMute)   { s_pMute = false;   if (s_muteCb)   s_muteCb(s_pMuteVal); }
   if (s_pBright) { s_pBright = false; if (s_brightCb) s_brightCb(s_pBrightVal); }
   if (s_pTz)     { s_pTz = false;     if (s_tzCb)     s_tzCb(s_pTzVal); }
+  if (s_pFoods)  { s_pFoods = false;  if (s_foodsCb)  s_foodsCb(); }
 }
+
+void set_foods_cb(FoodsChangedCb cb) { s_foodsCb = cb; }
 
 bool connected() { return WiFi.status() == WL_CONNECTED; }
 bool portal_active() { return s_portal; }

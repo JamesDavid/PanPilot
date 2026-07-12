@@ -16,6 +16,7 @@
 #include "ui/screen_autotune.h"
 #include "ui/screen_profiles.h"
 #include "ui/screen_burnermap.h"
+#include "ui/screen_programs.h"
 #include "core/profilestore.h"
 #include "core/favstore.h"
 #include "core/settings.h"
@@ -69,6 +70,8 @@ RoiCb s_roiCb = nullptr;
 const ProfileStore* s_profiles = nullptr;
 ProfileCb s_profileCb = nullptr;
 ProfileRenameCb s_profRenCb = nullptr;
+ProgramOpenCb s_progOpenCb = nullptr;
+ProgramRunCb s_progRunCb = nullptr;
 BurnerMapCb s_bmapCb = nullptr;
 WifiCb s_wifiCb = nullptr;
 const FavStore* s_favs = nullptr;
@@ -76,7 +79,7 @@ FavCb s_favCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS,
               SETTINGS, PRESET_EDIT, ASSIST, ONBOARDING, AUTOTUNE,
-              PROFILES, BURNERMAP } s_active = HOME;
+              PROFILES, BURNERMAP, PROGRAMS } s_active = HOME;
 
 void settings_refresh() {
   settings_update(s_useF, s_muted, s_bright, s_tz, s_stainless);
@@ -323,6 +326,27 @@ void select_food(int id) {
 }
 void recipe_cmd(uint8_t cmd) { if (s_recipeCb) s_recipeCb(cmd); }
 void start_recipe() { if (s_recipeCb) s_recipeCb(0); show_home(); }
+
+void set_program_cbs(ProgramOpenCb onOpen, ProgramRunCb onRun) {
+  s_progOpenCb = onOpen;
+  s_progRunCb = onRun;
+}
+void open_programs() {
+  if (s_progOpenCb) s_progOpenCb();   // main lists FS -> programs_show()
+  else start_recipe();                // no FS (sim): just run the built-in
+}
+void programs_show(const char (*names)[24], int n) {
+  lv_obj_t* scr = programs_create();
+  if (!scr) return;
+  programs_set_list(names, n);
+  lv_scr_load(scr);
+  s_active = PROGRAMS;
+}
+void run_program(int idx) {
+  if (idx == 0) { start_recipe(); return; }        // built-in
+  if (s_progRunCb) s_progRunCb(programs_name(idx - 1));
+  show_home();
+}
 
 void root_update(const ThermalFrame& f, const PanReading& r, const UiState& s) {
   s_muted = s.muted;                 // keep Settings' cache in sync with device truth

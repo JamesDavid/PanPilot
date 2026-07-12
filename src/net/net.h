@@ -15,6 +15,7 @@ using UnitCb = void (*)(bool useF);
 using SetMuteCb = void (*)(bool muted);
 using SetBrightCb = void (*)(uint8_t level);
 using SetTzCb = void (*)(uint8_t tzIndex);
+using FoodsChangedCb = void (*)();   // /foods.json rewritten via the web
 
 void begin();                 // WiFiManager (non-blocking) + server + mDNS
 void loop();                  // housekeeping (portal + WS cleanup) + apply web edits
@@ -31,5 +32,6 @@ String ssid();                 // joined network name ("" if not connected)
 String ip();                   // STA address as text ("" if not connected)
 String mqtt_broker();          // MQTT broker captured at provisioning ("" = off)
 void set_settings_cbs(UnitCb, SetMuteCb, SetBrightCb, SetTzCb);
+void set_foods_cb(FoodsChangedCb);   // hot-reload hook (loop core)
 }  // namespace net
 #endif

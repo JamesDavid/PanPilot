@@ -22,7 +22,7 @@ void card_cb(lv_event_t* e) {
 void fav_card_cb(lv_event_t* e) {
   ui::select_food((int)(intptr_t)lv_event_get_user_data(e));
 }
-void program_card_cb(lv_event_t*) { ui::start_recipe(); }
+void program_card_cb(lv_event_t*) { ui::open_programs(); }
 void edit_cb(lv_event_t* e) {
   const int id = (int)(intptr_t)lv_event_get_user_data(e);
   ui::show_preset_edit(id);
@@ -60,12 +60,12 @@ void build_cards() {
     lv_obj_set_style_bg_color(card, lv_color_hex(0x2E5AAC), 0);
     lv_obj_add_event_cb(card, program_card_cb, LV_EVENT_CLICKED, nullptr);
     lv_obj_t* pl = lv_label_create(card);
-    lv_label_set_text(pl, LV_SYMBOL_PLAY "  Smash\nBurgers x4");
+    lv_label_set_text(pl, LV_SYMBOL_PLAY "  Recipe\nprograms");
     lv_obj_set_style_text_font(pl, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_align(pl, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(pl, LV_ALIGN_CENTER, 0, -8);
     lv_obj_t* sub = lv_label_create(card);
-    lv_label_set_text(sub, "program");
+    lv_label_set_text(sub, "built-in + saved");
     lv_obj_set_style_text_font(sub, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(sub, lv_color_hex(0xB9C8E4), 0);
     lv_obj_align(sub, LV_ALIGN_BOTTOM_MID, 0, -6);
@@ -95,22 +95,44 @@ void build_cards() {
       lv_obj_set_style_text_color(star, lv_color_hex(0xC08A00), 0);
       lv_obj_align(star, LV_ALIGN_TOP_LEFT, 2, 2);
 
+      // Bounded layout (bench 2026-07-12: "pork chop button overflows"):
+      // name wraps within 2 lines, the variant gets its own dot-truncated
+      // line with the authoring "[REVIEW]" tag stripped, temps at the bottom.
       lv_obj_t* name = lv_label_create(card);
       lv_label_set_text(name, f.name);
       lv_obj_set_style_text_font(name, &lv_font_montserrat_14, 0);
-      lv_label_set_long_mode(name, LV_LABEL_LONG_WRAP);
-      lv_obj_set_width(name, cw - 16);
+      lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
+      lv_obj_set_size(name, cw - 14, 34);
       lv_obj_set_style_text_align(name, LV_TEXT_ALIGN_CENTER, 0);
-      lv_obj_align(name, LV_ALIGN_TOP_MID, 0, 26);
+      lv_obj_align(name, LV_ALIGN_TOP_MID, 0, 22);
 
-      char sub[40];
-      std::snprintf(sub, sizeof(sub), "%s  %d-%d\xC2\xB0" "F", f.variant,
-                    f.panTargetF_lo, f.panTargetF_hi);
+      char vshort[28];
+      {
+        const char* vs = f.variant;
+        const char* cut = std::strstr(vs, "[REVIEW]");
+        size_t len = cut ? (size_t)(cut - vs) : std::strlen(vs);
+        while (len > 0 && vs[len - 1] == ' ') --len;
+        if (len >= sizeof(vshort)) len = sizeof(vshort) - 1;
+        std::memcpy(vshort, vs, len);
+        vshort[len] = '\0';
+      }
       lv_obj_t* v = lv_label_create(card);
-      lv_label_set_text(v, sub);
+      lv_label_set_text(v, vshort);
       lv_obj_set_style_text_font(v, &lv_font_montserrat_14, 0);
       lv_obj_set_style_text_color(v, lv_color_hex(0x9AA3AF), 0);
-      lv_obj_align(v, LV_ALIGN_BOTTOM_MID, 0, -6);
+      lv_label_set_long_mode(v, LV_LABEL_LONG_DOT);
+      lv_obj_set_size(v, cw - 14, 18);
+      lv_obj_set_style_text_align(v, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_align(v, LV_ALIGN_TOP_MID, 0, 62);
+
+      char rng[20];
+      std::snprintf(rng, sizeof(rng), "%d-%d\xC2\xB0" "F", f.panTargetF_lo,
+                    f.panTargetF_hi);
+      lv_obj_t* t = lv_label_create(card);
+      lv_label_set_text(t, rng);
+      lv_obj_set_style_text_font(t, &lv_font_montserrat_14, 0);
+      lv_obj_set_style_text_color(t, lv_color_hex(0x9AA3AF), 0);
+      lv_obj_align(t, LV_ALIGN_BOTTOM_MID, 0, -6);
       ++slot0;
     }
   }

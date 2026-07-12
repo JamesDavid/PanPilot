@@ -39,6 +39,23 @@ label{white-space:nowrap;margin-right:.4rem}
 watches its smoke point &middot; LOOP repeats earlier steps &middot; END finishes.</p>
 <div id="msg"></div>
 <pre id="json"></pre>
+<h1>New food (single-food timer)</h1>
+<p class="hint">Adds to the device's food picker (or overrides a food with the same
+name + variant). Times are seconds per side at the middle of the temp band.
+The safe-internal-temp note can never be lowered below the USDA minimum for a
+built-in food.</p>
+<div>
+ <input id="fn" placeholder="Name" style="width:10rem">
+ <input id="fv" placeholder="Variant" style="width:12rem">
+ <input id="flo" type="number" placeholder="lo F" style="width:5rem">
+ <input id="fhi" type="number" placeholder="hi F" style="width:5rem"><br>
+ <input id="fs1" type="number" placeholder="side 1 s" style="width:6rem">
+ <input id="fs2" type="number" placeholder="side 2 s (0 = no flip)" style="width:11rem">
+ <input id="fsafe" type="number" placeholder="safe internal F (0 = visual)" style="width:14rem"><br>
+ <input id="fflip" placeholder="Flip hint shown on the cue" style="width:24rem">
+ <button onclick="saveFood()">Save food to device</button>
+</div>
+<div id="fmsg"></div>
 <script>
 const TYPES=['HOLD','CUE','TIMER','PREP','LOOP','END'];let foods=[],preps=[];
 fetch('/api/foodlib').then(r=>r.json()).then(f=>{foods=f;
@@ -88,6 +105,21 @@ function validate(){const p=collect();document.getElementById('json').textConten
  .then(v=>show(v.ok?'Valid ✓':'Invalid: '+v.reason+' (step '+v.badStep+')',v.ok));}
 function save(){const p=collect();
  fetch('/api/programs/new',{method:'PUT',body:JSON.stringify(p)}).then(r=>r.json())
- .then(v=>show(v.ok?'Saved ✓':'Rejected: '+v.reason,v.ok));}
+ .then(v=>show(v.ok?'Saved ✓ - it now appears under Recipe programs on the device':'Rejected: '+v.reason,v.ok));}
+function saveFood(){
+ const g=id=>document.getElementById(id);const num=id=>+g(id).value||0;
+ const s1=num('fs1'),s2=num('fs2');
+ const f={name:g('fn').value,variant:g('fv').value,
+  panLoF:num('flo'),panHiF:num('fhi'),
+  sideSec:s2>0?[s1,s2]:[s1],sides:s2>0?2:1,
+  refF:Math.round((num('flo')+num('fhi'))/2),compPct:-10,restSec:0,
+  safeInternalF:num('fsafe'),flip:g('fflip').value};
+ const m=document.getElementById('fmsg');
+ if(!f.name||!f.panLoF||f.panHiF<=f.panLoF||s1<=0){
+  m.className='err';m.textContent='need a name, lo < hi temps, and a side-1 time';return;}
+ fetch('/api/foods',{method:'POST',body:JSON.stringify(f)}).then(r=>r.json())
+ .then(v=>{m.className=v.ok?'ok':'err';
+  m.textContent=v.ok?'Saved ✓ - it is in the device food picker now':'Rejected: '+(v.reason||'error');})
+ .catch(()=>{m.className='err';m.textContent='device unreachable';});}
 </script></body></html>)HTML";
 #endif

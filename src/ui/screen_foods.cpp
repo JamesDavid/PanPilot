@@ -21,7 +21,7 @@ void star_cb(lv_event_t* e) {
   ui::food_fav((int)(intptr_t)lv_event_get_user_data(e));
 }
 void done_cb(lv_event_t*) { ui::show_home(); }
-void recipe_cb(lv_event_t*) { ui::start_recipe(); }
+void recipe_cb(lv_event_t*) { ui::open_programs(); }
 
 bool is_fav(int i) {
   const FavStore* f = ui::favs();
@@ -89,7 +89,7 @@ void foods_refresh() {
     lv_obj_set_style_radius(row, 8, 0);
     lv_obj_add_event_cb(row, recipe_cb, LV_EVENT_CLICKED, nullptr);
     lv_obj_t* rl = lv_label_create(row);
-    lv_label_set_text(rl, LV_SYMBOL_PLAY "  Recipe program: Smash Burgers x4");
+    lv_label_set_text(rl, LV_SYMBOL_PLAY "  Recipe programs (built-in + saved)");
     lv_obj_set_style_text_font(rl, &lv_font_montserrat_14, 0);
     lv_obj_align(rl, LV_ALIGN_LEFT_MID, 4, 0);
   }

@@ -392,6 +392,16 @@ the same policy that blocks arming on dev builds.
 | E.4 | "Searing side 1" | Bar shows a live countdown (1:30 → 0:00); ONE chirp on entry, **no repeated beeping/strobe** during the timer | ☐ |
 | E.5 | Action steps ("Flip + cheese") left unattended | These DO re-beep at L2 every 5 s until acted on (that's the point) | ☐ |
 
+## Create-your-own: preset / food / program (bench 2026-07-12)
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| G.1 | Preset picker → "+ New" card | Editor opens (name keyboard, lo/hi steppers, stainless); saved preset appears as a grey card | ☐ |
+| G.2 | /creator → New food form → Save | Food appears in the device picker WITHOUT a reboot; starring it puts it on the top-level grid; a name+variant matching a built-in overrides it but can't lower safeInternalF | ☐ |
+| G.3 | /creator → build + validate + save a program | It appears under the blue "Recipe programs" card (and the foods-list blue row) as "saved" | ☐ |
+| G.4 | Run a saved program | Sequencer runs it (name top-left, cue bar steps); a hand-broken /programs/*.json is REFUSED with a serial/[log] reason (re-validated on load) | ☐ |
+| G.5 | Pork-chop favorite card | Name/variant/temps each on their own line, nothing overflowing the card | ☐ |
+
 ## Alert-overlay context lines + dismissal
 
 | # | Step | Expected | ☐ |

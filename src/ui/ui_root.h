@@ -34,6 +34,9 @@ using BurnerMapCb = void (*)(uint8_t cmd);   // map wizard: 0=start,1=knob-ready
 using WifiCb = void (*)();                   // Settings Wi-Fi row tapped (reopen portal)
 using FavCb = void (*)(int foodId);          // food star tapped (toggle favorite)
 using ProfileRenameCb = void (*)(int idx, const char* name);  // pan renamed
+using ProgramOpenCb = void (*)();   // programs picker opening: main scans FS,
+                                    // replies via ui::programs_show(...)
+using ProgramRunCb = void (*)(const char* name);  // "" = the built-in program
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
                PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2,
@@ -103,5 +106,9 @@ void learn_cmd(uint8_t cmd);        // fires LearnCb
 void select_food(int id);           // fires FoodCb, returns home
 void recipe_cmd(uint8_t cmd);       // fires RecipeCb (0=start,1=stop,2=ack)
 void start_recipe();                // start the built-in recipe, return home
+void set_program_cbs(ProgramOpenCb onOpen, ProgramRunCb onRun);
+void open_programs();               // blue card: fires onOpen (main lists FS)
+void programs_show(const char (*names)[24], int n);  // main -> picker screen
+void run_program(int idx);          // 0 = built-in, else saved name; home
 
 }  // namespace ui

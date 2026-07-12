@@ -46,6 +46,7 @@
 #include "hal/session_store.h"
 #include "hal/mqtt_plug_actuator.h"
 #include "hal/food_json.h"
+#include "hal/recipe_files.h"
 #include "core/foodstore.h"
 #include "ui/screen_lastcook.h"
 #include "ui/screen_learn.h"   // learn_get_stainless (pan material at save)
@@ -244,20 +245,49 @@ void on_assist(uint8_t cmd) {
     Serial.println("[assist] STOP");
   }
 }
-void on_recipe(uint8_t cmd) {
-  if (cmd == 0) {
-    // A recipe program owns the whole cook: drop any single-food selection so
-    // its timer/cues don't fight the sequencer (bench-found: Eggs stayed the
-    // context while the program preheated for burgers).
-    if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) == pdTRUE) {
-      g_food = nullptr;
-      g_foodFactor = 1.0f;
-      xSemaphoreGive(g_target_mtx);
-    }
-    g_recipe_start_req = true;
+// The program the sequencer will start: nullptr = the built-in. Saved programs
+// (web Recipe Creator, /programs on LittleFS) load into hal::recipe_files'
+// static storage on the loop core; SensorTask only reads the pointer.
+const RecipeProgram* volatile g_recipe_prog = nullptr;
+
+void start_program_common() {
+  // A recipe program owns the whole cook: drop any single-food selection so
+  // its timer/cues don't fight the sequencer (bench-found: Eggs stayed the
+  // context while the program preheated for burgers).
+  if (xSemaphoreTake(g_target_mtx, pdMS_TO_TICKS(50)) == pdTRUE) {
+    g_food = nullptr;
+    g_foodFactor = 1.0f;
+    xSemaphoreGive(g_target_mtx);
   }
+  g_recipe_start_req = true;
+}
+
+void on_recipe(uint8_t cmd) {
+  if (cmd == 0) { g_recipe_prog = nullptr; start_program_common(); }
   else if (cmd == 1) { g_recipe_active = false; g_fatClampWarnF = 0; }
   else if (cmd == 2) g_recipe_touch = true;
+}
+
+void on_programs_open() {
+  static char names[12][24];
+  const int n = hal::recipe_files_list(names, 12);
+  ui::programs_show(names, n);
+}
+#if defined(ENABLE_WIFI) && defined(HAS_FILESYSTEM)
+// /foods.json rewritten from the web food form: reload the store and rebuild
+// the merged library on the loop core (never from the async web task).
+void on_foods_changed() {
+  g_foodstore.clear();
+  const int n = hal::load_custom_foods(g_foodstore);
+  foodlib_set_custom(n > 0 ? &g_foodstore : nullptr);
+  Serial.printf("[foods] web edit applied - %d custom food(s)\n", n);
+}
+#endif
+void on_program_run(const char* name) {
+  const RecipeProgram* p = hal::recipe_file_load(name);
+  if (!p) { Serial.printf("[recipe] load REFUSED: %s\n", name); return; }
+  g_recipe_prog = p;
+  start_program_common();
 }
 
 void on_food(int id) {
@@ -668,9 +698,12 @@ void SensorTask(void*) {
 
       // Recipe sequencer (M19): drive setpoints + cues from a cook program.
       if (g_recipe_start_req) {
-        recipe.start(recipe_builtin_smashburger(), nowm);
+        const RecipeProgram* prog =
+            g_recipe_prog ? (const RecipeProgram*)g_recipe_prog
+                          : recipe_builtin_smashburger();
+        recipe.start(prog, nowm);
         g_recipe_start_req = false; g_recipe_active = true; g_fatClampWarnF = 0;
-        Serial.println("[recipe] started: Smash Burgers x4");
+        Serial.printf("[recipe] started: %s\n", prog->name);
       }
       RecipeOut rout;
       if (g_recipe_active) {
@@ -1118,6 +1151,7 @@ void setup() {
   ui::set_roi_cb(on_roi);
   ui::set_profiles(&g_profiles, on_profile);
   ui::set_profile_rename_cb(on_profile_rename);
+  ui::set_program_cbs(on_programs_open, on_program_run);
   { uint8_t fb[FavStore::MAX * 4];
     uint32_t n = hal::storage_get_favs(fb, sizeof(fb));
     if (n > 0) g_favs.loadBlob(fb, n); }
@@ -1144,6 +1178,9 @@ void setup() {
   net::begin();   // Wi-Fi is a convenience mirror; cooking works without it
   ha::begin(net::mqtt_broker().c_str(), 1883, on_mute, on_target_abs, on_preset);
   net::set_settings_cbs(web_set_unit, on_mute, on_brightness, on_timezone);
+#if defined(HAS_FILESYSTEM)
+  net::set_foods_cb(on_foods_changed);
+#endif
   configTzTime(tz_posix(g_tz), "pool.ntp.org", "time.nist.gov");   // NTP clock
 #endif
 

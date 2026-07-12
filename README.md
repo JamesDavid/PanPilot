@@ -426,8 +426,16 @@ browser: pick a food to auto-generate the steps (preheat → add → per-side ti
 with flip cues → remove with the safety note), tweak them, **validate**, and
 **save** to the device. The **firmware validator is the source of truth** — it
 rejects a 700 °F hold, adding butter before a 500 °F sear, or a bad loop. Saved
-programs run through the same sequencer as the built-in one, and it works fully
-offline. _(Compile-verified; browser flow is bench-tested — HARDWARE_TEST M20.)_
+programs appear on the device under the blue **Recipe programs** card (they're
+re-validated on load) and run through the same sequencer as the built-in one.
+It works fully offline.
+
+The same page has a **New food** form: name, variant, temp band, per-side
+times, the flip hint, and the safe-internal-temp — it saves straight into the
+device's `/foods.json` and shows up in the food picker immediately (an entry
+matching a built-in name+variant overrides it instead, and can never lower the
+USDA internal-temp minimum). So all three kinds are user-creatable: **presets**
+on the device ("+ New" card), **foods** and **programs** here in the browser. _(Compile-verified; browser flow is bench-tested — HARDWARE_TEST M20.)_
 
 **Fats are watched, not just timed.** A recipe's **PREP** step runs a fat
 monitor: it waits for the pan to reach the fat's *add window*, tells you when
