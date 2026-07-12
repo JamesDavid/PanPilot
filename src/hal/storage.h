@@ -38,6 +38,9 @@ uint32_t storage_get_profiles(void* out, uint32_t maxBytes);   // bytes read
 void storage_set_profiles(const void* data, uint32_t bytes);
 int  storage_get_active_profile(int def = -1);
 void storage_set_active_profile(int idx);
+// Favorite foods (bench 2026-07-12) — opaque FavStore blob.
+uint32_t storage_get_favs(void* out, uint32_t maxBytes);   // bytes read
+void storage_set_favs(const void* data, uint32_t bytes);
 // MQTT broker (M9) — empty string disables MQTT/HA.
 String storage_get_mqtt_broker();
 void storage_set_mqtt_broker(const String& b);

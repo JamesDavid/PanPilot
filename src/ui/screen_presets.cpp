@@ -5,6 +5,8 @@
 
 #include "ui/ui_root.h"
 #include "core/presets.h"
+#include "core/foodlib.h"
+#include "core/favstore.h"
 
 namespace ui {
 namespace {
@@ -15,6 +17,9 @@ lv_obj_t* s_grid = nullptr;
 void card_cb(lv_event_t* e) {
   const uint8_t id = (uint8_t)(uintptr_t)lv_event_get_user_data(e);
   ui::select_preset(id);
+}
+void fav_card_cb(lv_event_t* e) {
+  ui::select_food((int)(intptr_t)lv_event_get_user_data(e));
 }
 void edit_cb(lv_event_t* e) {
   const int id = (int)(intptr_t)lv_event_get_user_data(e);
@@ -27,22 +32,70 @@ void lastcook_cb(lv_event_t*) { ui::show_lastcook(); }
 void foods_cb(lv_event_t*) { ui::cook_a_food(); }   // routes to the open pan's zone
 void settings_cb(lv_event_t*) { ui::show_settings(); }
 
-// (Re)build the card grid: built-in + custom presets, then an "add" card.
+// (Re)build the card grid: FAVORITE FOODS first (bench 2026-07-12: one-tap
+// access to "things they do a lot" — tapping one arms that food's timer +
+// target directly), then built-in + custom presets, then an "add" card.
 void build_cards() {
   if (!s_grid) return;
   lv_obj_clean(s_grid);
   const int cols = 3, cw = 148, ch = 116, gx = 8, gy = 6;
   const int x0 = (480 - (cols * cw + (cols - 1) * gx)) / 2;
   const int y0 = 4;
+
+  // Favorite-food cards (amber star; star/unstar lives in the food picker).
+  int slot0 = 0;
+  const FavStore* fv = ui::favs();
+  if (fv && fv->count() > 0) {
+    for (int i = 0; i < foodlib_count(); ++i) {
+      const FoodEntry& f = foodlib_entry(i);
+      if (!fv->has(fav_hash(f.name, f.variant))) continue;
+      const int r = slot0 / cols, c = slot0 % cols;
+      lv_obj_t* card = lv_btn_create(s_grid);
+      lv_obj_set_size(card, cw, ch);
+      lv_obj_set_pos(card, x0 + c * (cw + gx), y0 + r * (ch + gy));
+      lv_obj_set_style_radius(card, 12, 0);
+      lv_obj_set_style_bg_color(card, lv_color_hex(0x24313F), 0);
+      lv_obj_set_style_border_width(card, 2, 0);
+      lv_obj_set_style_border_color(card, lv_color_hex(0xC08A00), 0);
+      lv_obj_add_event_cb(card, fav_card_cb, LV_EVENT_CLICKED,
+                          (void*)(intptr_t)i);
+
+      lv_obj_t* star = lv_label_create(card);
+      lv_label_set_text(star, "*");
+      lv_obj_set_style_text_font(star, &lv_font_montserrat_20, 0);
+      lv_obj_set_style_text_color(star, lv_color_hex(0xC08A00), 0);
+      lv_obj_align(star, LV_ALIGN_TOP_LEFT, 2, 2);
+
+      lv_obj_t* name = lv_label_create(card);
+      lv_label_set_text(name, f.name);
+      lv_obj_set_style_text_font(name, &lv_font_montserrat_14, 0);
+      lv_label_set_long_mode(name, LV_LABEL_LONG_WRAP);
+      lv_obj_set_width(name, cw - 16);
+      lv_obj_set_style_text_align(name, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_align(name, LV_ALIGN_TOP_MID, 0, 26);
+
+      char sub[40];
+      std::snprintf(sub, sizeof(sub), "%s  %d-%d\xC2\xB0" "F", f.variant,
+                    f.panTargetF_lo, f.panTargetF_hi);
+      lv_obj_t* v = lv_label_create(card);
+      lv_label_set_text(v, sub);
+      lv_obj_set_style_text_font(v, &lv_font_montserrat_14, 0);
+      lv_obj_set_style_text_color(v, lv_color_hex(0x9AA3AF), 0);
+      lv_obj_align(v, LV_ALIGN_BOTTOM_MID, 0, -6);
+      ++slot0;
+    }
+  }
+
   const int total = presets_total();
-  for (int slot = 0; slot <= total; ++slot) {   // last slot = "+ New preset"
+  for (int p = 0; p <= total; ++p) {            // last slot = "+ New preset"
+    const int slot = slot0 + p;
     const int r = slot / cols, c = slot % cols;
     lv_obj_t* card = lv_btn_create(s_grid);
     lv_obj_set_size(card, cw, ch);
     lv_obj_set_pos(card, x0 + c * (cw + gx), y0 + r * (ch + gy));
     lv_obj_set_style_radius(card, 12, 0);
 
-    if (slot == total) {                          // add-new card
+    if (p == total) {                             // add-new card
       lv_obj_set_style_bg_color(card, lv_color_hex(0x243042), 0);
       lv_obj_set_style_border_width(card, 2, 0);
       lv_obj_set_style_border_color(card, lv_color_hex(0x3A4658), 0);
@@ -55,25 +108,25 @@ void build_cards() {
       continue;
     }
 
-    const uint8_t id = (uint8_t)slot;
-    const Preset& p = preset(id);
+    const uint8_t id = (uint8_t)p;
+    const Preset& pr = preset(id);
     lv_obj_set_style_bg_color(card, lv_color_hex(0x1E2530), 0);
     lv_obj_add_event_cb(card, card_cb, LV_EVENT_CLICKED, (void*)(uintptr_t)id);
 
     lv_obj_t* name = lv_label_create(card);
-    lv_label_set_text(name, p.name);
+    lv_label_set_text(name, pr.name);
     lv_obj_set_style_text_font(name, &lv_font_montserrat_20, 0);
     lv_obj_align(name, LV_ALIGN_TOP_MID, 0, 6);
 
     char rng[32];
-    std::snprintf(rng, sizeof(rng), "%d-%d\xC2\xB0" "F", p.loF, p.hiF);
+    std::snprintf(rng, sizeof(rng), "%d-%d\xC2\xB0" "F", pr.loF, pr.hiF);
     lv_obj_t* range = lv_label_create(card);
     lv_label_set_text(range, rng);
     lv_obj_set_style_text_font(range, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(range, lv_color_hex(0x9AA3AF), 0);
     lv_obj_align(range, LV_ALIGN_CENTER, 0, 6);
 
-    if (p.stainlessHints) {
+    if (pr.stainlessHints) {
       lv_obj_t* s = lv_label_create(card);
       lv_label_set_text(s, "stainless");
       lv_obj_set_style_text_font(s, &lv_font_montserrat_14, 0);

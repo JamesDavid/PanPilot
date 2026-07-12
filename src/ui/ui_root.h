@@ -7,6 +7,7 @@
 #include "core/app_state.h"
 
 class ProfileStore;
+class FavStore;
 
 namespace ui {
 
@@ -31,6 +32,7 @@ using RoiCb = void (*)(float px, float py, bool lock);  // thermal tap-to-lock R
 using ProfileCb = void (*)(uint8_t cmd, int idx);       // pans: 0=activate, 1=delete, 2=toggle SS
 using BurnerMapCb = void (*)(uint8_t cmd);   // map wizard: 0=start,1=knob-ready,2=cancel,3=save
 using WifiCb = void (*)();                   // Settings Wi-Fi row tapped (reopen portal)
+using FavCb = void (*)(int foodId);          // food star tapped (toggle favorite)
 
 void root_init(bool useF, UnitChangeCb onUnit, TargetDeltaCb onTargetDelta,
                PresetCb onPreset, LearnCb onLearn, FoodCb onFood, PresetCb onPreset2,
@@ -77,6 +79,9 @@ void burnermap_cmd(uint8_t cmd);        // fires BurnerMapCb
 void set_wifi_cb(WifiCb onWifi);
 void settings_wifi_tap();               // fires WifiCb
 void settings_wifi_status(const char* line);  // live value for the Wi-Fi row
+void set_favs(const FavStore* favs, FavCb onFav);
+const FavStore* favs();                 // nullptr until set (sim scenes)
+void food_fav(int foodId);              // fires FavCb + refreshes both pickers
 void settings_toggle_unit();       // fires UnitChangeCb + refreshes Settings
 void settings_toggle_mute();       // fires MuteCb + refreshes Settings
 void settings_cycle_brightness();  // fires BrightnessCb + refreshes Settings

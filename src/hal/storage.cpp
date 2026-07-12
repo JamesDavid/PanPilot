@@ -109,6 +109,17 @@ void storage_set_profiles(const void* data, uint32_t bytes) {
 int storage_get_active_profile(int def) { ensure(); return s_prefs.getInt("profact", def); }
 void storage_set_active_profile(int idx) { ensure(); s_prefs.putInt("profact", idx); }
 
+// Favorite foods (opaque FavStore blob of name|variant hashes).
+uint32_t storage_get_favs(void* out, uint32_t maxBytes) {
+  ensure();
+  return (uint32_t)s_prefs.getBytes("favs1", out, maxBytes);
+}
+void storage_set_favs(const void* data, uint32_t bytes) {
+  ensure();
+  if (bytes == 0) s_prefs.remove("favs1");
+  else s_prefs.putBytes("favs1", data, bytes);
+}
+
 String storage_get_mqtt_broker() { ensure(); return s_prefs.getString("mqtt", ""); }
 void storage_set_mqtt_broker(const String& b) { ensure(); s_prefs.putString("mqtt", b); }
 String storage_get_web_pin() { ensure(); return s_prefs.getString("webpin", ""); }

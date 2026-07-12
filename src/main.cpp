@@ -24,6 +24,7 @@
 #include "core/session.h"
 #include "core/profiles.h"
 #include "core/profilestore.h"
+#include "core/favstore.h"
 #include "core/battery.h"
 #include "core/attention.h"
 #include "core/compliance.h"
@@ -289,6 +290,16 @@ volatile float g_learned_lag = LAG_MINUTES_DEFAULT;
 volatile uint8_t g_learn_progress = 0;
 volatile float g_applied_lag = LAG_MINUTES_DEFAULT;  // fed to guidance
 ProfileStore g_profiles;                             // up to 8 named pans (Phase 3)
+FavStore g_favs;   // starred foods: top of the food list + preset-grid cards
+
+void on_food_fav(int id) {
+  const FoodEntry& e = foodlib_entry(id);
+  const uint32_t h = fav_hash(e.name, e.variant);
+  const bool wasFav = g_favs.has(h);
+  if (!g_favs.toggle(h) && !wasFav)
+    Serial.printf("[favs] full (%d) - unstar one first\n", FavStore::MAX);
+  hal::storage_set_favs(g_favs.blob(), g_favs.blobBytes());
+}
 
 void persist_profiles() {
   hal::storage_set_profiles(g_profiles.blob(), g_profiles.blobBytes());
@@ -1102,6 +1113,10 @@ void setup() {
   ui::set_onboarding_cb(on_onboarding_done);
   ui::set_roi_cb(on_roi);
   ui::set_profiles(&g_profiles, on_profile);
+  { uint8_t fb[FavStore::MAX * 4];
+    uint32_t n = hal::storage_get_favs(fb, sizeof(fb));
+    if (n > 0) g_favs.loadBlob(fb, n); }
+  ui::set_favs(&g_favs, on_food_fav);
   if (!hal::storage_get_onboarded()) ui::show_onboarding();   // first boot only
 
   refresh_lastcook(hal::storage_get_unit_useF());   // populate Last Cook at boot

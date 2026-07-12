@@ -17,6 +17,7 @@
 #include "ui/screen_profiles.h"
 #include "ui/screen_burnermap.h"
 #include "core/profilestore.h"
+#include "core/favstore.h"
 #include "core/settings.h"
 #include "core/timezones.h"
 #include "core/presets.h"
@@ -69,6 +70,8 @@ const ProfileStore* s_profiles = nullptr;
 ProfileCb s_profileCb = nullptr;
 BurnerMapCb s_bmapCb = nullptr;
 WifiCb s_wifiCb = nullptr;
+const FavStore* s_favs = nullptr;
+FavCb s_favCb = nullptr;
 uint8_t s_presetZone = 0;   // which zone the preset picker edits (0/1)
 enum Active { HOME, THERMAL, PRESETS, IDLE_SCREEN, LEARN, LASTCOOK, FOODS,
               SETTINGS, PRESET_EDIT, ASSIST, ONBOARDING, AUTOTUNE,
@@ -138,6 +141,17 @@ void set_wifi_cb(WifiCb onWifi) { s_wifiCb = onWifi; }
 void settings_wifi_tap() { if (s_wifiCb) s_wifiCb(); }
 void settings_wifi_status(const char* line) { settings_set_wifi(line); }
 
+void set_favs(const FavStore* favs, FavCb onFav) {
+  s_favs = favs;
+  s_favCb = onFav;
+}
+const FavStore* favs() { return s_favs; }
+void food_fav(int foodId) {
+  if (s_favCb) s_favCb(foodId);
+  foods_refresh();      // star states + favorites-first order
+  presets_refresh();    // favorite cards at the top of the grid
+}
+
 void set_burnermap_cb(BurnerMapCb onBmap) { s_bmapCb = onBmap; }
 void show_burnermap() {
   if (!s_burnermap) s_burnermap = burnermap_create();
@@ -200,8 +214,8 @@ void show_idle() {
 
 void show_learn() { if (!s_learn) s_learn = learn_create(); lv_scr_load(s_learn); s_active = LEARN; }
 void show_lastcook() { if (!s_lastcook) s_lastcook = lastcook_create(); lv_scr_load(s_lastcook); s_active = LASTCOOK; }
-void show_foods() { if (!s_foods) s_foods = foods_create(); s_foodZone = 0; lv_scr_load(s_foods); s_active = FOODS; }
-void show_foods_zone2() { if (!s_foods) s_foods = foods_create(); s_foodZone = 1; lv_scr_load(s_foods); s_active = FOODS; }
+void show_foods() { if (!s_foods) s_foods = foods_create(); else foods_refresh(); s_foodZone = 0; lv_scr_load(s_foods); s_active = FOODS; }
+void show_foods_zone2() { if (!s_foods) s_foods = foods_create(); else foods_refresh(); s_foodZone = 1; lv_scr_load(s_foods); s_active = FOODS; }
 void cook_a_food() { (s_presetZone == 1) ? show_foods_zone2() : show_foods(); }
 void show_presets() { if (!s_presets) s_presets = presets_create(); s_presetZone = 0; presets_refresh(); lv_scr_load(s_presets); s_active = PRESETS; }
 void show_presets_zone2() { if (!s_presets) s_presets = presets_create(); s_presetZone = 1; presets_refresh(); lv_scr_load(s_presets); s_active = PRESETS; }
