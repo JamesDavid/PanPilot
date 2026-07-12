@@ -85,9 +85,15 @@
   #define TOUCH_MAP_Y1            320
   #define TOUCH_MAP_Y2            0
 
-  // Peripheral / sensor I2C — MLX90640 (0x33) shares the touch bus (15/16)
+  // Peripheral / sensor I2C — MLX90640 (0x33). The I2C-OUT HY2.0-4P connector
+  // routes to 15/16 SHARED with the GT911 touch (Elecrow wiki, verified
+  // 2026-07-12). The UART1-OUT HY2.0-4P (3V3/GND/RX=18/TX=17, 3.3 V) can serve
+  // as a DEDICATED sensor bus instead — the probe tries both orders on those
+  // pins too, so the module works plugged into either connector.
   #define I2C_SDA                 15
   #define I2C_SCL                 16
+  #define I2C_ALT_A               18    // UART1-OUT "RX" repurposed as I2C
+  #define I2C_ALT_B               17    // UART1-OUT "TX"
   #define MLX90640_I2C_ADDR       0x33
 
   // PCA9557 I/O expander @ 0x18: bit map (MSB..LSB) NC,NC,NC,SHUT,MUTE,TP_RST,

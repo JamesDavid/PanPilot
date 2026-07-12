@@ -90,31 +90,27 @@ void tz_picker_build() {
   }
 }
 
-// One settings TILE (2-column grid): name on top (grey), value below (blue);
-// the whole tile fires cb on tap. Returns the value label so settings_update()
-// can refresh it. The grid replaced a scrollable row list — flick-scrolling a
-// list of tap-to-toggle rows kept "bonking" settings (bench 2026-07-11); with
-// every tile on screen at once there is nothing to scroll and a tap can only
-// mean the tile under the finger.
+// One full-width settings row ("Name .... value", whole row taps). The layout
+// went tile-grid for one round to kill scroll-bonking, but 8 tiles in 278 px
+// read as "smooshed" (bench 2026-07-12) — the verdict was: full-size rows,
+// ~90% width, with a FAT always-visible scrollbar owning the right edge, and
+// the global 6 px scroll threshold doing the tap-vs-scroll discrimination.
 lv_obj_t* mk_row(lv_obj_t* p, const char* name, lv_event_cb_t cb) {
-  lv_obj_t* tile = lv_btn_create(p);
-  lv_obj_set_size(tile, 229, 62);
-  lv_obj_set_style_bg_color(tile, lv_color_hex(0x1A2027), 0);
-  lv_obj_set_style_radius(tile, 10, 0);
-  lv_obj_add_event_cb(tile, cb, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t* row = lv_btn_create(p);
+  lv_obj_set_size(row, 424, 56);   // ~90% of the container; scrollbar gets the rest
+  lv_obj_set_style_bg_color(row, lv_color_hex(0x1A2027), 0);
+  lv_obj_set_style_radius(row, 10, 0);
+  lv_obj_add_event_cb(row, cb, LV_EVENT_CLICKED, nullptr);
 
-  lv_obj_t* nm = lv_label_create(tile);
+  lv_obj_t* nm = lv_label_create(row);
   lv_label_set_text(nm, name);
-  lv_obj_set_style_text_font(nm, &lv_font_montserrat_14, 0);
-  lv_obj_set_style_text_color(nm, lv_color_hex(0x8A93A0), 0);
-  lv_obj_align(nm, LV_ALIGN_TOP_LEFT, 8, 4);
+  lv_obj_set_style_text_font(nm, &lv_font_montserrat_20, 0);
+  lv_obj_align(nm, LV_ALIGN_LEFT_MID, 8, 0);
 
-  lv_obj_t* v = lv_label_create(tile);
+  lv_obj_t* v = lv_label_create(row);
   lv_obj_set_style_text_font(v, &lv_font_montserrat_20, 0);
   lv_obj_set_style_text_color(v, lv_color_hex(0x5AA0FF), 0);
-  lv_obj_align(v, LV_ALIGN_BOTTOM_LEFT, 8, -4);
-  lv_label_set_long_mode(v, LV_LABEL_LONG_DOT);
-  lv_obj_set_width(v, 213);
+  lv_obj_align(v, LV_ALIGN_RIGHT_MID, -10, 0);
   return v;
 }
 }  // namespace
@@ -150,7 +146,14 @@ lv_obj_t* settings_create() {
   lv_obj_set_flex_flow(list, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_pad_row(list, 6, 0);
   lv_obj_set_scroll_dir(list, LV_DIR_VER);
-  lv_obj_set_scrollbar_mode(list, LV_SCROLLBAR_MODE_AUTO);
+  // Fat, always-visible scrollbar owning the right edge (bench 2026-07-12:
+  // "90% button width, 10% scrollbar" — the bar doubles as a drag handle and
+  // as the visual cue that the list scrolls at all).
+  lv_obj_set_scrollbar_mode(list, LV_SCROLLBAR_MODE_ON);
+  lv_obj_set_style_width(list, 20, LV_PART_SCROLLBAR);
+  lv_obj_set_style_bg_color(list, lv_color_hex(0x3A4552), LV_PART_SCROLLBAR);
+  lv_obj_set_style_bg_opa(list, LV_OPA_70, LV_PART_SCROLLBAR);
+  lv_obj_set_style_radius(list, 6, LV_PART_SCROLLBAR);
 
   s_val_unit = mk_row(list, "Temperature", unit_cb);
   s_val_sound = mk_row(list, "Sound", sound_cb);
