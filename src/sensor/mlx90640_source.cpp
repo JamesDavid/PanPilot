@@ -40,30 +40,25 @@ void grabBus(int sda, int scl) {
 bool mlx_begin() {
   hal::i2c_bus_init();
   hal::I2CGuard g;
-  // Try the I2C-OUT header first (shared with touch), then the UART1-OUT
-  // header repurposed as a dedicated bus (both wire orders) — the module
-  // works plugged into either connector.
-  static const struct { int sda, scl; const char* where; } kCand[] = {
-      {I2C_SDA, I2C_SCL, "I2C-OUT (shared with touch)"},
-      {I2C_ALT_A, I2C_ALT_B, "UART1-OUT (dedicated)"},
-      {I2C_ALT_B, I2C_ALT_A, "UART1-OUT (dedicated, swapped)"},
-  };
-  for (const auto& c : kCand) {
-    grabBus(c.sda, c.scl);
-    if (s_mlx.begin(MLX90640_I2C_ADDR, &busWire())) {
-      s_sda = c.sda;
-      s_scl = c.scl;
-      Serial.printf("[mlx] MLX90640 found on %s  SDA=%d SCL=%d\n",
-                    c.where, c.sda, c.scl);
-      s_mlx.setMode(MLX90640_CHESS);
-      s_mlx.setResolution(MLX90640_ADC_18BIT);
-      s_mlx.setRefreshRate(MLX90640_8_HZ);
-      // Emissivity default is applied by the driver's calc; per-profile
-      // override (base spec §2.2) is wired when profiles land (M6).
-      s_ready = true;
-      s_badFrames = 0;
-      return true;
-    }
+  // ONLY the I2C-OUT header (15/16, shared with touch). An alternate-pins
+  // probe on the UART1-OUT header existed briefly during sensor bring-up
+  // ("plug it into either connector") but was REMOVED 2026-07-12: nothing is
+  // wired there, the probe actively drove those pins every retry, and
+  // UART1-OUT is earmarked as the possible direct SSR trigger — an I2C idle
+  // (pulled high) on an SSR input would energize the burner.
+  grabBus(I2C_SDA, I2C_SCL);
+  if (s_mlx.begin(MLX90640_I2C_ADDR, &busWire())) {
+    s_sda = I2C_SDA;
+    s_scl = I2C_SCL;
+    Serial.printf("[mlx] MLX90640 found  SDA=%d SCL=%d\n", I2C_SDA, I2C_SCL);
+    s_mlx.setMode(MLX90640_CHESS);
+    s_mlx.setResolution(MLX90640_ADC_18BIT);
+    s_mlx.setRefreshRate(MLX90640_8_HZ);
+    // Emissivity default is applied by the driver's calc; per-profile
+    // override (base spec §2.2) is wired when profiles land (M6).
+    s_ready = true;
+    s_badFrames = 0;
+    return true;
   }
   // Bench diagnostic, BOUNDED (a full 127-address scan once wedged for
   // minutes on a stuck bus while holding the I2C mutex — froze touch).

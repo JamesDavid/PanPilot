@@ -154,6 +154,12 @@
                                            // so direction is back to natural.
                                            // Taps unaffected (zero travel).
 
+// ---- Direct-GPIO SSR (env:crowpanel35_advance_ssr only; §3.3 + M14) --------
+#define SSR_DEADMAN_MS             1500    // ms without a control-tick refresh
+                                           // before the deadman timer forces the
+                                           // SSR pin LOW (~12 missed 8 Hz ticks;
+                                           // checked at DEADMAN/3 period)
+
 // ---- Battery / power subsystem (roadmap spec §2.1) -------------------------
 #define BATTERY_LOW_PCT            15      // low-battery event threshold
 #define BATTERY_CRITICAL_PCT      5       // critical threshold

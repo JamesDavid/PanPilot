@@ -45,6 +45,7 @@
 #include "hal/ota.h"
 #include "hal/session_store.h"
 #include "hal/mqtt_plug_actuator.h"
+#include "hal/gpio_ssr_actuator.h"
 #include "hal/food_json.h"
 #include "hal/recipe_files.h"
 #include "core/foodstore.h"
@@ -188,12 +189,18 @@ volatile bool g_assist_armed = false;
 volatile bool g_assist_stop = false;
 volatile float g_assist_duty = 0;
 #if defined(ENABLE_WIFI)
-// The one actuator PanPilot can arm: the SSR box / watchdog plug over MQTT.
-// Duty is time-proportioned; the box's own watchdog fails safe on comms loss.
+// The networked actuator: SSR box / watchdog plug over MQTT. Duty is
+// time-proportioned; the box's own watchdog fails safe on comms loss.
 // Topic matches hardware/panpilot_ssr_box.yaml (the box subscribes
 // panpilot/ssr/duty/set and publishes its birth/LWT on panpilot/ssr/status).
 hal::MqttPlugActuator g_plug("SSR box", CTRL_WINDOW_SSR_MS, ha::actuator_publish,
                              "panpilot/ssr/duty/set");
+#endif
+#if defined(SSR_GPIO_PIN)
+// Direct-wired SSR on the UART1-OUT header (bench decision 2026-07-12) —
+// takes priority over the MQTT box when this env is built. Fail-safe layers
+// documented in hal/gpio_ssr_actuator.h; external pulldown REQUIRED.
+hal::GpioSsrActuator g_ssr(CTRL_WINDOW_SSR_MS);
 #endif
 void on_stop() {                                  // big STOP bar (interlock S9)
   g_assist_stop = true; g_assist_armed = false;
@@ -227,7 +234,18 @@ void on_assist(uint8_t cmd) {
     Serial.println("[assist] REFUSED - DEV_FAKE_SENSOR build cannot arm");
     return;
 #endif
-#if defined(ENABLE_WIFI)
+#if defined(SSR_GPIO_PIN)
+    // Direct-GPIO arming gate: real frames must be flowing (the frame-loss
+    // failsafe + deadman then bound any sensor dropout while armed).
+    if (!g_sensor_ok) {
+      Serial.println("[assist] REFUSED - no live sensor frames (SSR direct)");
+      return;
+    }
+    g_assist_stop = false;
+    g_actuator = &g_ssr;       // interlocks still gate every tick before the PID
+    g_assist_armed = true;
+    Serial.println("[assist] ARMED - direct SSR has burner authority");
+#elif defined(ENABLE_WIFI)
     // M14.5 arming gate: refuse until the box's retained status says online.
     if (!g_plug.isAlive()) {
       Serial.println("[assist] REFUSED - SSR box not online (status topic)");
@@ -762,7 +780,9 @@ void SensorTask(void*) {
         ii.tempF = gi.tempF; ii.warnF = target.warnF;
         ii.sensorFault = sensor::mlx_faulted(); ii.lastFrameMs = lastGoodFrameMs;
         ii.actuatorAlive = g_actuator->isAlive(); ii.lastAckMs = nowm;
-#if defined(ENABLE_WIFI)
+#if defined(SSR_GPIO_PIN)
+        ii.commsOk = true;              // local pin: S8 comms loss can't apply
+#elif defined(ENABLE_WIFI)
         ii.commsOk = ha::connected();   // broker link health (S8); box watchdog
                                         // remains the independent backstop
 #else
@@ -927,7 +947,11 @@ void SensorTask(void*) {
                          ? burnermap_suggest_name(activeBmap, (float)target.centerF)
                          : nullptr;
       if (!u.burnerHint) u.burnerHint = burner_hint_for_targetF(target.centerF);
-#if defined(ENABLE_WIFI) && !defined(DEV_FAKE_SENSOR)
+#if defined(SSR_GPIO_PIN) && !defined(DEV_FAKE_SENSOR)
+      // Direct SSR build: arming is offered while real frames flow.
+      u.actuatorAvailable = g_sensor_ok;
+      u.actuatorName = g_ssr.name();
+#elif defined(ENABLE_WIFI) && !defined(DEV_FAKE_SENSOR)
       // Arming is offered only while the box's retained status says online
       // (M14.5) — not merely because the actuator code is compiled in.
       // DEV_FAKE_SENSOR builds never offer it (fake data, real burner: no).
@@ -1092,6 +1116,9 @@ void setup() {
 
   hal::ota_boot_guard();   // boot-loop rollback guard, before anything can hang
 
+#if defined(SSR_GPIO_PIN)
+  g_ssr.begin();   // pin LOW + deadman FIRST — before anything can hang
+#endif
   hal::i2c_bus_init();
   hal::storage_begin();
   hal::sessions_begin();

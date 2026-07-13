@@ -326,6 +326,22 @@ Build + flash the box (`hardware/panpilot_ssr_box.yaml`).
 | 14.5 | Watchdog handshake | PanPilot refuses to arm until the box's retained `panpilot/ssr/status=online` is seen (enforced in `on_assist`; ceremony shows "no actuator" until then). Bench-verify the retained birth/LWT actually flips it | ☐ |
 | 14.6 | **Unplug the MLX90640 while armed** | Duty forced to 0 within ~3 s (firmware frame-loss failsafe) + box watchdog backstop | ☐ |
 
+## M14-D — DIRECT SSR (env:crowpanel35_advance_ssr, IO17 on UART1-OUT)
+
+> **SUPERVISED BENCH ONLY.** This path has no independent hardware watchdog
+> (unlike the SSR box). Fail-safe layers: interlocks -> frame-loss failsafe ->
+> deadman timer -> crash-reboot leaves the pin Hi-Z. That last layer only
+> works with the **required external 10 kΩ pulldown** across the SSR input.
+
+| # | Step | Expected | ☐ |
+|---|---|---|---|
+| D-S.1 | Wire SSR+: IO17 (UART1-OUT "TX"), SSR−: GND, **10k pulldown across the SSR input**; power the board with the SSR load UNPLUGGED | Boot: `[ssr] direct GPIO actuator on IO17...`; pin stays LOW through boot (scope/LED) | ☐ |
+| D-S.2 | Check the SSR's spec | DC input range includes 3.3 V (some Fotek-style want >3 V under load — verify it actually switches) | ☐ |
+| D-S.3 | Arm via the ceremony (sensor connected) | Arming REFUSED without live frames; armed with them | ☐ |
+| D-S.4 | Hold a duty, then **unplug the MLX** | Pin LOW within ~3 s (frame-loss failsafe + deadman) | ☐ |
+| D-S.5 | Hold a duty, then hard-hang the firmware (flash a while(1) test build) | Pin LOW within SSR_DEADMAN_MS if RTOS lives, else on reboot/reset via the pulldown | ☐ |
+| D-S.6 | STOP bar + each §3.3 interlock | Pin LOW immediately, exactly as the M15 rows | ☐ |
+
 ## M15 — Interlocks
 
 `test_interlocks` (S1–S11 truth table) is green in `pio test`. On hardware,
